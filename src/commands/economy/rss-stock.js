@@ -74,16 +74,20 @@ module.exports = {
         if (!member) {
             return interaction.reply({ content: '❌ This command can only be used in a server.', ephemeral: true });
         }
-        const hasRole = member.roles.cache.some(role => role.name === 'RSS Seller');
+        
+        const db = await getDb();
+        const config = await db.get(`SELECT rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
+        const roleNameOrId = config?.rssSellerRole || 'RSS Seller';
+
+        const hasRole = member.roles.cache.has(roleNameOrId) || member.roles.cache.some(role => role.name.toLowerCase() === roleNameOrId.toLowerCase());
         
         if (!hasRole) {
             return interaction.reply({ 
-                content: '❌ You must have the **RSS Seller** role to manage RSS stock.', 
+                content: `❌ You must have the **${roleNameOrId}** role to manage RSS stock.`, 
                 ephemeral: true 
             });
         }
 
-        const db = await getDb();
         const sellerId = interaction.user.id;
 
         // Fetch current stock

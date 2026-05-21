@@ -716,9 +716,12 @@ module.exports = {
                 }
 
                 // Fetch RSS Sellers
-                const sellersRole = interaction.guild.roles.cache.find(r => r.name === 'RSS Seller');
+                const config = await db.get(`SELECT rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
+                const roleNameOrId = config?.rssSellerRole || 'RSS Seller';
+
+                const sellersRole = interaction.guild.roles.cache.get(roleNameOrId) || interaction.guild.roles.cache.find(r => r.name.toLowerCase() === roleNameOrId.toLowerCase());
                 if (!sellersRole) {
-                    return interaction.editReply('❌ The **RSS Seller** role does not exist on this server.');
+                    return interaction.editReply(`❌ The configured RSS Seller role (\`${roleNameOrId}\`) does not exist on this server.`);
                 }
 
                 let fetchedMembers;

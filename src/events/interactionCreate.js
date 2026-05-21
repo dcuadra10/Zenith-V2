@@ -92,6 +92,210 @@ module.exports = {
                 const { handleMarketInteraction } = require('../features/market');
                 await handleMarketInteraction(interaction);
                 return;
+            } else if (interaction.customId === 'rss_buy_start') {
+                const db = await getDb();
+                const sellersRole = interaction.guild.roles.cache.find(r => r.name === 'RSS Seller');
+                
+                let sellers = [];
+                try {
+                    if (sellersRole) {
+                        const fetchedMembers = await interaction.guild.members.fetch();
+                        sellers = Array.from(fetchedMembers.filter(m => m.roles.cache.has(sellersRole.id)).values());
+                    }
+                } catch (e) {
+                    console.error('Error fetching members:', e);
+                }
+
+                if (sellers.length === 0) {
+                    return interaction.reply({
+                        content: '❌ No verified RSS Sellers are currently registered or online. Please try again later.',
+                        ephemeral: true
+                    });
+                }
+
+                const selectMenu = new (require('discord.js').StringSelectMenuBuilder)()
+                    .setCustomId('rss_buy_seller_select')
+                    .setPlaceholder('Select your favorite RSS Seller...');
+
+                sellers.slice(0, 24).forEach(seller => {
+                    selectMenu.addOptions({
+                        label: seller.user.username,
+                        value: seller.user.id,
+                        description: `Verified RSS Seller`
+                    });
+                });
+
+                selectMenu.addOptions({
+                    label: 'Assign Automatically',
+                    value: 'auto',
+                    description: 'Balances the workload among verified sellers.'
+                });
+
+                const row = new (require('discord.js').ActionRowBuilder)().addComponents(selectMenu);
+
+                return interaction.reply({
+                    content: '✨ Please select your favorite RSS Seller from the dropdown below:',
+                    components: [row],
+                    ephemeral: true
+                });
+            } else if (interaction.customId.startsWith('rss_buy_complete_')) {
+                const txId = interaction.customId.replace('rss_buy_complete_', '');
+                const db = await getDb();
+                const tx = await db.get(`SELECT * FROM rss_transactions WHERE id = ?`, [txId]);
+                
+                if (!tx) {
+                    return interaction.reply({ content: '❌ Transaction not found or already completed.', ephemeral: true });
+                }
+
+                // Verify permissions
+                const isSeller = interaction.user.id === tx.seller1Id || interaction.user.id === tx.seller2Id;
+                const isAdmin = interaction.member.permissions.has('Administrator');
+                
+                if (!isSeller && !isAdmin) {
+                    return interaction.reply({ content: '❌ Only the assigned RSS Seller or an Administrator can complete this transaction.', ephemeral: true });
+                }
+
+                await interaction.deferReply();
+
+                // Split parsing
+                const isSplit = !!tx.seller2Id;
+                
+                const food1 = isSplit ? Math.floor(tx.food / 2) : tx.food;
+                const wood1 = isSplit ? Math.floor(tx.wood / 2) : tx.wood;
+                const stone1 = isSplit ? Math.floor(tx.stone / 2) : tx.stone;
+                const gold1 = isSplit ? Math.floor(tx.gold / 2) : tx.gold;
+
+                const food2 = isSplit ? (tx.food - food1) : 0;
+                const wood2 = isSplit ? (tx.wood - wood1) : 0;
+                const stone2 = isSplit ? (tx.stone - stone1) : 0;
+                const gold2 = isSplit ? (tx.gold - gold1) : 0;
+
+                // Deduct Seller 1 stock
+                await db.run(
+                    `UPDATE rss_seller_stocks SET 
+                        food = GREATEST(0, food - ?), 
+                        wood = GREATEST(0, wood - ?), 
+                        stone = GREATEST(0, stone - ?), 
+                        gold = GREATEST(0, gold - ?) 
+                     WHERE sellerId = ?`,
+                    [food1, wood1, stone1, gold1, tx.seller1Id]
+                );
+
+                // Upsert Seller 1 sales metrics
+                await db.run(`
+                    INSERT INTO rss_seller_sales (sellerId, totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, totalTransactions)
+                    VALUES (?, ?, ?, ?, ?, 1)
+                    ON CONFLICT(sellerId) DO UPDATE SET
+                        totalSoldFood = rss_seller_sales.totalSoldFood + EXCLUDED.totalSoldFood,
+                        totalSoldWood = rss_seller_sales.totalSoldWood + EXCLUDED.totalSoldWood,
+                        totalSoldStone = rss_seller_sales.totalSoldStone + EXCLUDED.totalSoldStone,
+                        totalSoldGold = rss_seller_sales.totalSoldGold + EXCLUDED.totalSoldGold,
+                        totalTransactions = rss_seller_sales.totalTransactions + 1
+                `, [tx.seller1Id, food1, wood1, stone1, gold1]);
+
+                // Send Seller 1 Tax DM
+                try {
+                    const seller1User = await client.users.fetch(tx.seller1Id);
+                    if (seller1User) {
+                        const { formatRssAmount } = require('../commands/economy/rss-stock');
+                        const taxEmbed = new EmbedBuilder()
+                            .setTitle('🧾 Tax Payment Reminder (10%)')
+                            .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **10% tax** is due on all resources sold.`)
+                            .addFields(
+                                { name: 'Transaction ID', value: `\`${tx.id}\``, inline: false },
+                                { name: '🌾 Food Sold', value: `${formatRssAmount(food1)} (Tax: **${formatRssAmount(Math.floor(food1 * 0.1))}**)`, inline: true },
+                                { name: '🪵 Wood Sold', value: `${formatRssAmount(wood1)} (Tax: **${formatRssAmount(Math.floor(wood1 * 0.1))}**)`, inline: true },
+                                { name: '🪨 Stone Sold', value: `${formatRssAmount(stone1)} (Tax: **${formatRssAmount(Math.floor(stone1 * 0.1))}**)`, inline: true },
+                                { name: '🪙 Gold Sold', value: `${formatRssAmount(gold1)} (Tax: **${formatRssAmount(Math.floor(gold1 * 0.1))}**)`, inline: true }
+                            )
+                            .setColor('#b91c1c')
+                            .setTimestamp();
+                        await seller1User.send({ embeds: [taxEmbed] });
+                    }
+                } catch (e) {
+                    console.error(`Failed to DM Seller 1 (${tx.seller1Id}):`, e);
+                }
+
+                if (isSplit) {
+                    // Deduct Seller 2 stock
+                    await db.run(
+                        `UPDATE rss_seller_stocks SET 
+                            food = GREATEST(0, food - ?), 
+                            wood = GREATEST(0, wood - ?), 
+                            stone = GREATEST(0, stone - ?), 
+                            gold = GREATEST(0, gold - ?) 
+                         WHERE sellerId = ?`,
+                        [food2, wood2, stone2, gold2, tx.seller2Id]
+                    );
+
+                    // Upsert Seller 2 sales metrics
+                    await db.run(`
+                        INSERT INTO rss_seller_sales (sellerId, totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, totalTransactions)
+                        VALUES (?, ?, ?, ?, ?, 1)
+                        ON CONFLICT(sellerId) DO UPDATE SET
+                            totalSoldFood = rss_seller_sales.totalSoldFood + EXCLUDED.totalSoldFood,
+                            totalSoldWood = rss_seller_sales.totalSoldWood + EXCLUDED.totalSoldWood,
+                            totalSoldStone = rss_seller_sales.totalSoldStone + EXCLUDED.totalSoldStone,
+                            totalSoldGold = rss_seller_sales.totalSoldGold + EXCLUDED.totalSoldGold,
+                            totalTransactions = rss_seller_sales.totalTransactions + 1
+                    `, [tx.seller2Id, food2, wood2, stone2, gold2]);
+
+                    // Send Seller 2 Tax DM
+                    try {
+                        const seller2User = await client.users.fetch(tx.seller2Id);
+                        if (seller2User) {
+                            const { formatRssAmount } = require('../commands/economy/rss-stock');
+                            const taxEmbed = new EmbedBuilder()
+                                .setTitle('🧾 Tax Payment Reminder (10%)')
+                                .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **10% tax** is due on all resources sold.`)
+                                .addFields(
+                                    { name: 'Transaction ID', value: `\`${tx.id}\``, inline: false },
+                                    { name: '🌾 Food Sold', value: `${formatRssAmount(food2)} (Tax: **${formatRssAmount(Math.floor(food2 * 0.1))}**)`, inline: true },
+                                    { name: '🪵 Wood Sold', value: `${formatRssAmount(wood2)} (Tax: **${formatRssAmount(Math.floor(wood2 * 0.1))}**)`, inline: true },
+                                    { name: '🪨 Stone Sold', value: `${formatRssAmount(stone2)} (Tax: **${formatRssAmount(Math.floor(stone2 * 0.1))}**)`, inline: true },
+                                    { name: '🪙 Gold Sold', value: `${formatRssAmount(gold2)} (Tax: **${formatRssAmount(Math.floor(gold2 * 0.1))}**)`, inline: true }
+                                )
+                                .setColor('#b91c1c')
+                                .setTimestamp();
+                            await seller2User.send({ embeds: [taxEmbed] });
+                        }
+                    } catch (e) {
+                        console.error(`Failed to DM Seller 2 (${tx.seller2Id}):`, e);
+                    }
+                }
+
+                // Update Transaction Status
+                await db.run(`UPDATE rss_transactions SET status = 'completed' WHERE id = ?`, [txId]);
+
+                await interaction.editReply('✅ **Transaction complete!** Stock has been deducted, stats logged, and tax reminders sent to sellers. This channel will close in 5 seconds.');
+                
+                setTimeout(() => {
+                    interaction.channel.delete().catch(() => {});
+                }, 5000);
+            } else if (interaction.customId.startsWith('rss_buy_cancel_')) {
+                const txId = interaction.customId.replace('rss_buy_cancel_', '');
+                const db = await getDb();
+                
+                const transaction = await db.get(`SELECT * FROM rss_transactions WHERE id = ?`, [txId]);
+                if (!transaction) {
+                    return interaction.reply({ content: '❌ Transaction not found.', ephemeral: true });
+                }
+
+                // Permissions check
+                const isBuyer = interaction.user.id === transaction.buyerId;
+                const isSeller = interaction.user.id === transaction.seller1Id || interaction.user.id === transaction.seller2Id;
+                const isAdmin = interaction.member.permissions.has('Administrator');
+
+                if (!isBuyer && !isSeller && !isAdmin) {
+                    return interaction.reply({ content: '❌ You are not authorized to cancel this order.', ephemeral: true });
+                }
+
+                await db.run(`UPDATE rss_transactions SET status = 'cancelled' WHERE id = ?`, [txId]);
+                await interaction.reply('❌ **Transaction cancelled.** Closing channel in 5 seconds...');
+                
+                setTimeout(() => {
+                    interaction.channel.delete().catch(() => {});
+                }, 5000);
             } else if (interaction.customId === 'btn_register_ads') {
                 const modal = new ModalBuilder()
                     .setCustomId('modal_register_ads')
@@ -273,7 +477,51 @@ module.exports = {
             }
         }
         else if (interaction.isStringSelectMenu()) {
-            if (interaction.customId.startsWith('ticket_panel_')) {
+            if (interaction.customId === 'rss_buy_seller_select') {
+                const sellerId = interaction.values[0];
+
+                const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+                const modal = new ModalBuilder()
+                    .setCustomId(`rss_buy_modal_submit_${sellerId}`)
+                    .setTitle('🛒 RSS Buy: Resource Quantities');
+
+                const foodInput = new TextInputBuilder()
+                    .setCustomId('food')
+                    .setLabel('How much Food? (e.g. 50M, 100k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                const woodInput = new TextInputBuilder()
+                    .setCustomId('wood')
+                    .setLabel('How much Wood? (e.g. 50M, 100k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                const stoneInput = new TextInputBuilder()
+                    .setCustomId('stone')
+                    .setLabel('How much Stone? (e.g. 50M, 100k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                const goldInput = new TextInputBuilder()
+                    .setCustomId('gold')
+                    .setLabel('How much Gold? (e.g. 10M, 50k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(foodInput),
+                    new ActionRowBuilder().addComponents(woodInput),
+                    new ActionRowBuilder().addComponents(stoneInput),
+                    new ActionRowBuilder().addComponents(goldInput)
+                );
+
+                return await interaction.showModal(modal);
+            } else if (interaction.customId.startsWith('ticket_panel_')) {
                 const value = interaction.values[0];
                 if (!value.startsWith('ticket_opt_')) return;
                 
@@ -378,7 +626,287 @@ module.exports = {
             }
         }
         else if (interaction.isModalSubmit()) {
-            if (interaction.customId === 'modal_register_ads') {
+            if (interaction.customId.startsWith('rss_buy_modal_submit_')) {
+                const targetSellerId = interaction.customId.replace('rss_buy_modal_submit_', '');
+                await interaction.deferReply({ ephemeral: true });
+
+                const db = await getDb();
+                const { parseRssAmount, formatRssAmount } = require('../commands/economy/rss-stock');
+
+                const reqFood = parseRssAmount(interaction.fields.getTextInputValue('food') || '0') || 0;
+                const reqWood = parseRssAmount(interaction.fields.getTextInputValue('wood') || '0') || 0;
+                const reqStone = parseRssAmount(interaction.fields.getTextInputValue('stone') || '0') || 0;
+                const reqGold = parseRssAmount(interaction.fields.getTextInputValue('gold') || '0') || 0;
+
+                if (reqFood === 0 && reqWood === 0 && reqStone === 0 && reqGold === 0) {
+                    return interaction.editReply('❌ You must purchase at least one resource and enter a valid quantity (e.g. 50M or 100k).');
+                }
+
+                // Fetch RSS Sellers
+                const sellersRole = interaction.guild.roles.cache.find(r => r.name === 'RSS Seller');
+                if (!sellersRole) {
+                    return interaction.editReply('❌ The **RSS Seller** role does not exist on this server.');
+                }
+
+                let fetchedMembers;
+                try {
+                    fetchedMembers = await interaction.guild.members.fetch();
+                } catch (e) {
+                    console.error('Error fetching members in modal submit:', e);
+                    return interaction.editReply('❌ Failed to fetch server members. Please try again.');
+                }
+
+                const activeSellerIds = Array.from(fetchedMembers.filter(m => m.roles.cache.has(sellersRole.id)).keys());
+                if (activeSellerIds.length === 0) {
+                    return interaction.editReply('❌ No verified RSS Sellers found in this server.');
+                }
+
+                // Fetch stocks and sales
+                const stockRows = await db.all(`SELECT * FROM rss_seller_stocks WHERE sellerId IN (${activeSellerIds.map(() => '?').join(',')})`, activeSellerIds);
+                const salesRows = await db.all(`SELECT * FROM rss_seller_sales WHERE sellerId IN (${activeSellerIds.map(() => '?').join(',')})`, activeSellerIds);
+
+                const sellerData = activeSellerIds.map(sid => {
+                    const st = stockRows.find(r => r.sellerId === sid) || { food: 0, wood: 0, stone: 0, gold: 0 };
+                    const sa = salesRows.find(r => r.sellerId === sid) || { totalSoldFood: 0, totalSoldWood: 0, totalSoldStone: 0, totalSoldGold: 0, totalTransactions: 0 };
+                    return {
+                        sellerId: sid,
+                        stock: st,
+                        sales: sa
+                    };
+                });
+
+                let seller1 = null;
+                let seller2 = null;
+                let splitOrder = false;
+
+                // Sort sellers by totalTransactions ascending, then total sales sum ascending to keep them balanced
+                const sortedSellers = [...sellerData].sort((a, b) => {
+                    if (a.sales.totalTransactions !== b.sales.totalTransactions) {
+                        return a.sales.totalTransactions - b.sales.totalTransactions;
+                    }
+                    const sumA = Number(a.sales.totalSoldFood) + Number(a.sales.totalSoldWood) + Number(a.sales.totalSoldStone) + Number(a.sales.totalSoldGold);
+                    const sumB = Number(b.sales.totalSoldFood) + Number(b.sales.totalSoldWood) + Number(b.sales.totalSoldStone) + Number(b.sales.totalSoldGold);
+                    return sumA - sumB;
+                });
+
+                if (targetSellerId === 'auto') {
+                    // Try to find a single seller who can fulfill 100%
+                    const perfectSeller = sortedSellers.find(s => 
+                        s.stock.food >= reqFood && 
+                        s.stock.wood >= reqWood && 
+                        s.stock.stone >= reqStone && 
+                        s.stock.gold >= reqGold
+                    );
+
+                    if (perfectSeller) {
+                        seller1 = perfectSeller.sellerId;
+                    } else {
+                        // Split 50/50
+                        const halfFood1 = Math.floor(reqFood / 2);
+                        const halfFood2 = reqFood - halfFood1;
+                        const halfWood1 = Math.floor(reqWood / 2);
+                        const halfWood2 = reqWood - halfWood1;
+                        const halfStone1 = Math.floor(reqStone / 2);
+                        const halfStone2 = reqStone - halfStone1;
+                        const halfGold1 = Math.floor(reqGold / 2);
+                        const halfGold2 = reqGold - halfGold1;
+
+                        const possibleSeller1s = sortedSellers.filter(s => 
+                            s.stock.food >= halfFood1 &&
+                            s.stock.wood >= halfWood1 &&
+                            s.stock.stone >= halfStone1 &&
+                            s.stock.gold >= halfGold1
+                        );
+
+                        if (possibleSeller1s.length > 0) {
+                            const bestSeller1 = possibleSeller1s[0];
+                            const possibleSeller2s = sortedSellers.filter(s => 
+                                s.sellerId !== bestSeller1.sellerId &&
+                                s.stock.food >= halfFood2 &&
+                                s.stock.wood >= halfWood2 &&
+                                s.stock.stone >= halfStone2 &&
+                                s.stock.gold >= halfGold2
+                            );
+
+                            if (possibleSeller2s.length > 0) {
+                                seller1 = bestSeller1.sellerId;
+                                seller2 = possibleSeller2s[0].sellerId;
+                                splitOrder = true;
+                            }
+                        }
+
+                        // If not found, search pairs in general
+                        if (!seller1) {
+                            for (const s1 of sortedSellers) {
+                                for (const s2 of sortedSellers) {
+                                    if (s1.sellerId === s2.sellerId) continue;
+                                    if (
+                                        s1.stock.food >= halfFood1 && s1.stock.wood >= halfWood1 && s1.stock.stone >= halfStone1 && s1.stock.gold >= halfGold1 &&
+                                        s2.stock.food >= halfFood2 && s2.stock.wood >= halfWood2 && s2.stock.stone >= halfStone2 && s2.stock.gold >= halfGold2
+                                    ) {
+                                        seller1 = s1.sellerId;
+                                        seller2 = s2.sellerId;
+                                        splitOrder = true;
+                                        break;
+                                    }
+                                }
+                                if (seller1) break;
+                            }
+                        }
+                    }
+                } else {
+                    const chosenSeller = sellerData.find(s => s.sellerId === targetSellerId);
+                    if (!chosenSeller) {
+                        return interaction.editReply('❌ Selected favorite RSS Seller is not active or not found.');
+                    }
+
+                    if (
+                        chosenSeller.stock.food >= reqFood &&
+                        chosenSeller.stock.wood >= reqWood &&
+                        chosenSeller.stock.stone >= reqStone &&
+                        chosenSeller.stock.gold >= reqGold
+                    ) {
+                        seller1 = chosenSeller.sellerId;
+                    } else {
+                        // Split 50/50
+                        const halfFood1 = Math.floor(reqFood / 2);
+                        const halfFood2 = reqFood - halfFood1;
+                        const halfWood1 = Math.floor(reqWood / 2);
+                        const halfWood2 = reqWood - halfWood1;
+                        const halfStone1 = Math.floor(reqStone / 2);
+                        const halfStone2 = reqStone - halfStone1;
+                        const halfGold1 = Math.floor(reqGold / 2);
+                        const halfGold2 = reqGold - halfGold1;
+
+                        if (
+                            chosenSeller.stock.food >= halfFood1 &&
+                            chosenSeller.stock.wood >= halfWood1 &&
+                            chosenSeller.stock.stone >= halfStone1 &&
+                            chosenSeller.stock.gold >= halfGold1
+                        ) {
+                            const possibleSeller2s = sortedSellers.filter(s => 
+                                s.sellerId !== chosenSeller.sellerId &&
+                                s.stock.food >= halfFood2 &&
+                                s.stock.wood >= halfWood2 &&
+                                s.stock.stone >= halfStone2 &&
+                                s.stock.gold >= halfGold2
+                            );
+
+                            if (possibleSeller2s.length > 0) {
+                                seller1 = chosenSeller.sellerId;
+                                seller2 = possibleSeller2s[0].sellerId;
+                                splitOrder = true;
+                            }
+                        }
+                    }
+                }
+
+                if (!seller1) {
+                    return interaction.editReply('❌ Sorry, our RSS Sellers do not have enough stock to fulfill this order (either individually or split 50/50). Please try a lower quantity or contact a seller to restock.');
+                }
+
+                // Create Transaction in DB
+                const txId = 'rss-' + Date.now().toString().slice(-6) + '-' + Math.floor(100 + Math.random() * 900);
+                await db.run(
+                    `INSERT INTO rss_transactions (id, buyerId, seller1Id, seller2Id, food, wood, stone, gold, status, channelId) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', '')`,
+                    [txId, interaction.user.id, seller1, seller2 || null, reqFood, reqWood, reqStone, reqGold]
+                );
+
+                // Create private channel topic stamp
+                const guild = interaction.guild;
+                const guildConfigs = await db.get(`SELECT ticketCategoryId FROM guild_configs WHERE guildId = ?`, [interaction.guildId]);
+                const categoryId = guildConfigs?.ticketCategoryId;
+
+                // Setup private permissions
+                const permissionOverwrites = [
+                    {
+                        id: guild.id,
+                        deny: [require('discord.js').PermissionsBitField.Flags.ViewChannel],
+                    },
+                    {
+                        id: interaction.user.id,
+                        allow: [require('discord.js').PermissionsBitField.Flags.ViewChannel, require('discord.js').PermissionsBitField.Flags.SendMessages, require('discord.js').PermissionsBitField.Flags.ReadMessageHistory],
+                    },
+                    {
+                        id: interaction.client.user.id,
+                        allow: [require('discord.js').PermissionsBitField.Flags.ViewChannel, require('discord.js').PermissionsBitField.Flags.SendMessages, require('discord.js').PermissionsBitField.Flags.ReadMessageHistory, require('discord.js').PermissionsBitField.Flags.ManageChannels],
+                    },
+                    {
+                        id: seller1,
+                        allow: [require('discord.js').PermissionsBitField.Flags.ViewChannel, require('discord.js').PermissionsBitField.Flags.SendMessages, require('discord.js').PermissionsBitField.Flags.ReadMessageHistory],
+                    }
+                ];
+
+                if (seller2) {
+                    permissionOverwrites.push({
+                        id: seller2,
+                        allow: [require('discord.js').PermissionsBitField.Flags.ViewChannel, require('discord.js').PermissionsBitField.Flags.SendMessages, require('discord.js').PermissionsBitField.Flags.ReadMessageHistory],
+                    });
+                }
+
+                let channelName = `rss-${interaction.user.username}-${Math.floor(1000 + Math.random() * 9000)}`;
+                channelName = channelName.toLowerCase().replace(/[^a-zA-Z0-9-]/g, '').substring(0, 30);
+
+                const ticketChannel = await guild.channels.create({
+                    name: channelName,
+                    type: require('discord.js').ChannelType.GuildText,
+                    parent: categoryId || null,
+                    topic: interaction.user.id,
+                    permissionOverwrites: permissionOverwrites
+                });
+
+                // Update channel ID in DB
+                await db.run(`UPDATE rss_transactions SET channelId = ? WHERE id = ?`, [ticketChannel.id, txId]);
+
+                const { ButtonBuilder, ButtonStyle } = require('discord.js');
+                // Create Action Buttons inside Ticket Channel
+                const rowButtons = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`rss_buy_complete_${txId}`).setLabel('Mark Complete').setStyle(ButtonStyle.Success).setEmoji('✅'),
+                    new ButtonBuilder().setCustomId(`rss_buy_cancel_${txId}`).setLabel('Cancel Order').setStyle(ButtonStyle.Danger).setEmoji('❌')
+                );
+
+                const summaryEmbed = new EmbedBuilder()
+                    .setTitle('🌾 RSS Purchase Order Summary')
+                    .setDescription(`Welcome to your private RSS trade channel! An order has been placed successfully.\n\n**Order ID:** \`${txId}\``)
+                    .addFields(
+                        { name: '👤 Buyer', value: `<@${interaction.user.id}>`, inline: true }
+                    )
+                    .setColor('#10b981')
+                    .setTimestamp();
+
+                // Add resources details
+                const items = [];
+                if (reqFood > 0) items.push(`🌾 **Food:** ${formatRssAmount(reqFood)}`);
+                if (reqWood > 0) items.push(`🪵 **Wood:** ${formatRssAmount(reqWood)}`);
+                if (reqStone > 0) items.push(`🪨 **Stone:** ${formatRssAmount(reqStone)}`);
+                if (reqGold > 0) items.push(`🪙 **Gold:** ${formatRssAmount(reqGold)}`);
+                summaryEmbed.addFields({ name: '🛒 Resources Requested', value: items.join('\n'), inline: false });
+
+                // Add Seller details
+                if (splitOrder) {
+                    summaryEmbed.addFields(
+                        { name: '🤝 Sellers Assigned (50/50 Split)', value: `1. <@${seller1}>\n2. <@${seller2}>`, inline: false }
+                    );
+                } else {
+                    summaryEmbed.addFields(
+                        { name: '👤 Seller Assigned', value: `<@${seller1}>`, inline: false }
+                    );
+                }
+
+                summaryEmbed.addFields({ name: '⏳ Delivery Status', value: 'Pending delivery. The seller(s) will contact you shortly to coordinate resource transfer.', inline: false });
+
+                let pingText = `<@${interaction.user.id}> <@${seller1}>`;
+                if (seller2) pingText += ` <@${seller2}>`;
+
+                await ticketChannel.send({
+                    content: `🔔 **New RSS Order Opened!**\n${pingText}`,
+                    embeds: [summaryEmbed],
+                    components: [rowButtons]
+                });
+
+                await interaction.editReply(`✅ **Trade channel created!** Please join ${ticketChannel} to complete your transaction.`);
+            } else if (interaction.customId === 'modal_register_ads') {
                 const amountStr = interaction.fields.getTextInputValue('adsAmount');
                 const amount = parseInt(amountStr, 10);
 

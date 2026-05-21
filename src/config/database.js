@@ -43,7 +43,7 @@ function buildColumnMap(cols) {
         'winnersCount', 'endTime', 'prize', 'requiredRole', 'pingRole', 'durationMs', 'status',
         'botToken', 'clientId', 'errorMessage',
         'marketEnabled', 'forumChannelId', 'approvalChannelId', 'ownerChannelId', 'paymentMethods', 'middlemanRole', 'feePercentage', 'marketFeePct', 'middlemanFeePct', 'mmPaymentMethods',
-        'sellerId', 'dataJson', 'imagesJson', 'forumThreadId', 'buyerId', 'middlemanId', 'offerJson', 'listingCode',
+        'sellerId', 'dataJson', 'imagesJson', 'forumThreadId', 'buyerId', 'middlemanId', 'offerJson', 'listingCode', 'seller1Id', 'seller2Id', 'totalSoldFood', 'totalSoldWood', 'totalSoldStone', 'totalSoldGold', 'totalTransactions', 'createdAt', 'updatedAt',
         'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
         'mafiaId', 'leaderId', 'taxRate', 'vault', 'upgrades', 'contributed', 'ownerMafiaId', 'bonusType', 'bonusValue', 'turfId',
         'sectorId', 'totalInvested', 'dirtyMoney', 'jailUntil', 'reputation',
@@ -428,6 +428,38 @@ async function createDbInstance() {
                 dirtyMoney INTEGER DEFAULT 0,
                 PRIMARY KEY (mafiaId, userId)
             );
+
+            CREATE TABLE IF NOT EXISTS rss_seller_stocks (
+                sellerId TEXT PRIMARY KEY,
+                food BIGINT DEFAULT 0,
+                wood BIGINT DEFAULT 0,
+                stone BIGINT DEFAULT 0,
+                gold BIGINT DEFAULT 0,
+                updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS rss_seller_sales (
+                sellerId TEXT PRIMARY KEY,
+                totalSoldFood BIGINT DEFAULT 0,
+                totalSoldWood BIGINT DEFAULT 0,
+                totalSoldStone BIGINT DEFAULT 0,
+                totalSoldGold BIGINT DEFAULT 0,
+                totalTransactions INTEGER DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS rss_transactions (
+                id TEXT PRIMARY KEY,
+                buyerId TEXT,
+                seller1Id TEXT,
+                seller2Id TEXT,
+                food BIGINT DEFAULT 0,
+                wood BIGINT DEFAULT 0,
+                stone BIGINT DEFAULT 0,
+                gold BIGINT DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                channelId TEXT,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
         
         // Auto-migrate ranks
@@ -718,6 +750,38 @@ async function initializeSchema() {
             ownerId TEXT DEFAULT NULL,
             fee REAL DEFAULT 0.01,
             upgrades TEXT DEFAULT '[]'
+        );
+
+        CREATE TABLE IF NOT EXISTS rss_seller_stocks (
+            sellerId TEXT PRIMARY KEY,
+            food BIGINT DEFAULT 0,
+            wood BIGINT DEFAULT 0,
+            stone BIGINT DEFAULT 0,
+            gold BIGINT DEFAULT 0,
+            updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS rss_seller_sales (
+            sellerId TEXT PRIMARY KEY,
+            totalSoldFood BIGINT DEFAULT 0,
+            totalSoldWood BIGINT DEFAULT 0,
+            totalSoldStone BIGINT DEFAULT 0,
+            totalSoldGold BIGINT DEFAULT 0,
+            totalTransactions INTEGER DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS rss_transactions (
+            id TEXT PRIMARY KEY,
+            buyerId TEXT,
+            seller1Id TEXT,
+            seller2Id TEXT,
+            food BIGINT DEFAULT 0,
+            wood BIGINT DEFAULT 0,
+            stone BIGINT DEFAULT 0,
+            gold BIGINT DEFAULT 0,
+            status TEXT DEFAULT 'pending',
+            channelId TEXT,
+            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `);
 

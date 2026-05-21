@@ -97,6 +97,9 @@
             <div class="sidebar-link" data-page="market" style="color:var(--accent-cyan);">
                 <i class="fas fa-shopping-cart link-icon"></i> Market+ System
             </div>
+            <div class="sidebar-link" data-page="rss" style="color:var(--accent-purple);">
+                <i class="fas fa-shopping-basket link-icon"></i> RSS Buying
+            </div>
             <div class="sidebar-link" data-page="economy">
                 <i class="fas fa-coins link-icon"></i> Economy System
             </div>
@@ -1158,18 +1161,20 @@
                         </div>
                     </div>
                     <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('r4tracking')"><i class="fas fa-save"></i> Save Target Limits</button>
-                </div>
-
-                <div class="z-card" style="margin-top:32px;">
-                    <div class="z-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                </div>                <div class="z-card" style="margin-top:32px;">
+                    <div class="z-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                         <h3>Weekly Leaderboard</h3>
-                        <button class="z-btn z-btn-secondary z-btn-sm" onclick="fetchR4Tracking()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <label style="font-size:0.85rem; color:var(--text-muted); margin:0;">Week:</label>
+                            <select class="z-input" id="r4WeekFilter" style="width: 160px; padding: 6px 12px; margin-bottom:0;" onchange="renderR4Table()"></select>
+                            <button class="z-btn z-btn-secondary z-btn-sm" onclick="fetchR4Tracking()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        </div>
                     </div>
                     <div class="table-container">
                         <table class="z-table">
                             <thead>
                                 <tr>
-                                    <th>User ID</th>
+                                    <th>Officer</th>
                                     <th>Week</th>
                                     <th>Ads</th>
                                     <th>Messages</th>
@@ -1397,6 +1402,100 @@
                 </div>
             </section>
 
+            <!-- ===== RSS BUYING ===== -->
+            <section id="page-rss" class="page-section">
+                <div class="page-header">
+                    <h1>RSS Buying & Stock Management</h1>
+                    <p>Configure RSS seller role, tax rates, ticket routing category, view collective stocks, and deploy interactive panels.</p>
+                </div>
+
+                <div class="module-header">
+                    <div class="module-header-info">
+                        <div class="module-icon" style="background:var(--accent-purple-soft);color:var(--accent-purple);"><i class="fas fa-shopping-basket"></i></div>
+                        <div>
+                            <h3>RSS Module Enabled</h3>
+                            <p>Toggle the automated Resource Purchase & Stock Management systems.</p>
+                        </div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleRss">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="ticket-builder-grid">
+                    <div class="z-card">
+                        <div class="z-card-header">
+                            <h3>RSS Configuration Settings</h3>
+                        </div>
+                        <div class="input-grid">
+                            <div class="input-row">
+                                <div class="z-input-group">
+                                    <label>RSS Seller Role</label>
+                                    <select class="z-input" id="rssSellerRole"></select>
+                                </div>
+                                <div class="z-input-group">
+                                    <label>Ticket Routing Category</label>
+                                    <select class="z-input" id="rssCategory"></select>
+                                </div>
+                            </div>
+                            <div class="input-row">
+                                <div class="z-input-group">
+                                    <label>Tax Rate Percentage (%)</label>
+                                    <input class="z-input" type="number" id="rssTaxRate" value="10" min="0" max="100">
+                                </div>
+                            </div>
+                        </div>
+                        <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('rss')"><i class="fas fa-save"></i> Save RSS Config</button>
+                    </div>
+
+                    <!-- Joint Stock Status Metric Cards -->
+                    <div class="z-card">
+                        <div class="z-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3>📦 Joint Collective Stocks</h3>
+                            <button class="z-btn z-btn-secondary z-btn-sm" onclick="fetchRssCollectiveStock()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        </div>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">Collective stock of all verified RSS sellers with the active role in the server. (Individual stocks remain private)</p>
+                        <div class="stats-row" style="grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 0; display: grid;">
+                            <div class="stat-card" style="padding: 16px; min-width: auto; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                <div class="stat-label" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;"><i class="fas fa-wheat-alt" style="color:#f59e0b;"></i> Food</div>
+                                <div class="stat-value" id="rssStockFood" style="font-size: 1.5rem; margin-top: 6px;">0</div>
+                            </div>
+                            <div class="stat-card" style="padding: 16px; min-width: auto; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                <div class="stat-label" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;"><i class="fas fa-tree" style="color:#10b981;"></i> Wood</div>
+                                <div class="stat-value" id="rssStockWood" style="font-size: 1.5rem; margin-top: 6px;">0</div>
+                            </div>
+                            <div class="stat-card" style="padding: 16px; min-width: auto; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                <div class="stat-label" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;"><i class="fas fa-mountain" style="color:#9ca3af;"></i> Stone</div>
+                                <div class="stat-value" id="rssStockStone" style="font-size: 1.5rem; margin-top: 6px;">0</div>
+                            </div>
+                            <div class="stat-card" style="padding: 16px; min-width: auto; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                <div class="stat-label" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;"><i class="fas fa-coins" style="color:#eab308;"></i> Gold</div>
+                                <div class="stat-value" id="rssStockGold" style="font-size: 1.5rem; margin-top: 6px;">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Deployment Card -->
+                <div class="z-card" style="margin-top: 32px;">
+                    <div class="z-card-header">
+                        <h3>🔌 Interactive Discord Panel Deployment</h3>
+                    </div>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:20px;">Deploy purchasing or stock control panel interfaces to specific text channels in your kingdom.</p>
+                    <div class="input-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="z-input-group">
+                            <label>Target Discord Channel</label>
+                            <select class="z-input" id="rssDeployChannel"></select>
+                        </div>
+                        <div class="z-input-group" style="display:flex; align-items:flex-end; gap:12px; margin-bottom:4px;">
+                            <button class="z-btn z-btn-primary" style="flex:1; justify-content:center; padding: 12px;" onclick="deployRssPanel('buy')"><i class="fas fa-shopping-cart"></i> Deploy Buy RSS Panel</button>
+                            <button class="z-btn z-btn-secondary" style="flex:1; justify-content:center; background:var(--accent-purple-soft); color:#d8b4fe; border-color:#a855f7; padding: 12px;" onclick="deployRssPanel('stock')"><i class="fas fa-boxes"></i> Deploy Stock Panel</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </div><!-- end main-content -->
 
     </div>
@@ -1525,6 +1624,41 @@
             <div id="modalQuestionsContainer" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;"></div>
 
             <button class="z-btn z-btn-primary z-btn-block" onclick="saveOptionSettings()"><i class="fas fa-check"></i> Validate Payload</button>
+        </div>
+    </div>
+
+    <!-- R4 Excuse Modal -->
+    <div id="r4ExcuseModal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); z-index:2000; align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width: 500px; width:90%; display: flex; flex-direction: column; background: rgba(30, 30, 40, 0.95); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); backdrop-filter: blur(12px); color: #fff; padding: 24px;">
+            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-subtle); padding-bottom:12px; margin-bottom:16px;">
+                <h2 id="r4ExcuseModalTitle" style="font-size:1.25rem; font-weight:700; margin:0;">Exonerate Officer</h2>
+                <button class="modal-close" onclick="closeModal('r4ExcuseModal')" style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer; line-height:1;">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="r4ExcuseUserId">
+                <input type="hidden" id="r4ExcuseWeekId">
+                <p id="r4ExcuseModalSubtitle" style="font-size:0.9rem; color:var(--text-muted); margin-bottom:16px;">Set an excuse for this officer to bypass their activity limits.</p>
+                
+                <div class="toggle-row" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); padding:12px; border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+                    <div>
+                        <h4 style="margin:0; font-size:0.95rem; font-weight:600;">Status: Excused</h4>
+                        <p style="margin:0; font-size:0.75rem; color:var(--text-muted);">Exempt this officer from the weekly activity check.</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="r4ExcuseToggle" onchange="toggleR4ExcuseInput()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="z-input-group" id="r4ExcuseReasonGroup" style="margin-bottom:20px;">
+                    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Excuse Reason</label>
+                    <input class="z-input" type="text" id="r4ExcuseReason" placeholder="e.g. Vacation, Sick leave, Exam week..." style="width:100%; box-sizing:border-box;">
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px;">
+                <button class="z-btn z-btn-secondary" onclick="closeModal('r4ExcuseModal')">Cancel</button>
+                <button class="z-btn z-btn-success" onclick="saveR4Excuse()"><i class="fas fa-check"></i> Save Excuse</button>
+            </div>
         </div>
     </div>
 

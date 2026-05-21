@@ -2,9 +2,18 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getDb } = require('../../config/database');
 
 function parseRssAmount(val) {
-    if (!val) return null;
-    const clean = val.toString().trim().toLowerCase();
+    if (val === null || val === undefined) return null;
+    let clean = val.toString().trim().toLowerCase();
     if (!clean) return null;
+
+    // Remove any commas or spaces: "50,000,000" -> "50000000", "50 M" -> "50m"
+    clean = clean.replace(/,/g, '').replace(/\s+/g, '');
+
+    // Map written variations of million/billion/thousand (both Spanish and English)
+    clean = clean.replace(/million(s)?|millon(es)?/, 'm');
+    clean = clean.replace(/billion(s)?|billon(es)?/, 'b');
+    clean = clean.replace(/thousand(s)?|mil/, 'k');
+
     const match = clean.match(/^([\d.]+)([mkb]?)$/);
     if (!match) return null;
     const num = parseFloat(match[1]);

@@ -94,13 +94,24 @@ module.exports = {
                 return;
             } else if (interaction.customId === 'rss_buy_start') {
                 const db = await getDb();
-                const sellersRole = interaction.guild.roles.cache.find(r => r.name === 'RSS Seller');
-                
+                const config = await db.get(`SELECT rssEnabled, rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
+                if (!config || !config.rssEnabled) {
+                    return interaction.reply({
+                        content: '❌ The RSS Buying module is currently disabled.',
+                        ephemeral: true
+                    });
+                }
+
+                const roleNameOrId = config.rssSellerRole || 'RSS Seller';
                 let sellers = [];
                 try {
-                    if (sellersRole) {
+                    const role = interaction.guild.roles.cache.get(roleNameOrId) || interaction.guild.roles.cache.find(r => r.name.toLowerCase() === roleNameOrId.toLowerCase());
+                    if (role) {
                         const fetchedMembers = await interaction.guild.members.fetch();
-                        sellers = Array.from(fetchedMembers.filter(m => m.roles.cache.has(sellersRole.id)).values());
+                        sellers = Array.from(fetchedMembers.filter(m => m.roles.cache.has(role.id)).values());
+                    } else {
+                        const fetchedMembers = await interaction.guild.members.fetch();
+                        sellers = Array.from(fetchedMembers.filter(m => m.roles.cache.some(r => r.name.toLowerCase() === roleNameOrId.toLowerCase())).values());
                     }
                 } catch (e) {
                     console.error('Error fetching members:', e);
@@ -138,6 +149,60 @@ module.exports = {
                     components: [row],
                     ephemeral: true
                 });
+            } else if (interaction.customId === 'rss_stock_add_click') {
+                const db = await getDb();
+                const config = await db.get(`SELECT rssEnabled, rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+                if (!config || !config.rssEnabled) {
+                    return interaction.reply({ content: '❌ The RSS module is currently disabled.', ephemeral: true });
+                }
+
+                const sellersRoleNameOrId = config.rssSellerRole || 'RSS Seller';
+                const hasRole = interaction.member.roles.cache.has(sellersRoleNameOrId) || 
+                                interaction.member.roles.cache.some(r => r.name.toLowerCase() === sellersRoleNameOrId.toLowerCase());
+                if (!hasRole) {
+                    return interaction.reply({ content: '❌ Only verified RSS Sellers can add stock.', ephemeral: true });
+                }
+
+                const modal = new ModalBuilder()
+                    .setCustomId('rss_stock_modal_submit')
+                    .setTitle('➕ Add RSS Stock');
+
+                const foodInput = new TextInputBuilder()
+                    .setCustomId('food')
+                    .setLabel('Food to ADD (e.g. 50M, 100k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                const woodInput = new TextInputBuilder()
+                    .setCustomId('wood')
+                    .setLabel('Wood to ADD (e.g. 50M, 100k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                const stoneInput = new TextInputBuilder()
+                    .setCustomId('stone')
+                    .setLabel('Stone to ADD (e.g. 50M, 100k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                const goldInput = new TextInputBuilder()
+                    .setCustomId('gold')
+                    .setLabel('Gold to ADD (e.g. 10M, 50k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(foodInput),
+                    new ActionRowBuilder().addComponents(woodInput),
+                    new ActionRowBuilder().addComponents(stoneInput),
+                    new ActionRowBuilder().addComponents(goldInput)
+                );
+
+                return await interaction.showModal(modal);
             } else if (interaction.customId.startsWith('rss_buy_complete_')) {
                 const txId = interaction.customId.replace('rss_buy_complete_', '');
                 const db = await getDb();
@@ -195,18 +260,22 @@ module.exports = {
 
                 // Send Seller 1 Tax DM
                 try {
+                    const config = await db.get(`SELECT rssTaxRate FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+                    const taxRatePct = config && config.rssTaxRate !== null && config.rssTaxRate !== undefined ? config.rssTaxRate : 10;
+                    const taxMultiplier = taxRatePct / 100;
+
                     const seller1User = await client.users.fetch(tx.seller1Id);
                     if (seller1User) {
                         const { formatRssAmount } = require('../commands/economy/rss-stock');
                         const taxEmbed = new EmbedBuilder()
-                            .setTitle('🧾 Tax Payment Reminder (10%)')
-                            .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **10% tax** is due on all resources sold.`)
+                            .setTitle(`🧾 Tax Payment Reminder (${taxRatePct}%)`)
+                            .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **${taxRatePct}% tax** is due on all resources sold.`)
                             .addFields(
                                 { name: 'Transaction ID', value: `\`${tx.id}\``, inline: false },
-                                { name: '🌾 Food Sold', value: `${formatRssAmount(food1)} (Tax: **${formatRssAmount(Math.floor(food1 * 0.1))}**)`, inline: true },
-                                { name: '🪵 Wood Sold', value: `${formatRssAmount(wood1)} (Tax: **${formatRssAmount(Math.floor(wood1 * 0.1))}**)`, inline: true },
-                                { name: '🪨 Stone Sold', value: `${formatRssAmount(stone1)} (Tax: **${formatRssAmount(Math.floor(stone1 * 0.1))}**)`, inline: true },
-                                { name: '🪙 Gold Sold', value: `${formatRssAmount(gold1)} (Tax: **${formatRssAmount(Math.floor(gold1 * 0.1))}**)`, inline: true }
+                                { name: '🌾 Food Sold', value: `${formatRssAmount(food1)} (Tax: **${formatRssAmount(Math.floor(food1 * taxMultiplier))}**)`, inline: true },
+                                { name: '🪵 Wood Sold', value: `${formatRssAmount(wood1)} (Tax: **${formatRssAmount(Math.floor(wood1 * taxMultiplier))}**)`, inline: true },
+                                { name: '🪨 Stone Sold', value: `${formatRssAmount(stone1)} (Tax: **${formatRssAmount(Math.floor(stone1 * taxMultiplier))}**)`, inline: true },
+                                { name: '🪙 Gold Sold', value: `${formatRssAmount(gold1)} (Tax: **${formatRssAmount(Math.floor(gold1 * taxMultiplier))}**)`, inline: true }
                             )
                             .setColor('#b91c1c')
                             .setTimestamp();
@@ -242,18 +311,22 @@ module.exports = {
 
                     // Send Seller 2 Tax DM
                     try {
+                        const config = await db.get(`SELECT rssTaxRate FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+                        const taxRatePct = config && config.rssTaxRate !== null && config.rssTaxRate !== undefined ? config.rssTaxRate : 10;
+                        const taxMultiplier = taxRatePct / 100;
+
                         const seller2User = await client.users.fetch(tx.seller2Id);
                         if (seller2User) {
                             const { formatRssAmount } = require('../commands/economy/rss-stock');
                             const taxEmbed = new EmbedBuilder()
-                                .setTitle('🧾 Tax Payment Reminder (10%)')
-                                .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **10% tax** is due on all resources sold.`)
+                                .setTitle(`🧾 Tax Payment Reminder (${taxRatePct}%)`)
+                                .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **${taxRatePct}% tax** is due on all resources sold.`)
                                 .addFields(
                                     { name: 'Transaction ID', value: `\`${tx.id}\``, inline: false },
-                                    { name: '🌾 Food Sold', value: `${formatRssAmount(food2)} (Tax: **${formatRssAmount(Math.floor(food2 * 0.1))}**)`, inline: true },
-                                    { name: '🪵 Wood Sold', value: `${formatRssAmount(wood2)} (Tax: **${formatRssAmount(Math.floor(wood2 * 0.1))}**)`, inline: true },
-                                    { name: '🪨 Stone Sold', value: `${formatRssAmount(stone2)} (Tax: **${formatRssAmount(Math.floor(stone2 * 0.1))}**)`, inline: true },
-                                    { name: '🪙 Gold Sold', value: `${formatRssAmount(gold2)} (Tax: **${formatRssAmount(Math.floor(gold2 * 0.1))}**)`, inline: true }
+                                    { name: '🌾 Food Sold', value: `${formatRssAmount(food2)} (Tax: **${formatRssAmount(Math.floor(food2 * taxMultiplier))}**)`, inline: true },
+                                    { name: '🪵 Wood Sold', value: `${formatRssAmount(wood2)} (Tax: **${formatRssAmount(Math.floor(wood2 * taxMultiplier))}**)`, inline: true },
+                                    { name: '🪨 Stone Sold', value: `${formatRssAmount(stone2)} (Tax: **${formatRssAmount(Math.floor(stone2 * taxMultiplier))}**)`, inline: true },
+                                    { name: '🪙 Gold Sold', value: `${formatRssAmount(gold2)} (Tax: **${formatRssAmount(Math.floor(gold2 * taxMultiplier))}**)`, inline: true }
                                 )
                                 .setColor('#b91c1c')
                                 .setTimestamp();
@@ -815,8 +888,9 @@ module.exports = {
 
                 // Create private channel topic stamp
                 const guild = interaction.guild;
+                const configMod = await db.get(`SELECT rssCategory FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
                 const guildConfigs = await db.get(`SELECT ticketCategoryId FROM guild_configs WHERE guildId = ?`, [interaction.guildId]);
-                const categoryId = guildConfigs?.ticketCategoryId;
+                const categoryId = configMod?.rssCategory || guildConfigs?.ticketCategoryId;
 
                 // Setup private permissions
                 const permissionOverwrites = [
@@ -916,6 +990,98 @@ module.exports = {
 
                 await interaction.deferReply({ ephemeral: true });
                 await processAdsSubmission(interaction, amount);
+            } else if (interaction.customId === 'rss_stock_modal_submit') {
+                await interaction.deferReply({ ephemeral: true });
+
+                const db = await getDb();
+                const { parseRssAmount, formatRssAmount } = require('../commands/economy/rss-stock');
+
+                const addFood = parseRssAmount(interaction.fields.getTextInputValue('food') || '0') || 0;
+                const addWood = parseRssAmount(interaction.fields.getTextInputValue('wood') || '0') || 0;
+                const addStone = parseRssAmount(interaction.fields.getTextInputValue('stone') || '0') || 0;
+                const addGold = parseRssAmount(interaction.fields.getTextInputValue('gold') || '0') || 0;
+
+                if (addFood === 0 && addWood === 0 && addStone === 0 && addGold === 0) {
+                    return interaction.editReply('❌ You must add at least one resource and enter a valid quantity (e.g. 50M or 100k).');
+                }
+
+                const existing = await db.get(`SELECT * FROM rss_seller_stocks WHERE sellerId = ?`, [interaction.user.id]);
+                const newFood = (existing?.food || 0) + addFood;
+                const newWood = (existing?.wood || 0) + addWood;
+                const newStone = (existing?.stone || 0) + addStone;
+                const newGold = (existing?.gold || 0) + addGold;
+
+                await db.run(
+                    `INSERT INTO rss_seller_stocks (sellerId, food, wood, stone, gold, updatedAt) 
+                     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                     ON CONFLICT(sellerId) DO UPDATE SET 
+                        food = EXCLUDED.food,
+                        wood = EXCLUDED.wood,
+                        stone = EXCLUDED.stone,
+                        gold = EXCLUDED.gold,
+                        updatedAt = CURRENT_TIMESTAMP`,
+                    [interaction.user.id, newFood, newWood, newStone, newGold]
+                );
+
+                // Update collective stock message if applicable
+                try {
+                    const config = await db.get(`SELECT rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+                    const roleNameOrId = config?.rssSellerRole || 'RSS Seller';
+                    let sellers = [];
+                    let sellerListStr = 'No verified RSS Sellers found.';
+
+                    try {
+                        const role = interaction.guild.roles.cache.get(roleNameOrId) || interaction.guild.roles.cache.find(r => r.name.toLowerCase() === roleNameOrId.toLowerCase());
+                        if (role) {
+                            await interaction.guild.members.fetch();
+                            const membersWithRole = role.members;
+                            sellers = membersWithRole.map(m => m.id);
+                            if (membersWithRole.size > 0) {
+                                sellerListStr = membersWithRole.map(m => `<@${m.id}>`).join(', ');
+                            }
+                        } else {
+                            await interaction.guild.members.fetch();
+                            const membersWithRole = interaction.guild.members.cache.filter(m => m.roles.cache.some(r => r.name.toLowerCase() === roleNameOrId.toLowerCase()));
+                            sellers = membersWithRole.map(m => m.id);
+                            if (membersWithRole.size > 0) {
+                                sellerListStr = membersWithRole.map(m => `<@${m.id}>`).join(', ');
+                            }
+                        }
+                    } catch (err) {
+                        console.error('[Update Panel] Error fetching members/roles:', err);
+                    }
+
+                    let totalFood = 0, totalWood = 0, totalStone = 0, totalGold = 0;
+                    if (sellers.length > 0) {
+                        const placeholders = sellers.map(() => '?').join(',');
+                        const row = await db.get(`SELECT SUM(food) as f, SUM(wood) as w, SUM(stone) as s, SUM(gold) as g FROM rss_seller_stocks WHERE sellerId IN (${placeholders})`, sellers);
+                        if (row) {
+                            totalFood = row.f || 0;
+                            totalWood = row.w || 0;
+                            totalStone = row.s || 0;
+                            totalGold = row.g || 0;
+                        }
+                    }
+
+                    const formatNumber = (num) => {
+                        if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+                        if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+                        if (num >= 1e3) return (num / 1e3).toFixed(1) + 'k';
+                        return num.toString();
+                    };
+
+                    const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                        .setFields(
+                            { name: '👥 Verified Sellers', value: sellerListStr },
+                            { name: '🌾 Collective Stocks', value: `**Food:** ${formatNumber(totalFood)}\n**Wood:** ${formatNumber(totalWood)}\n**Stone:** ${formatNumber(totalStone)}\n**Gold:** ${formatNumber(totalGold)}` }
+                        );
+
+                    await interaction.message.edit({ embeds: [updatedEmbed] });
+                } catch (editErr) {
+                    console.error('Failed to update collective stock embed:', editErr);
+                }
+
+                return interaction.editReply(`✅ **Stock added successfully!**\n\n**Your Current Inventory:**\n🌾 Food: ${formatRssAmount(newFood)}\n🪵 Wood: ${formatRssAmount(newWood)}\n🪨 Stone: ${formatRssAmount(newStone)}\n🪙 Gold: ${formatRssAmount(newGold)}`);
             }
             else if (interaction.customId.startsWith('modal_ticket_app_')) {
                 const parts = interaction.customId.split('_');

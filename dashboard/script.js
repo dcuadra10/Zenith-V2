@@ -208,6 +208,9 @@ window.addEventListener('DOMContentLoaded', () => {
             if (page === 'economy') {
                 fetchShopItems();
             }
+            if (page === 'rss') {
+                fetchRssCollectiveStock();
+            }
             markDirty(); // track page change for draft
         });
     });
@@ -357,15 +360,15 @@ function populateAllDropdowns() {
         'marketApprovalChannel', 'marketFeeChannel', 'automodLogChannel', 
         'loggingChannel', 'countingChannel', 'swearJarChannel',
         'levelUpChannel', 'ticketsTranscriptChannel', 'ticketsApprovalChannel', 'marketOwnerChannel',
-        'newKingdomTargetChannel', 'ecoWelcomeNotifyChannel'
+        'newKingdomTargetChannel', 'ecoWelcomeNotifyChannel', 'rssDeployChannel'
     ];
 
     
     // Selects that need a category
-    const categorySelects = ['cfgTicketCategory', 'statsCategoryId', 'modalCategoryId'];
+    const categorySelects = ['cfgTicketCategory', 'statsCategoryId', 'modalCategoryId', 'rssCategory'];
     
     // Selects that need a role
-    const roleSelects = ['marketMiddlemanRole', 'r4TrackingRole', 'autoRoleInput', 'newKingdomPingRole'];
+    const roleSelects = ['marketMiddlemanRole', 'r4TrackingRole', 'autoRoleInput', 'newKingdomPingRole', 'rssSellerRole'];
     
     channelSelects.forEach(id => populateDropdown(id, textChannels, 'Select a Channel'));
     categorySelects.forEach(id => populateDropdown(id, categories, 'Select a Category'));
@@ -490,6 +493,7 @@ async function loadDashboardData() {
     fetchR4Tracking();
     fetchCustomBot();
     fetchMarketConfig();
+    fetchRssCollectiveStock();
 }
 
 // ===== MARKET QUESTIONS LOGIC =====
@@ -761,6 +765,12 @@ function loadModuleToggles(mods) {
     setVal('ecoCoinsPerVCMinute', mods.ecocoinspervcminute ?? 1);
     setVal('ecoWelcomeKeywords', mods.ecowelcomekeywords || 'welcome,bienvenido,bienvenida');
     setVal('ecoWelcomeNotifyChannel', mods.ecowelcomenotifychannel);
+    
+    // RSS
+    setCheck('toggleRss', mods.rssenabled);
+    setVal('rssSellerRole', mods.rsssellerrole);
+    setVal('rssTaxRate', mods.rsstaxrate ?? 10);
+    setVal('rssCategory', mods.rsscategory);
 }
 
 function setCheck(id, val) {
@@ -930,7 +940,13 @@ async function saveModuleConfig(moduleName) {
         ecoCoinsPerGiveaway: parseInt(getVal('ecoCoinsPerGiveaway')) || 200,
         ecoCoinsPerVCMinute: parseInt(getVal('ecoCoinsPerVCMinute')) || 1,
         ecoWelcomeKeywords: getVal('ecoWelcomeKeywords'),
-        ecoWelcomeNotifyChannel: getVal('ecoWelcomeNotifyChannel')
+        ecoWelcomeNotifyChannel: getVal('ecoWelcomeNotifyChannel'),
+        
+        // RSS
+        rssEnabled: getCheck('toggleRss'),
+        rssSellerRole: getVal('rssSellerRole'),
+        rssTaxRate: parseInt(getVal('rssTaxRate')) || 10,
+        rssCategory: getVal('rssCategory')
     };
 
     try {
@@ -2680,4 +2696,266 @@ async function deleteShopItem(id) {
     } catch (e) {
         showToast('Error deleting item', true);
     }
+}
+
+// ===== RSS BUYING & STOCK MANAGEMENT =====
+async function fetchRssCollectiveStock() {
+    if (!activeGuild) return;
+    try {
+        const res = await apiFetch(`/rss/collective-stock/${activeGuild.id}`);
+        const data = await res.json();
+        document.getElementById('rssStockFood').textContent = (data.food || 0).toLocaleString();
+        document.getElementById('rssStockWood').textContent = (data.wood || 0).toLocaleString();
+        document.getElementById('rssStockStone').textContent = (data.stone || 0).toLocaleString();
+        document.getElementById('rssStockGold').textContent = (data.gold || 0).toLocaleString();
+    } catch (e) {
+        console.error('Error fetching collective stocks:', e);
+    }
+}
+
+async function deployRssPanel(panelType) {
+    if (!activeGuild) return;
+    const channelId = getVal('rssDeployChannel');
+    if (!channelId) return showToast('Please select a target channel.', true);
+    
+    showToast('Deploying interactive panel...');
+    try {
+        const res = await apiFetch(`/rss/deploy-panel/${activeGuild.id}`, {
+            method: 'POST',
+            body: JSON.stringify({ channelId, panelType })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`✅ Deployed ${panelType === 'buy' ? 'Buy RSS' : 'Stock'} Panel!`);
+        } else {
+            showToast(`❌ Error: ${data.error || 'Failed to deploy'}`, true);
+        }
+    } catch (e) {
+        showToast('❌ Server error deploying panel', true);
+    }
+}
+
+// ===== R4 TRACKING LEADERCARD LOGIC =====
+let r4TrackingData = [];
+
+async function fetchR4Tracking() {
+    if (!activeGuild) return;
+    const tbody = document.getElementById('r4TrackingTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Retrieving officer activity dossiers...</td></tr>';
+
+    try {
+        const res = await apiFetch(`/r4-tracking/${activeGuild.id}`);
+        r4TrackingData = await res.json();
+        
+        // Extract all unique weeks present in data
+        const weeks = [...new Set(r4TrackingData.map(r => r.weekId))];
+        weeks.sort((a, b) => b.localeCompare(a));
+
+        const weekFilter = document.getElementById('r4WeekFilter');
+        if (weekFilter) {
+            const currentSelected = weekFilter.value;
+            weekFilter.innerHTML = '';
+            
+            if (weeks.length === 0) {
+                // Return fallback if none exist
+                const currentWeek = getISOWeekStringFront();
+                weeks.push(currentWeek);
+            }
+
+            weeks.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w;
+                opt.textContent = w;
+                weekFilter.appendChild(opt);
+            });
+
+            if (currentSelected && weeks.includes(currentSelected)) {
+                weekFilter.value = currentSelected;
+            } else {
+                weekFilter.value = weeks[0];
+            }
+        }
+
+        renderR4Table();
+    } catch (e) {
+        console.error('Error fetching R4 tracking data:', e);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color:var(--accent-red);"><i class="fas fa-exclamation-triangle"></i> Error loading tracking data.</td></tr>';
+    }
+}
+
+function getISOWeekStringFront() {
+    const d = new Date();
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const year = d.getUTCFullYear();
+    const firstThursday = new Date(Date.UTC(year, 0, 4));
+    firstThursday.setUTCDate(firstThursday.getUTCDate() + 4 - (firstThursday.getUTCDay() || 7));
+    const weekNum = Math.ceil((((d - firstThursday) / 86400000) + 1) / 7);
+    return `${year}-W${weekNum.toString().padStart(2, '0')}`;
+}
+
+function renderR4Table() {
+    const tbody = document.getElementById('r4TrackingTableBody');
+    const weekFilter = document.getElementById('r4WeekFilter');
+    if (!tbody || !weekFilter) return;
+
+    const selectedWeek = weekFilter.value;
+    if (!selectedWeek) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color:var(--text-muted);">No records found.</td></tr>';
+        return;
+    }
+
+    const filtered = r4TrackingData.filter(r => r.weekId === selectedWeek);
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color:var(--text-muted);">No officer records for week ' + selectedWeek + '.</td></tr>';
+        return;
+    }
+
+    const adQuota = parseInt(document.getElementById('r4TrackingAdQuota').value) || 40;
+    const msgQuota = parseInt(document.getElementById('r4TrackingMsgQuota').value) || 245;
+
+    tbody.innerHTML = '';
+    filtered.forEach(item => {
+        const adPct = (item.ads / adQuota) * 100;
+        const msgPct = (item.messages / msgQuota) * 100;
+        const totalPct = Math.min(Math.round(adPct + msgPct), 200);
+
+        let statusText = `${totalPct}%`;
+        let statusColor = 'var(--accent-red, #ef4444)';
+        let barColor = 'var(--accent-red, #ef4444)';
+
+        if (item.excused) {
+            statusText = `Excused`;
+            statusColor = 'var(--accent-purple, #a855f7)';
+            barColor = 'var(--accent-purple, #a855f7)';
+        } else if (totalPct >= 100) {
+            statusText = `Passed (${totalPct}%)`;
+            statusColor = 'var(--accent-green, #10b981)';
+            barColor = 'var(--accent-green, #10b981)';
+        } else if (totalPct >= 75) {
+            statusText = `Warning (${totalPct}%)`;
+            statusColor = 'var(--accent-orange, #f59e0b)';
+            barColor = 'var(--accent-orange, #f59e0b)';
+        } else {
+            statusText = `Failing (${totalPct}%)`;
+        }
+
+        const avatarImg = item.avatar 
+            ? `<img src="${item.avatar}" style="width:28px; height:28px; border-radius:50%; margin-right:8px;" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">`
+            : `<img src="https://cdn.discordapp.com/embed/avatars/0.png" style="width:28px; height:28px; border-radius:50%; margin-right:8px;">`;
+
+        const displayNameHtml = `
+            <div style="display:flex; align-items:center;">
+                ${avatarImg}
+                <div style="display:flex; flex-direction:column;">
+                    <span style="font-weight:600; color:#fff;">${escapeHtml(item.displayName)}</span>
+                    <span style="font-size:0.7rem; color:var(--text-muted);">@${escapeHtml(item.username)} (ID: ${item.userId})</span>
+                </div>
+            </div>
+        `;
+
+        const progressHtml = `
+            <div style="display:flex; flex-direction:column; gap:4px; width:100%; min-width:120px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
+                    <span style="color:${statusColor}; font-weight:700;">${statusText}</span>
+                    ${item.excused && item.excuseReason ? `<span style="color:var(--text-muted); font-size:0.7rem; font-style:italic;">"${escapeHtml(item.excuseReason)}"</span>` : ''}
+                </div>
+                <div class="progress-bar-bg" style="width:100%; height:6px; background:rgba(255,255,255,0.05); border-radius:3px; overflow:hidden;">
+                    <div class="progress-bar-fill" style="width:${item.excused ? '100%' : totalPct + '%'}; height:100%; background:${barColor}; border-radius:3px; transition: width 0.3s ease;"></div>
+                </div>
+            </div>
+        `;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${displayNameHtml}</td>
+            <td><code>${item.weekId}</code></td>
+            <td><strong>${item.ads}</strong></td>
+            <td><strong>${item.messages}</strong></td>
+            <td>${progressHtml}</td>
+            <td>
+                <button class="z-btn z-btn-secondary z-btn-sm" style="display:flex; align-items:center; gap:4px; padding: 4px 8px; font-size: 0.75rem;" onclick="openR4ExcuseModal('${item.userId}', '${escapeJsString(item.displayName)}', '${item.weekId}', ${item.excused ? 1 : 0}, '${escapeJsString(item.excuseReason || '')}')">
+                    <i class="fas fa-user-shield"></i> Excuse
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function openR4ExcuseModal(userId, displayName, weekId, excused, excuseReason) {
+    document.getElementById('r4ExcuseUserId').value = userId;
+    document.getElementById('r4ExcuseWeekId').value = weekId;
+    document.getElementById('r4ExcuseModalTitle').textContent = `Excuse Officer: ${displayName}`;
+    document.getElementById('r4ExcuseModalSubtitle').textContent = `Set or clear exoneration for week ${weekId}.`;
+    
+    const toggle = document.getElementById('r4ExcuseToggle');
+    toggle.checked = excused === 1;
+    
+    const reasonInput = document.getElementById('r4ExcuseReason');
+    reasonInput.value = excuseReason || '';
+    
+    toggleR4ExcuseInput();
+    
+    const el = document.getElementById('r4ExcuseModal');
+    if (el) {
+        el.style.display = 'flex';
+        el.classList.add('active');
+    }
+}
+
+function toggleR4ExcuseInput() {
+    const isExcused = document.getElementById('r4ExcuseToggle').checked;
+    const reasonGroup = document.getElementById('r4ExcuseReasonGroup');
+    if (reasonGroup) {
+        reasonGroup.style.display = isExcused ? 'block' : 'none';
+    }
+}
+
+async function saveR4Excuse() {
+    const userId = document.getElementById('r4ExcuseUserId').value;
+    const weekId = document.getElementById('r4ExcuseWeekId').value;
+    const excused = document.getElementById('r4ExcuseToggle').checked;
+    const excuseReason = document.getElementById('r4ExcuseReason').value;
+
+    showToast('Updating officer excuse status...');
+    try {
+        const res = await apiFetch(`/r4-tracking/excuse/${activeGuild.id}`, {
+            method: 'POST',
+            body: JSON.stringify({
+                userId,
+                weekId,
+                excused,
+                excuseReason
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast('✅ Officer excuse updated successfully!');
+            closeModal('r4ExcuseModal');
+            fetchR4Tracking();
+        } else {
+            showToast('❌ Error: ' + (data.error || 'Failed to update excuse'), true);
+        }
+    } catch (e) {
+        showToast('❌ Server error updating excuse', true);
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function escapeJsString(str) {
+    if (!str) return '';
+    return str.toString().replace(/'/g, "\\'").replace(/"/g, '\\"');
 }

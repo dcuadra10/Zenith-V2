@@ -38,7 +38,7 @@ function buildColumnMap(cols) {
         'brandingName', 'brandingAvatar',
         'panelData', 'channelId', 'messageId',
         'ticketId', 'logContent', 'closedAt',
-        'weekId', 'messages', 'ads', 'excused',
+        'weekId', 'messages', 'ads', 'excused', 'excuseReason',
         'uuid', 'optJson', 'answersJson',
         'winnersCount', 'endTime', 'prize', 'requiredRole', 'pingRole', 'durationMs', 'status',
         'botToken', 'clientId', 'errorMessage',
@@ -47,7 +47,8 @@ function buildColumnMap(cols) {
         'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
         'mafiaId', 'leaderId', 'taxRate', 'vault', 'upgrades', 'contributed', 'ownerMafiaId', 'bonusType', 'bonusValue', 'turfId',
         'sectorId', 'totalInvested', 'dirtyMoney', 'jailUntil', 'reputation',
-        'jobId', 'lastWork', 'workplaceId', 'employeeCount', 'hiringEnabled', 'salary'
+        'jobId', 'lastWork', 'workplaceId', 'employeeCount', 'hiringEnabled', 'salary',
+        'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory'
     ];
     knownColumns.forEach(col => {
         columnNameMap[col.toLowerCase()] = col;
@@ -203,6 +204,7 @@ async function createDbInstance() {
                 messages INTEGER DEFAULT 0,
                 ads INTEGER DEFAULT 0,
                 excused INTEGER DEFAULT 0,
+                excuseReason TEXT,
                 isProcessed INTEGER DEFAULT 0,
                 PRIMARY KEY (userId, guildId, weekId)
             );
@@ -307,7 +309,12 @@ async function createDbInstance() {
                 ecoCoinsPerBoost INTEGER DEFAULT 100,
                 ecoCoinsPerGiveaway INTEGER DEFAULT 200,
                 ecoCoinsPerVCMinute INTEGER DEFAULT 1,
-                ecoWelcomeKeywords TEXT DEFAULT 'welcome,bienvenido,bienvenida'
+                ecoWelcomeKeywords TEXT DEFAULT 'welcome,bienvenido,bienvenida',
+                -- RSS Buying System
+                rssEnabled INTEGER DEFAULT 0,
+                rssSellerRole TEXT DEFAULT 'RSS Seller',
+                rssTaxRate REAL DEFAULT 10,
+                rssCategory TEXT
             );
 
             CREATE TABLE IF NOT EXISTS custom_bots (
@@ -476,7 +483,8 @@ async function createDbInstance() {
             'levelUpTitle TEXT', 'levelUpMessage TEXT', 'levelUpColor TEXT', 'levelUpUseEmbed INTEGER DEFAULT 1',
             'levelingBackground TEXT',
             'newKingdomEnabled INTEGER DEFAULT 0', 'newKingdomSourceChannel TEXT', 'newKingdomTargetChannel TEXT', 'newKingdomPingRole TEXT',
-            'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT'
+            'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
+            'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT'
         ];
         for (const col of ticketCols) {
             try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN ${col}`); } catch (e) {}
@@ -604,6 +612,7 @@ async function initializeSchema() {
             messages INTEGER DEFAULT 0,
             ads INTEGER DEFAULT 0,
             excused INTEGER DEFAULT 0,
+            excuseReason TEXT,
             isProcessed INTEGER DEFAULT 0,
             PRIMARY KEY (userId, guildId, weekId)
         );
@@ -656,7 +665,12 @@ async function initializeSchema() {
             newKingdomEnabled INTEGER DEFAULT 0,
             newKingdomSourceChannel TEXT,
             newKingdomTargetChannel TEXT,
-            newKingdomPingRole TEXT
+            newKingdomPingRole TEXT,
+            -- RSS Buying System
+            rssEnabled INTEGER DEFAULT 0,
+            rssSellerRole TEXT DEFAULT 'RSS Seller',
+            rssTaxRate REAL DEFAULT 10,
+            rssCategory TEXT
         );
 
         CREATE TABLE IF NOT EXISTS economy_mafias (
@@ -804,7 +818,8 @@ async function initializeSchema() {
             'levelUpTitle TEXT', 'levelUpMessage TEXT', 'levelUpColor TEXT', 'levelUpUseEmbed INTEGER DEFAULT 1',
             'levelingBackground TEXT',
             'newKingdomEnabled INTEGER DEFAULT 0', 'newKingdomSourceChannel TEXT', 'newKingdomTargetChannel TEXT', 'newKingdomPingRole TEXT',
-            'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT'
+            'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
+            'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT'
         ],
         economy_mafias: [
             'taxRate REAL DEFAULT 0.05', 'vault BIGINT DEFAULT 0', 'upgrades TEXT DEFAULT \'[]\'',
@@ -827,6 +842,9 @@ async function initializeSchema() {
             'level INTEGER DEFAULT 1', 'hiringEnabled INTEGER DEFAULT 0', 
             'employeeCount INTEGER DEFAULT 0', 'salary BIGINT DEFAULT 100',
             'marketShare REAL DEFAULT 0'
+        ],
+        r4_tracking: [
+            'excuseReason TEXT'
         ]
     };
 

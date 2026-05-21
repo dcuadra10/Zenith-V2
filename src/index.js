@@ -701,7 +701,8 @@ app.post('/api/modules/:guildId', async (req, res) => {
             'r4TrackingEnabled', 'r4TrackingRole', 'r4TrackingAdQuota', 'r4TrackingMsgQuota',
             'swearJarEnabled', 'swearJarChannel', 'swearJarWords', 'swearJarPing',
             'newKingdomEnabled', 'newKingdomSourceChannel', 'newKingdomTargetChannel', 'newKingdomPingRole',
-            'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel'
+            'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
+            'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory'
         ];
         
         const allFields = ['guildId', ...fields];
@@ -725,6 +726,176 @@ app.post('/api/modules/:guildId', async (req, res) => {
     }
 });
 
+// GET RSS Collective Stock
+app.get('/api/rss/collective-stock/:guildId', authenticateToken, async (req, res) => {
+    try {
+        const guildId = req.params.guildId;
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const db = await getDb();
+        const config = await db.get(`SELECT rssSellerRole FROM module_configs WHERE guildId = ?`, [guildId]);
+        const roleNameOrId = config?.rssSellerRole || 'RSS Seller';
+
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) return res.status(404).json({ error: 'Servidor no encontrado' });
+
+        let sellers = [];
+        try {
+            const role = guild.roles.cache.get(roleNameOrId) || guild.roles.cache.find(r => r.name.toLowerCase() === roleNameOrId.toLowerCase());
+            if (role) {
+                await guild.members.fetch();
+                sellers = role.members.map(m => m.id);
+            } else {
+                await guild.members.fetch();
+                sellers = guild.members.cache.filter(m => m.roles.cache.some(r => r.name.toLowerCase() === roleNameOrId.toLowerCase())).map(m => m.id);
+            }
+        } catch (err) {
+            console.error('[Collective Stock] Error fetching members/roles:', err);
+        }
+
+        if (sellers.length === 0) {
+            return res.json({ food: 0, wood: 0, stone: 0, gold: 0 });
+        }
+
+        const placeholders = sellers.map(() => '?').join(',');
+        const query = `SELECT 
+            SUM(food) as total_food, 
+            SUM(wood) as total_wood, 
+            SUM(stone) as total_stone, 
+            SUM(gold) as total_gold 
+            FROM rss_seller_stocks WHERE sellerId IN (${placeholders})`;
+        
+        const row = await db.get(query, sellers);
+        
+        res.json({
+            food: Number(row?.total_food || 0),
+            wood: Number(row?.total_wood || 0),
+            stone: Number(row?.total_stone || 0),
+            gold: Number(row?.total_gold || 0)
+        });
+    } catch (e) {
+        console.error('[API] Error in collective stock:', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// POST Deploy RSS Panel
+app.post('/api/rss/deploy-panel/:guildId', authenticateToken, async (req, res) => {
+    try {
+        const guildId = req.params.guildId;
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const { channelId, panelType } = req.body;
+        if (!channelId || !panelType) {
+            return res.status(400).json({ error: 'Missing channelId or panelType' });
+        }
+
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) return res.status(404).json({ error: 'Servidor no encontrado' });
+
+        const channel = guild.channels.cache.get(channelId);
+        if (!channel) return res.status(404).json({ error: 'Canal no encontrado' });
+
+        const db = await getDb();
+        const config = await db.get(`SELECT rssEnabled, rssSellerRole FROM module_configs WHERE guildId = ?`, [guildId]);
+        if (!config || !config.rssEnabled) {
+            return res.status(400).json({ error: 'El módulo RSS está deshabilitado en este servidor.' });
+        }
+
+        const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+        if (panelType === 'buy') {
+            const embed = new EmbedBuilder()
+                .setTitle('🌾 Alliance Resource Purchase')
+                .setDescription('Welcome to the **Official Resource Purchase Market**!\n\nBuy resources (Food, Wood, Stone, Gold) securely from our verified RSS Sellers.\n\nClick the button below to select a seller, submit your desired amounts, and open a private trade ticket.')
+                .setColor('#10b981');
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('rss_buy_start')
+                    .setLabel('Buy RSS')
+                    .setEmoji('🛒')
+                    .setStyle(ButtonStyle.Success)
+            );
+
+            await channel.send({ embeds: [embed], components: [row] });
+        } else if (panelType === 'stock') {
+            const roleNameOrId = config.rssSellerRole || 'RSS Seller';
+            let sellers = [];
+            let sellerListStr = 'No verified RSS Sellers found.';
+
+            try {
+                const role = guild.roles.cache.get(roleNameOrId) || guild.roles.cache.find(r => r.name.toLowerCase() === roleNameOrId.toLowerCase());
+                if (role) {
+                    await guild.members.fetch();
+                    const membersWithRole = role.members;
+                    sellers = membersWithRole.map(m => m.id);
+                    if (membersWithRole.size > 0) {
+                        sellerListStr = membersWithRole.map(m => `<@${m.id}>`).join(', ');
+                    }
+                } else {
+                    await guild.members.fetch();
+                    const membersWithRole = guild.members.cache.filter(m => m.roles.cache.some(r => r.name.toLowerCase() === roleNameOrId.toLowerCase()));
+                    sellers = membersWithRole.map(m => m.id);
+                    if (membersWithRole.size > 0) {
+                        sellerListStr = membersWithRole.map(m => `<@${m.id}>`).join(', ');
+                    }
+                }
+            } catch (err) {
+                console.error('[API Panel Setup] Error fetching members/roles:', err);
+            }
+
+            let totalFood = 0, totalWood = 0, totalStone = 0, totalGold = 0;
+            if (sellers.length > 0) {
+                const placeholders = sellers.map(() => '?').join(',');
+                const row = await db.get(`SELECT SUM(food) as f, SUM(wood) as w, SUM(stone) as s, SUM(gold) as g FROM rss_seller_stocks WHERE sellerId IN (${placeholders})`, sellers);
+                if (row) {
+                    totalFood = row.f || 0;
+                    totalWood = row.w || 0;
+                    totalStone = row.s || 0;
+                    totalGold = row.g || 0;
+                }
+            }
+
+            const formatNumber = (num) => {
+                if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+                if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+                if (num >= 1e3) return (num / 1e3).toFixed(1) + 'k';
+                return num.toString();
+            };
+
+            const embed = new EmbedBuilder()
+                .setTitle('📦 Collective RSS Stock Management')
+                .setDescription(`Welcome to the **RSS Stock Management Portal**.\n\nSellers can add to their private stock directly from this panel using the button below. Individual stocks remain private, only the aggregate collective total is visible.`)
+                .addFields(
+                    { name: '👥 Verified Sellers', value: sellerListStr },
+                    { name: '🌾 Collective Stocks', value: `**Food:** ${formatNumber(totalFood)}\n**Wood:** ${formatNumber(totalWood)}\n**Stone:** ${formatNumber(totalStone)}\n**Gold:** ${formatNumber(totalGold)}` }
+                )
+                .setColor('#4f46e5')
+                .setTimestamp();
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('rss_stock_add_click')
+                    .setLabel('Add Stock')
+                    .setEmoji('➕')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+            await channel.send({ embeds: [embed], components: [row] });
+        } else {
+            return res.status(400).json({ error: 'Invalid panelType' });
+        }
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[API] Error deploying panel:', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // GET R4 Tracking Data
 app.get('/api/r4-tracking/:guildId', async (req, res) => {
     const token = req.cookies.discord_token;
@@ -733,7 +904,34 @@ app.get('/api/r4-tracking/:guildId', async (req, res) => {
     try {
         const db = await getDb();
         const records = await db.all(`SELECT * FROM r4_tracking WHERE guildId = ? ORDER BY weekId DESC`, [req.params.guildId]);
-        res.json(records || []);
+        
+        let membersMap = {};
+        if (client.isReady()) {
+            const guild = client.guilds.cache.get(req.params.guildId);
+            if (guild) {
+                try {
+                    const members = await guild.members.fetch();
+                    members.forEach(m => {
+                        membersMap[m.id] = {
+                            username: m.user.username,
+                            displayName: m.displayName,
+                            avatar: m.user.displayAvatarURL({ dynamic: true })
+                        };
+                    });
+                } catch (err) {
+                    console.error('[API] Error fetching guild members:', err);
+                }
+            }
+        }
+
+        const enrichedRecords = records.map(r => ({
+            ...r,
+            username: membersMap[r.userId]?.username || r.userId,
+            displayName: membersMap[r.userId]?.displayName || r.userId,
+            avatar: membersMap[r.userId]?.avatar || null
+        }));
+
+        res.json(enrichedRecords || []);
     } catch (e) {
         console.error('Error fetching R4 tracking:', e);
         res.status(500).json({ error: 'Error fetching R4 tracking' });
@@ -745,12 +943,17 @@ app.post('/api/r4-tracking/excuse/:guildId', async (req, res) => {
     const token = req.cookies.discord_token;
     if (!token) return res.status(401).json({ error: 'No autorizado' });
 
-    const { userId, weekId, excused } = req.body;
+    const { userId, weekId, excused, excuseReason } = req.body;
     try {
         const db = await getDb();
+        // Use an UPSERT so we insert a new record if they haven't logged any activity yet!
         await db.run(
-            `UPDATE r4_tracking SET excused = ? WHERE guildId = ? AND userId = ? AND weekId = ?`,
-            [excused ? 1 : 0, req.params.guildId, userId, weekId]
+            `INSERT INTO r4_tracking (userId, guildId, weekId, excused, excuseReason, messages, ads, isProcessed)
+             VALUES (?, ?, ?, ?, ?, 0, 0, 0)
+             ON CONFLICT(userId, guildId, weekId) DO UPDATE SET 
+                excused = EXCLUDED.excused,
+                excuseReason = EXCLUDED.excuseReason`,
+            [userId, req.params.guildId, weekId, excused ? 1 : 0, excused ? (excuseReason || 'Excusado') : null]
         );
         res.json({ success: true });
     } catch (e) {

@@ -437,14 +437,15 @@ app.post('/api/panels/:guildId', async (req, res) => {
         let postedMsg;
         if (messageId) {
             try {
-                postedMsg = await channel.messages.fetch(messageId);
-                await postedMsg.edit(payload);
+                const oldMsg = await channel.messages.fetch(messageId);
+                if (oldMsg) {
+                    await oldMsg.delete().catch(() => {});
+                }
             } catch(e) {
-                postedMsg = await channel.send(payload);
+                // Ignore if the message was already deleted or doesn't exist
             }
-        } else {
-            postedMsg = await channel.send(payload);
         }
+        postedMsg = await channel.send(payload);
 
         const db = await getDb();
         await db.run(

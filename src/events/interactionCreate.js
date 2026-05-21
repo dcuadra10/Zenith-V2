@@ -125,27 +125,23 @@ module.exports = {
                 }
 
                 const selectMenu = new (require('discord.js').StringSelectMenuBuilder)()
-                    .setCustomId('rss_buy_seller_select')
-                    .setPlaceholder('Select your favorite RSS Seller...');
-
-                sellers.slice(0, 24).forEach(seller => {
-                    selectMenu.addOptions({
-                        label: seller.user.username,
-                        value: seller.user.id,
-                        description: `Verified RSS Seller`
-                    });
-                });
-
-                selectMenu.addOptions({
-                    label: 'Assign Automatically',
-                    value: 'auto',
-                    description: 'Balances the workload among verified sellers.'
-                });
+                    .setCustomId('rss_buy_payment_select')
+                    .setPlaceholder('Select your preferred payment method...')
+                    .addOptions(
+                        { label: 'PayPal', value: 'paypal', emoji: '💳', description: 'Pay securely via PayPal' },
+                        { label: 'Cash App', value: 'cashapp', emoji: '💵', description: 'Pay via Cash App transfer' },
+                        { label: 'Venmo', value: 'venmo', emoji: '📱', description: 'Pay via Venmo mobile app' },
+                        { label: 'Zelle', value: 'zelle', emoji: '🏦', description: 'Instant bank transfer via Zelle' },
+                        { label: 'Revolut', value: 'revolut', emoji: '🪙', description: 'International transfer via Revolut' },
+                        { label: 'Crypto (BTC/USDT)', value: 'crypto', emoji: '₿', description: 'Pay using Bitcoin or USDT stablecoin' },
+                        { label: 'Bank Transfer', value: 'bank', emoji: '🏛️', description: 'Direct wire or local bank transfer' },
+                        { label: 'Apple Pay / Google Pay', value: 'applepay', emoji: '🍎', description: 'Pay using Apple Pay or Google Pay mobile wallet' }
+                    );
 
                 const row = new (require('discord.js').ActionRowBuilder)().addComponents(selectMenu);
 
                 return interaction.reply({
-                    content: '✨ Please select your favorite RSS Seller from the dropdown below:',
+                    content: '✨ **Welcome to RSS Buying!** Please select your preferred payment method from the options below:',
                     components: [row],
                     ephemeral: true
                 });
@@ -613,12 +609,77 @@ module.exports = {
             }
         }
         else if (interaction.isStringSelectMenu()) {
-            if (interaction.customId === 'rss_buy_seller_select') {
+            if (interaction.customId === 'rss_buy_payment_select') {
+                const paymentMethod = interaction.values[0];
+                const db = await getDb();
+                const config = await db.get(`SELECT rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+                const roleNameOrId = config?.rssSellerRole || 'RSS Seller';
+
+                let sellers = [];
+                try {
+                    const role = interaction.guild.roles.cache.get(roleNameOrId) || interaction.guild.roles.cache.find(r => r.name.toLowerCase() === roleNameOrId.toLowerCase());
+                    if (role) {
+                        const fetchedMembers = await interaction.guild.members.fetch();
+                        sellers = Array.from(fetchedMembers.filter(m => m.roles.cache.has(role.id)).values());
+                    } else {
+                        const fetchedMembers = await interaction.guild.members.fetch();
+                        sellers = Array.from(fetchedMembers.filter(m => m.roles.cache.some(r => r.name.toLowerCase() === roleNameOrId.toLowerCase())).values());
+                    }
+                } catch (e) {
+                    console.error('Error fetching members:', e);
+                }
+
+                if (sellers.length === 0) {
+                    return interaction.reply({
+                        content: '❌ No verified RSS Sellers are currently registered or online. Please try again later.',
+                        ephemeral: true
+                    });
+                }
+
+                const selectMenu = new (require('discord.js').StringSelectMenuBuilder)()
+                    .setCustomId(`rss_buy_seller_select_${paymentMethod}`)
+                    .setPlaceholder('Select your favorite RSS Seller...');
+
+                sellers.slice(0, 24).forEach(seller => {
+                    selectMenu.addOptions({
+                        label: seller.user.username,
+                        value: seller.user.id,
+                        description: `Verified RSS Seller`
+                    });
+                });
+
+                selectMenu.addOptions({
+                    label: 'Assign Automatically',
+                    value: 'auto',
+                    description: 'Balances the workload among verified sellers.'
+                });
+
+                const row = new (require('discord.js').ActionRowBuilder)().addComponents(selectMenu);
+
+                const paymentLabels = {
+                    paypal: '💳 PayPal',
+                    cashapp: '💵 Cash App',
+                    venmo: '📱 Venmo',
+                    zelle: '🏦 Zelle',
+                    revolut: '🪙 Revolut',
+                    crypto: '₿ Crypto (BTC/USDT)',
+                    bank: '🏛️ Bank Transfer',
+                    applepay: '🍎 Apple Pay / Google Pay'
+                };
+                const readablePayment = paymentLabels[paymentMethod] || paymentMethod.toUpperCase();
+
+                return interaction.update({
+                    content: `✨ Excellent! You selected **${readablePayment}** as payment.\n\nNow, select your favorite RSS Seller from the dropdown below to coordinate delivery:`,
+                    components: [row]
+                });
+            } else if (interaction.customId.startsWith('rss_buy_seller_select')) {
+                const parts = interaction.customId.split('_');
+                const paymentMethod = parts[4] || 'unspecified';
                 const sellerId = interaction.values[0];
 
                 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
                 const modal = new ModalBuilder()
-                    .setCustomId(`rss_buy_modal_submit_${sellerId}`)
+                    .setCustomId(`rss_buy_modal_submit_${sellerId}_${paymentMethod}`)
                     .setTitle('🛒 RSS Buy: Resource Quantities');
 
                 const foodInput = new TextInputBuilder()
@@ -763,7 +824,9 @@ module.exports = {
         }
         else if (interaction.isModalSubmit()) {
             if (interaction.customId.startsWith('rss_buy_modal_submit_')) {
-                const targetSellerId = interaction.customId.replace('rss_buy_modal_submit_', '');
+                const modalParts = interaction.customId.replace('rss_buy_modal_submit_', '').split('_');
+                const targetSellerId = modalParts[0];
+                const paymentMethod = modalParts[1] || 'unspecified';
                 await interaction.deferReply({ ephemeral: true });
 
                 const db = await getDb();
@@ -1006,11 +1069,25 @@ module.exports = {
                     new ButtonBuilder().setCustomId(`rss_buy_cancel_${txId}`).setLabel('Cancel Order').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
 
+                const paymentLabels = {
+                    paypal: '💳 PayPal',
+                    cashapp: '💵 Cash App',
+                    venmo: '📱 Venmo',
+                    zelle: '🏦 Zelle',
+                    revolut: '🪙 Revolut',
+                    crypto: '₿ Crypto (BTC/USDT)',
+                    bank: '🏛️ Bank Transfer',
+                    applepay: '🍎 Apple Pay / Google Pay',
+                    unspecified: '❔ Unspecified'
+                };
+                const readablePayment = paymentLabels[paymentMethod] || paymentMethod.toUpperCase();
+
                 const summaryEmbed = new EmbedBuilder()
                     .setTitle('🌾 RSS Purchase Order Summary')
                     .setDescription(`Welcome to your private RSS trade channel! An order has been placed successfully.\n\n**Order ID:** \`${txId}\``)
                     .addFields(
-                        { name: '👤 Buyer', value: `<@${interaction.user.id}>`, inline: true }
+                        { name: '👤 Buyer', value: `<@${interaction.user.id}>`, inline: true },
+                        { name: '💳 Payment Method', value: readablePayment, inline: true }
                     )
                     .setColor('#10b981')
                     .setTimestamp();

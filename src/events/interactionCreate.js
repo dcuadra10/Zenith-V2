@@ -203,6 +203,60 @@ module.exports = {
                 );
 
                 return await interaction.showModal(modal);
+            } else if (interaction.customId === 'rss_stock_remove_click') {
+                const db = await getDb();
+                const config = await db.get(`SELECT rssEnabled, rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+                if (!config || !config.rssEnabled) {
+                    return interaction.reply({ content: '❌ The RSS module is currently disabled.', ephemeral: true });
+                }
+
+                const sellersRoleNameOrId = config.rssSellerRole || 'RSS Seller';
+                const hasRole = interaction.member.roles.cache.has(sellersRoleNameOrId) || 
+                                interaction.member.roles.cache.some(r => r.name.toLowerCase() === sellersRoleNameOrId.toLowerCase());
+                if (!hasRole) {
+                    return interaction.reply({ content: '❌ Only verified RSS Sellers can remove stock.', ephemeral: true });
+                }
+
+                const modal = new ModalBuilder()
+                    .setCustomId('rss_stock_remove_modal_submit')
+                    .setTitle('➖ Remove RSS Stock');
+
+                const foodInput = new TextInputBuilder()
+                    .setCustomId('food')
+                    .setLabel('Food to REMOVE (e.g. 50M, 100k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                const woodInput = new TextInputBuilder()
+                    .setCustomId('wood')
+                    .setLabel('Wood to REMOVE (e.g. 50M, 100k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                const stoneInput = new TextInputBuilder()
+                    .setCustomId('stone')
+                    .setLabel('Stone to REMOVE (e.g. 50M, 100k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                const goldInput = new TextInputBuilder()
+                    .setCustomId('gold')
+                    .setLabel('Gold to REMOVE (e.g. 10M, 50k, 0)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('0');
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(foodInput),
+                    new ActionRowBuilder().addComponents(woodInput),
+                    new ActionRowBuilder().addComponents(stoneInput),
+                    new ActionRowBuilder().addComponents(goldInput)
+                );
+
+                return await interaction.showModal(modal);
             } else if (interaction.customId.startsWith('rss_buy_complete_')) {
                 const txId = interaction.customId.replace('rss_buy_complete_', '');
                 const db = await getDb();
@@ -235,7 +289,18 @@ module.exports = {
                 const stone2 = isSplit ? (tx.stone - stone1) : 0;
                 const gold2 = isSplit ? (tx.gold - gold1) : 0;
 
-                // Deduct Seller 1 stock
+                // Load tax configuration to calculate deduction including tax
+                const config = await db.get(`SELECT rssTaxRate FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+                const taxRatePct = config && config.rssTaxRate !== null && config.rssTaxRate !== undefined ? config.rssTaxRate : 10;
+                const taxMultiplier = taxRatePct / 100;
+
+                // Seller 1 deduction (sold amount + tax amount)
+                const deductFood1 = food1 + Math.floor(food1 * taxMultiplier);
+                const deductWood1 = wood1 + Math.floor(wood1 * taxMultiplier);
+                const deductStone1 = stone1 + Math.floor(stone1 * taxMultiplier);
+                const deductGold1 = gold1 + Math.floor(gold1 * taxMultiplier);
+
+                // Deduct Seller 1 stock (quantity + tax)
                 await db.run(
                     `UPDATE rss_seller_stocks SET 
                         food = GREATEST(0, food - ?), 
@@ -243,10 +308,10 @@ module.exports = {
                         stone = GREATEST(0, stone - ?), 
                         gold = GREATEST(0, gold - ?) 
                      WHERE sellerId = ?`,
-                    [food1, wood1, stone1, gold1, tx.seller1Id]
+                    [deductFood1, deductWood1, deductStone1, deductGold1, tx.seller1Id]
                 );
 
-                // Upsert Seller 1 sales metrics
+                // Upsert Seller 1 sales metrics (record only actual sold quantity)
                 await db.run(`
                     INSERT INTO rss_seller_sales (sellerId, totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, totalTransactions)
                     VALUES (?, ?, ?, ?, ?, 1)
@@ -260,10 +325,6 @@ module.exports = {
 
                 // Send Seller 1 Tax DM
                 try {
-                    const config = await db.get(`SELECT rssTaxRate FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
-                    const taxRatePct = config && config.rssTaxRate !== null && config.rssTaxRate !== undefined ? config.rssTaxRate : 10;
-                    const taxMultiplier = taxRatePct / 100;
-
                     const seller1User = await client.users.fetch(tx.seller1Id);
                     if (seller1User) {
                         const { formatRssAmount } = require('../commands/economy/rss-stock');
@@ -286,7 +347,13 @@ module.exports = {
                 }
 
                 if (isSplit) {
-                    // Deduct Seller 2 stock
+                    // Seller 2 deduction (sold amount + tax amount)
+                    const deductFood2 = food2 + Math.floor(food2 * taxMultiplier);
+                    const deductWood2 = wood2 + Math.floor(wood2 * taxMultiplier);
+                    const deductStone2 = stone2 + Math.floor(stone2 * taxMultiplier);
+                    const deductGold2 = gold2 + Math.floor(gold2 * taxMultiplier);
+
+                    // Deduct Seller 2 stock (quantity + tax)
                     await db.run(
                         `UPDATE rss_seller_stocks SET 
                             food = GREATEST(0, food - ?), 
@@ -294,7 +361,7 @@ module.exports = {
                             stone = GREATEST(0, stone - ?), 
                             gold = GREATEST(0, gold - ?) 
                          WHERE sellerId = ?`,
-                        [food2, wood2, stone2, gold2, tx.seller2Id]
+                        [deductFood2, deductWood2, deductStone2, deductGold2, tx.seller2Id]
                     );
 
                     // Upsert Seller 2 sales metrics
@@ -311,10 +378,6 @@ module.exports = {
 
                     // Send Seller 2 Tax DM
                     try {
-                        const config = await db.get(`SELECT rssTaxRate FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
-                        const taxRatePct = config && config.rssTaxRate !== null && config.rssTaxRate !== undefined ? config.rssTaxRate : 10;
-                        const taxMultiplier = taxRatePct / 100;
-
                         const seller2User = await client.users.fetch(tx.seller2Id);
                         if (seller2User) {
                             const { formatRssAmount } = require('../commands/economy/rss-stock');
@@ -1085,6 +1148,98 @@ module.exports = {
                 }
 
                 return interaction.editReply(`✅ **Stock added successfully!**\n\n**Your Current Inventory:**\n🌾 Food: ${formatRssAmount(newFood)}\n🪵 Wood: ${formatRssAmount(newWood)}\n🪨 Stone: ${formatRssAmount(newStone)}\n🪙 Gold: ${formatRssAmount(newGold)}`);
+            } else if (interaction.customId === 'rss_stock_remove_modal_submit') {
+                await interaction.deferReply({ ephemeral: true });
+
+                const db = await getDb();
+                const { parseRssAmount, formatRssAmount } = require('../commands/economy/rss-stock');
+
+                const subFood = parseRssAmount(interaction.fields.getTextInputValue('food') || '0') || 0;
+                const subWood = parseRssAmount(interaction.fields.getTextInputValue('wood') || '0') || 0;
+                const subStone = parseRssAmount(interaction.fields.getTextInputValue('stone') || '0') || 0;
+                const subGold = parseRssAmount(interaction.fields.getTextInputValue('gold') || '0') || 0;
+
+                if (subFood === 0 && subWood === 0 && subStone === 0 && subGold === 0) {
+                    return interaction.editReply('❌ You must specify at least one resource to remove and enter a valid quantity (e.g. 50M or 100k).');
+                }
+
+                const existing = await db.get(`SELECT * FROM rss_seller_stocks WHERE sellerId = ?`, [interaction.user.id]);
+                const newFood = Math.max(0, (existing?.food || 0) - subFood);
+                const newWood = Math.max(0, (existing?.wood || 0) - subWood);
+                const newStone = Math.max(0, (existing?.stone || 0) - subStone);
+                const newGold = Math.max(0, (existing?.gold || 0) - subGold);
+
+                await db.run(
+                    `INSERT INTO rss_seller_stocks (sellerId, food, wood, stone, gold, updatedAt) 
+                     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                     ON CONFLICT(sellerId) DO UPDATE SET 
+                        food = EXCLUDED.food,
+                        wood = EXCLUDED.wood,
+                        stone = EXCLUDED.stone,
+                        gold = EXCLUDED.gold,
+                        updatedAt = CURRENT_TIMESTAMP`,
+                    [interaction.user.id, newFood, newWood, newStone, newGold]
+                );
+
+                // Update collective stock message if applicable
+                try {
+                    const config = await db.get(`SELECT rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+                    const roleNameOrId = config?.rssSellerRole || 'RSS Seller';
+                    let sellers = [];
+                    let sellerListStr = 'No verified RSS Sellers found.';
+
+                    try {
+                        const role = interaction.guild.roles.cache.get(roleNameOrId) || interaction.guild.roles.cache.find(r => r.name.toLowerCase() === roleNameOrId.toLowerCase());
+                        if (role) {
+                            await interaction.guild.members.fetch();
+                            const membersWithRole = role.members;
+                            sellers = membersWithRole.map(m => m.id);
+                            if (membersWithRole.size > 0) {
+                                sellerListStr = membersWithRole.map(m => `<@${m.id}>`).join(', ');
+                            }
+                        } else {
+                            await interaction.guild.members.fetch();
+                            const membersWithRole = interaction.guild.members.cache.filter(m => m.roles.cache.some(r => r.name.toLowerCase() === roleNameOrId.toLowerCase()));
+                            sellers = membersWithRole.map(m => m.id);
+                            if (membersWithRole.size > 0) {
+                                sellerListStr = membersWithRole.map(m => `<@${m.id}>`).join(', ');
+                            }
+                        }
+                    } catch (err) {
+                        console.error('[Update Panel] Error fetching members/roles:', err);
+                    }
+
+                    let totalFood = 0, totalWood = 0, totalStone = 0, totalGold = 0;
+                    if (sellers.length > 0) {
+                        const placeholders = sellers.map(() => '?').join(',');
+                        const row = await db.get(`SELECT SUM(food) as f, SUM(wood) as w, SUM(stone) as s, SUM(gold) as g FROM rss_seller_stocks WHERE sellerId IN (${placeholders})`, sellers);
+                        if (row) {
+                            totalFood = row.f || 0;
+                            totalWood = row.w || 0;
+                            totalStone = row.s || 0;
+                            totalGold = row.g || 0;
+                        }
+                    }
+
+                    const formatNumber = (num) => {
+                        if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+                        if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+                        if (num >= 1e3) return (num / 1e3).toFixed(1) + 'k';
+                        return num.toString();
+                    };
+
+                    const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                        .setFields(
+                            { name: '👥 Verified Sellers', value: sellerListStr },
+                            { name: '🌾 Collective Stocks', value: `**Food:** ${formatNumber(totalFood)}\n**Wood:** ${formatNumber(totalWood)}\n**Stone:** ${formatNumber(totalStone)}\n**Gold:** ${formatNumber(totalGold)}` }
+                        );
+
+                    await interaction.message.edit({ embeds: [updatedEmbed] });
+                } catch (editErr) {
+                    console.error('Failed to update collective stock embed:', editErr);
+                }
+
+                return interaction.editReply(`✅ **Stock removed successfully!**\n\n**Your Current Inventory:**\n🌾 Food: ${formatRssAmount(newFood)}\n🪵 Wood: ${formatRssAmount(newWood)}\n🪨 Stone: ${formatRssAmount(newStone)}\n🪙 Gold: ${formatRssAmount(newGold)}`);
             }
             else if (interaction.customId.startsWith('modal_ticket_app_')) {
                 const parts = interaction.customId.split('_');

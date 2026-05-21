@@ -46,11 +46,12 @@ module.exports = {
         .setDescription('View or update your RSS stock (RSS Sellers only)')
         .addStringOption(option =>
             option.setName('action')
-                .setDescription('Whether to add to or set your stock levels')
+                .setDescription('Whether to add, set, or remove stock levels')
                 .setRequired(false)
                 .addChoices(
                     { name: '➕ Add to Stock', value: 'add' },
-                    { name: '⚙️ Set Stock', value: 'set' }
+                    { name: '⚙️ Set Stock', value: 'set' },
+                    { name: '➖ Remove from Stock', value: 'remove' }
                 ))
         .addStringOption(option =>
             option.setName('food')
@@ -137,6 +138,11 @@ module.exports = {
                 if (woodVal !== null) newWood = woodVal;
                 if (stoneVal !== null) newStone = stoneVal;
                 if (goldVal !== null) newGold = goldVal;
+            } else if (action === 'remove') {
+                if (foodVal !== null) newFood = Math.max(0, newFood - foodVal);
+                if (woodVal !== null) newWood = Math.max(0, newWood - woodVal);
+                if (stoneVal !== null) newStone = Math.max(0, newStone - stoneVal);
+                if (goldVal !== null) newGold = Math.max(0, newGold - goldVal);
             }
 
             // Save back to DB

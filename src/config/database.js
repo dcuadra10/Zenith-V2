@@ -42,7 +42,7 @@ function buildColumnMap(cols) {
         'uuid', 'optJson', 'answersJson',
         'winnersCount', 'endTime', 'prize', 'requiredRole', 'pingRole', 'durationMs', 'status',
         'botToken', 'clientId', 'errorMessage',
-        'marketEnabled', 'forumChannelId', 'approvalChannelId', 'ownerChannelId', 'paymentMethods', 'middlemanRole', 'feePercentage',
+        'marketEnabled', 'forumChannelId', 'approvalChannelId', 'ownerChannelId', 'paymentMethods', 'middlemanRole', 'feePercentage', 'marketFeePct', 'middlemanFeePct', 'mmPaymentMethods',
         'sellerId', 'dataJson', 'imagesJson', 'forumThreadId', 'buyerId', 'middlemanId', 'offerJson', 'listingCode',
         'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
         'mafiaId', 'leaderId', 'taxRate', 'vault', 'upgrades', 'contributed', 'ownerMafiaId', 'bonusType', 'bonusValue', 'turfId',

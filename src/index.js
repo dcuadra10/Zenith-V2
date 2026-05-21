@@ -586,11 +586,11 @@ app.post('/api/market-config/:guildId', authenticateToken, async (req, res) => {
         if (!hasAdmin) return res.status(403).json({ error: 'Forbidden' });
 
         const db = await getDb();
-        const { marketEnabled, forumChannelId, approvalChannelId, ownerChannelId, paymentMethods, middlemanRole, feePercentage, marketQuestions } = req.body;
+        const { marketEnabled, forumChannelId, approvalChannelId, ownerChannelId, paymentMethods, middlemanRole, marketFeePct, middlemanFeePct, marketQuestions, mmPaymentMethods } = req.body;
         
         await db.run(
-            `INSERT INTO market_configs (guildId, marketEnabled, forumChannelId, approvalChannelId, ownerChannelId, paymentMethods, middlemanRole, feePercentage, marketQuestions)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO market_configs (guildId, marketEnabled, forumChannelId, approvalChannelId, ownerChannelId, paymentMethods, middlemanRole, marketFeePct, middlemanFeePct, marketQuestions, mmPaymentMethods)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(guildId) DO UPDATE SET 
              marketEnabled = excluded.marketEnabled,
              forumChannelId = excluded.forumChannelId,
@@ -598,9 +598,23 @@ app.post('/api/market-config/:guildId', authenticateToken, async (req, res) => {
              ownerChannelId = excluded.ownerChannelId,
              paymentMethods = excluded.paymentMethods,
              middlemanRole = excluded.middlemanRole,
-             feePercentage = excluded.feePercentage,
-             marketQuestions = excluded.marketQuestions`,
-            [req.params.guildId, marketEnabled ? 1 : 0, forumChannelId, approvalChannelId, ownerChannelId, paymentMethods, middlemanRole, feePercentage || 5, marketQuestions ? JSON.stringify(marketQuestions) : null]
+             marketFeePct = excluded.marketFeePct,
+             middlemanFeePct = excluded.middlemanFeePct,
+             marketQuestions = excluded.marketQuestions,
+             mmPaymentMethods = excluded.mmPaymentMethods`,
+            [
+                req.params.guildId, 
+                marketEnabled ? 1 : 0, 
+                forumChannelId, 
+                approvalChannelId, 
+                ownerChannelId, 
+                paymentMethods, 
+                middlemanRole, 
+                parseInt(marketFeePct) || 5, 
+                parseInt(middlemanFeePct) || 5, 
+                marketQuestions ? JSON.stringify(marketQuestions) : null, 
+                mmPaymentMethods
+            ]
         );
         res.json({ success: true });
     } catch (e) {

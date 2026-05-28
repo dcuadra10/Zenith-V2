@@ -819,7 +819,7 @@ module.exports = {
                         );
                 }
 
-                await interaction.update({ embeds: [helpEmbed] });
+                await interaction.editReply({ embeds: [helpEmbed] });
             } else if (interaction.customId.startsWith('bank_upgrade_')) {
                 const bankId = interaction.customId.split('_').pop();
                 const upgradeId = interaction.values[0];

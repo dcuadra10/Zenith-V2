@@ -2995,6 +2995,7 @@ async function fetchAIAgentConfig() {
         setVal('aiOpenaiApiKey', config.openaiApiKey || '');
         setVal('aiCharacterName', config.characterName || '');
         setVal('aiCharacterTraits', config.characterTraits || '');
+        setVal('aiLanguageMode', config.languageMode || 'en');
 
         setCheck('aiWelcomeEnabled', config.welcomeEnabled);
         setVal('aiWelcomeChannel', config.welcomeChannel || '');
@@ -3038,6 +3039,11 @@ async function fetchAIAgentConfig() {
         }
         setVal('aiPresetSelect', matchedPreset);
 
+        const customContainer = document.getElementById('aiCustomCharacterContainer');
+        if (customContainer) {
+            customContainer.style.display = (matchedPreset === 'custom') ? 'block' : 'none';
+        }
+
         toggleAISubsections();
         updateAISimulator();
     } catch (e) {
@@ -3080,12 +3086,15 @@ function updateAITurnsLabel(val) {
 
 function applyAIPreset() {
     const preset = document.getElementById('aiPresetSelect').value;
+    const customContainer = document.getElementById('aiCustomCharacterContainer');
     if (preset && aiPresets[preset]) {
         setVal('aiCharacterName', aiPresets[preset].name);
         setVal('aiCharacterTraits', aiPresets[preset].traits);
+        if (customContainer) customContainer.style.display = 'none';
     } else if (preset === 'custom') {
         setVal('aiCharacterName', '');
         setVal('aiCharacterTraits', '');
+        if (customContainer) customContainer.style.display = 'block';
     }
     updateAISimulator();
 }
@@ -3097,22 +3106,63 @@ function updateAISimulator() {
     document.getElementById('aiSimAvatar').textContent = firstLetter;
     
     const preset = document.getElementById('aiPresetSelect').value;
+    const lang = document.getElementById('aiLanguageMode').value;
+    
     let userMsg = "¡Hola! ¿Quién eres tú?";
     let botMsg = "Hola. Soy tu asistente de inteligencia artificial.";
     
+    if (lang === 'en') {
+        userMsg = "Hello! Who are you?";
+        botMsg = "Hello. I am your artificial intelligence assistant.";
+    } else if (lang === 'fr') {
+        userMsg = "Bonjour! Qui es-tu?";
+        botMsg = "Bonjour. Je suis votre assistant d'intelligence artificielle.";
+    } else if (lang === 'de') {
+        userMsg = "Hallo! Wer bist du?";
+        botMsg = "Hallo. Ich bin dein Assistent für künstliche Intelligenz.";
+    } else if (lang === 'pt') {
+        userMsg = "Olá! Quem é você?";
+        botMsg = "Olá. Eu sou seu assistente de inteligência artificial.";
+    }
+    
     if (preset === 'tony_soprano') {
-        userMsg = "Hola Tony, ¿cómo va el negocio de la basura?";
-        botMsg = "¿El negocio de la basura? Escucha, hijo, son servicios de saneamiento ambiental, ¿capisce? Y va de maravilla si todos hacen su parte. Fuhgeddaboudit.";
+        if (lang === 'en') {
+            userMsg = "Hey Tony, how's the garbage business?";
+            botMsg = "Garbage business? Listen, kid, it's environmental sanitation services, capisce? And it's great if everyone does their part. Fuhgeddaboudit.";
+        } else {
+            userMsg = "Hola Tony, ¿cómo va el negocio de la basura?";
+            botMsg = "¿El negocio de la basura? Escucha, hijo, son servicios de saneamiento ambiental, ¿capisce? Y va de maravilla si todos hacen su parte. Fuhgeddaboudit.";
+        }
     } else if (preset === 'gandalf') {
-        userMsg = "Gandalf, ¿llegamos tarde?";
-        botMsg = "Un mago nunca llega tarde, joven amigo. Ni pronto. Llega exactamente cuando se lo propone. Cuéntame, ¿qué viento del destino te trae por estos reinos?";
+        if (lang === 'en') {
+            userMsg = "Gandalf, are we late?";
+            botMsg = "A wizard is never late, my young friend. Nor is he early. He arrives precisely when he means to. Tell me, what wind of fate brings you here?";
+        } else {
+            userMsg = "Gandalf, ¿llegamos tarde?";
+            botMsg = "Un mago nunca llega tarde, joven amigo. Ni pronto. Llega exactamente cuando se lo propone. Cuéntame, ¿qué viento del destino te trae por estos reinos?";
+        }
     } else if (preset === 'sarcastic_bot') {
-        userMsg = "Ayúdame con una duda de soporte.";
-        botMsg = "Oh, claro, qué emocionante. Otra duda fascinante sobre soporte. Supongo que tendré que usar mi cerebro del tamaño de un planeta para responderla. Adelante, dispara.";
+        if (lang === 'en') {
+            userMsg = "Help me with a support question.";
+            botMsg = "Oh, sure, how thrilling. Another fascinating support question. I suppose I'll have to use my brain the size of a planet to answer it. Go ahead, shoot.";
+        } else {
+            userMsg = "Ayúdame con una duda de soporte.";
+            botMsg = "Oh, claro, qué emocionante. Otra duda fascinante sobre soporte. Supongo que tendré que usar mi cerebro del tamaño de un planeta para responderla. Adelante, dispara.";
+        }
     } else {
         const customTraits = document.getElementById('aiCharacterTraits').value;
         if (customTraits) {
-            botMsg = `Hola, soy ${name}. Estoy listo para chatear basándome en mi perfil personalizado.`;
+            if (lang === 'en') {
+                botMsg = `Hello, I am ${name}. I am ready to chat based on my custom profile.`;
+            } else if (lang === 'fr') {
+                botMsg = `Bonjour, je suis ${name}. Je suis prêt à discuter selon mon profil personnalisé.`;
+            } else if (lang === 'de') {
+                botMsg = `Hallo, ich bin ${name}. Ich bin bereit, basierend auf meinem benutzerdefinierten Profil zu chatten.`;
+            } else if (lang === 'pt') {
+                botMsg = `Olá, eu sou ${name}. Estou pronto para conversar baseado no meu perfil personalizado.`;
+            } else {
+                botMsg = `Hola, soy ${name}. Estoy listo para chatear basándose en mi perfil personalizado.`;
+              }
         }
     }
     
@@ -3123,6 +3173,46 @@ function updateAISimulator() {
 // Bind typing listeners to Character fields to update preview dynamically
 document.getElementById('aiCharacterName').addEventListener('input', updateAISimulator);
 document.getElementById('aiCharacterTraits').addEventListener('input', updateAISimulator);
+
+// Execute real-time AI Character research and prompt auto-filling
+async function runAIResearch() {
+    if (!activeGuild) return;
+    const charName = document.getElementById('aiCustomCharacterInput').value.trim();
+    const lang = document.getElementById('aiLanguageMode').value;
+    const btn = document.getElementById('aiResearchBtn');
+    
+    if (!charName) {
+        showToast('⚠️ Please enter a character name to research.', true);
+        return;
+    }
+    
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Researching...';
+    
+    try {
+        const res = await apiFetch(`/ai-agent/${activeGuild.id}/research`, {
+            method: 'POST',
+            body: JSON.stringify({ characterName: charName, language: lang })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            setVal('aiCharacterName', charName);
+            setVal('aiCharacterTraits', data.characterTraits);
+            updateAISimulator();
+            showToast(`🧠 Successfully researched and built personality for "${charName}"!`);
+        } else {
+            const err = await res.json();
+            showToast('❌ Error: ' + (err.error || 'Failed to research character'), true);
+        }
+    } catch (e) {
+        showToast('❌ Server error during AI Research', true);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
 
 async function saveAIAgentConfig() {
     if (!activeGuild) return;
@@ -3147,7 +3237,8 @@ async function saveAIAgentConfig() {
         supportKnowledgeChannels: JSON.stringify(kbVal || []),
         botToBotChatEnabled: getCheck('aiBotToBotChatEnabled'),
         maxBotTurns: parseInt(document.getElementById('aiMaxBotTurns').value) || 5,
-        enabled: getCheck('aiEnabled')
+        enabled: getCheck('aiEnabled'),
+        languageMode: getVal('aiLanguageMode')
     };
 
     try {

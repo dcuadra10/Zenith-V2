@@ -50,7 +50,7 @@ function buildColumnMap(cols) {
         'jobId', 'lastWork', 'workplaceId', 'employeeCount', 'hiringEnabled', 'salary',
         'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
         'pendingTaxFood', 'pendingTaxWood', 'pendingTaxStone', 'pendingTaxGold',
-        'openaiApiKey', 'characterName', 'characterTraits', 'chatEnabled', 'chatChannels', 'supportEnabled', 'supportChannel', 'supportKnowledgeChannels', 'botToBotChatEnabled', 'maxBotTurns', 'enabled'
+        'openaiApiKey', 'characterName', 'characterTraits', 'chatEnabled', 'chatChannels', 'supportEnabled', 'supportChannel', 'supportKnowledgeChannels', 'botToBotChatEnabled', 'maxBotTurns', 'enabled', 'clientId', 'languageMode'
     ];
     knownColumns.forEach(col => {
         columnNameMap[col.toLowerCase()] = col;
@@ -575,12 +575,16 @@ async function createDbInstance() {
                 supportKnowledgeChannels TEXT,
                 botToBotChatEnabled INTEGER DEFAULT 0,
                 maxBotTurns INTEGER DEFAULT 5,
-                enabled INTEGER DEFAULT 1
+                enabled INTEGER DEFAULT 1,
+                clientId TEXT,
+                languageMode TEXT DEFAULT 'en'
             );
         `);
 
         // Migrate enabled column if table already existed
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN enabled INTEGER DEFAULT 1`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN clientId TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN languageMode TEXT DEFAULT 'en'`); } catch (e) {}
         
         // Auto-migrate ranks
         try { await dbInstance.exec(`UPDATE mafia_members SET rank = 'Consigliere' WHERE rank = 'Underboss'`); } catch (e) {}
@@ -968,6 +972,15 @@ async function initializeSchema() {
             'pendingTaxWood BIGINT DEFAULT 0',
             'pendingTaxStone BIGINT DEFAULT 0',
             'pendingTaxGold BIGINT DEFAULT 0'
+        ],
+        ai_agent_configs: [
+            'openaiApiKey TEXT', 'characterName TEXT', 'characterTraits TEXT',
+            'welcomeEnabled INTEGER DEFAULT 0', 'welcomeChannel TEXT',
+            'chatEnabled INTEGER DEFAULT 0', 'chatChannels TEXT',
+            'supportEnabled INTEGER DEFAULT 0', 'supportChannel TEXT',
+            'supportKnowledgeChannels TEXT', 'botToBotChatEnabled INTEGER DEFAULT 0',
+            'maxBotTurns INTEGER DEFAULT 5', 'enabled INTEGER DEFAULT 1',
+            'clientId TEXT', 'languageMode TEXT DEFAULT \'en\''
         ]
     };
 

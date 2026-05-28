@@ -1,6 +1,26 @@
 const { getDb } = require('../config/database');
 const axios = require('axios');
 
+function getLanguageInstruction(languageMode) {
+    if (languageMode === 'en') {
+        return '\n\nIMPORTANT: ALWAYS speak and respond strictly in English. Do not use any other language, regardless of the language used by the user.';
+    }
+    if (languageMode === 'es') {
+        return '\n\nIMPORTANTE: Habla y responde SIEMPRE estrictamente en Español (Castellano). No uses ningún otro idioma, independientemente del idioma del usuario.';
+    }
+    if (languageMode === 'fr') {
+        return '\n\nIMPORTANT: Répondez TOUJOURS strictement en Français. N\'utilisez aucun autre langage, quelle que soit la langue de l\'utilisateur.';
+    }
+    if (languageMode === 'de') {
+        return '\n\nWICHTIG: Antworte IMMER streng auf Deutsch. Verwende keine andere Sprache, unabhängig von der Sprache des Benutzers.';
+    }
+    if (languageMode === 'pt') {
+        return '\n\nIMPORTANTE: Responda SEMPRE estritamente em Português. Não use outro idioma, independentemente da língua do usuário.';
+    }
+    // Default is 'auto'
+    return '\n\nIMPORTANT: Dynamically match and respond in the language of the user who is interacting with you. If they speak Spanish, respond in Spanish. If they speak English, respond in English; if you are unsure, adapt gracefully.';
+}
+
 // In-memory turn tracking and cooldown management scoped to channel
 const channelTurnCounts = {}; // 'guildId:channelId' -> number
 const channelCooldownEndTimes = {}; // 'guildId:channelId' -> timestamp
@@ -53,7 +73,7 @@ Tus rasgos y personalidad son:
 ${config.characterTraits}
 
 Instrucciones:
-Saluda al nuevo miembro "${member.user.username}" (menciónalo usando <@${member.user.id}>) que acaba de unirse al servidor de Discord. Dale una bienvenida extremadamente cálida y divertida acorde a tu personalidad en una sola respuesta corta de Discord.`;
+Saluda al nuevo miembro "${member.user.username}" (menciónalo usando <@${member.user.id}>) que acaba de unirse al servidor de Discord. Dale una bienvenida extremadamente cálida y divertida acorde a tu personalidad en una sola respuesta corta de Discord.${getLanguageInstruction(config.languageMode)}`;
 
             const welcomeMessage = await askOpenAI(config.openaiApiKey, systemPrompt, [
                 { role: 'user', content: `Dale la bienvenida a <@${member.user.id}>` }
@@ -125,7 +145,7 @@ Tus rasgos y personalidad son:
 ${config.characterTraits}
 
 Instrucciones:
-Explica de manera divertida y totalmente metido en tu personaje que has estado hablando demasiado seguido y que te vas a tomar un breve descanso (de exactamente 5 minutos) para tomar aire.`;
+Explica de manera divertida y totalmente metido en tu personaje que has estado hablando demasiado seguido y que te vas a tomar un breve descanso (de exactamente 5 minutos) para tomar aire.${getLanguageInstruction(config.languageMode)}`;
 
                     const cooldownText = await askOpenAI(config.openaiApiKey, systemPrompt, [
                         { role: 'user', content: 'Di que te vas a tomar un descanso de 5 minutos.' }
@@ -187,7 +207,7 @@ ${knowledgeContext || 'No hay información oficial disponible en este momento.'}
 Si la información oficial no responde la duda, explica de forma educada (en tu personaje) que no lo sabes o que un humano administrador deberá responder.
 
 3. Si eres provocado por un humano (ej. si saludan o preguntan), respóndele de manera atenta y salúdale amistosamente.
-4. Mantén tus respuestas concisas y adaptadas a Discord (utiliza formato markdown cuando sea apropiado).`;
+4. Mantén tus respuestas concisas y adaptadas a Discord (utiliza formato markdown cuando sea apropiado).${getLanguageInstruction(config.languageMode)}`;
 
             // Start typing animation to look extremely alive and premium
             await message.channel.sendTyping().catch(() => {});

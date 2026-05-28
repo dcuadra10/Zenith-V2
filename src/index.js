@@ -648,7 +648,8 @@ app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 supportKnowledgeChannels: '[]',
                 botToBotChatEnabled: 0,
                 maxBotTurns: 5,
-                enabled: 1
+                enabled: 1,
+                languageMode: 'en'
             });
         }
         
@@ -684,7 +685,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
             supportKnowledgeChannels,
             botToBotChatEnabled,
             maxBotTurns,
-            enabled
+            enabled,
+            languageMode
         } = req.body;
         
         // Fetch existing config to see if key needs update or preservation
@@ -700,8 +702,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 guildId, openaiApiKey, characterName, characterTraits,
                 welcomeEnabled, welcomeChannel, chatEnabled, chatChannels,
                 supportEnabled, supportChannel, supportKnowledgeChannels,
-                botToBotChatEnabled, maxBotTurns, enabled
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                botToBotChatEnabled, maxBotTurns, enabled, languageMode
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(guildId) DO UPDATE SET
              openaiApiKey = excluded.openaiApiKey,
              characterName = excluded.characterName,
@@ -715,7 +717,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
              supportKnowledgeChannels = excluded.supportKnowledgeChannels,
              botToBotChatEnabled = excluded.botToBotChatEnabled,
              maxBotTurns = excluded.maxBotTurns,
-             enabled = excluded.enabled`,
+             enabled = excluded.enabled,
+             languageMode = excluded.languageMode`,
             [
                 guildId,
                 keyToSave,
@@ -730,7 +733,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 supportKnowledgeChannels || '[]',
                 botToBotChatEnabled ? 1 : 0,
                 parseInt(maxBotTurns) || 5,
-                enabled !== undefined ? (enabled ? 1 : 0) : 1
+                enabled !== undefined ? (enabled ? 1 : 0) : 1,
+                languageMode || 'en'
             ]
         );
 
@@ -738,6 +742,77 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
     } catch (e) {
         console.error('[AI Agent API POST Error]:', e);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST AI Research
+app.post('/api/ai-agent/:guildId/research', authenticateToken, async (req, res) => {
+    try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+        const db = await getDb();
+        const guildId = req.params.guildId;
+        const { characterName, language } = req.body;
+
+        if (!characterName) {
+            return res.status(400).json({ error: 'Character name is required' });
+        }
+
+        // Get saved OpenAI API key for this server
+        const config = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ?`, [guildId]);
+        const apiKey = config ? config.openaiApiKey : null;
+
+        if (!apiKey) {
+            return res.status(400).json({ error: 'Please configure your OpenAI API Key first before using AI Research.' });
+        }
+
+        let languageName = 'English Only';
+        if (language === 'es') languageName = 'Spanish Only (Español)';
+        else if (language === 'fr') languageName = 'French Only (Français)';
+        else if (language === 'de') languageName = 'German Only (Deutsch)';
+        else if (language === 'pt') languageName = 'Portuguese Only (Português)';
+        else if (language === 'auto') languageName = 'the user\'s language dynamically';
+
+        const systemPrompt = `You are a professional character personality researcher and prompt engineer.
+Your task is to research the character named "${characterName}" and write a detailed set of character traits and behavior instructions to be used as a system prompt for a Discord AI bot.
+Include their:
+- Voice, style, and tone of speaking.
+- Personality traits, backstory, and attitudes.
+- Standard phrases, idioms, or quotes.
+- Instructions on how they should act in a Discord chat.
+
+Keep it highly structured and detailed, and write the instructions in English so that the LLM understands it perfectly, but specify in the traits that they must speak/respond in ${languageName}. Output ONLY the traits and behavior instructions. Do not include any intro, outro, or conversational text.`;
+
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `Analyze the character: ${characterName}` }
+                ],
+                max_tokens: 450,
+                temperature: 0.7
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 20000
+            }
+        );
+
+        const characterTraits = response.data?.choices?.[0]?.message?.content;
+        if (!characterTraits) {
+            return res.status(500).json({ error: 'OpenAI returned an empty response.' });
+        }
+
+        res.json({ characterTraits });
+    } catch (err) {
+        console.error('[AI Agent API Research Error]:', err.response?.data || err.message);
+        res.status(500).json({ error: 'Failed to research character. Please verify your OpenAI key.' });
     }
 });
 

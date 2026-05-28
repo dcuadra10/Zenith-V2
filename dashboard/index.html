@@ -1554,6 +1554,38 @@
                             </select>
                         </div>
 
+                        <!-- Custom Character AI Research Block -->
+                        <div id="aiCustomCharacterContainer" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-medium); padding: 16px; border-radius: var(--radius-md); margin-top: 16px; margin-bottom: 16px; display: none;">
+                            <div class="z-input-group" style="margin-bottom: 0;">
+                                <label style="font-size: 0.8rem; font-weight: 600; color: var(--gold-500); text-transform: uppercase;">Research Character Name</label>
+                                <div style="display: flex; gap: 12px; margin-top: 6px;">
+                                    <input class="z-input" type="text" id="aiCustomCharacterInput" placeholder="e.g. Jack Sparrow, Walter White, Batman..." style="margin-bottom: 0;">
+                                    <button class="z-btn z-btn-primary" type="button" id="aiResearchBtn" onclick="runAIResearch()" style="background: #e91e63; border-color: #e91e63; white-space: nowrap;">
+                                        <i class="fas fa-search-plus"></i> AI Research
+                                    </button>
+                                </div>
+                                <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                                    Type any character name. Zenith AI will search their traits and automatically construct a premium personality profile.
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Response Language / Language Mode Selection -->
+                        <div class="z-input-group">
+                            <label>Response Language</label>
+                            <select class="z-input" id="aiLanguageMode" onchange="updateAISimulator()">
+                                <option value="en">English Only (Default)</option>
+                                <option value="auto">Adapt to User (Automatic)</option>
+                                <option value="es">Spanish Only (Español)</option>
+                                <option value="fr">French Only (Français)</option>
+                                <option value="de">German Only (Deutsch)</option>
+                                <option value="pt">Portuguese Only (Português)</option>
+                            </select>
+                            <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                Choose the language the bot uses to respond. English is the official default. "Adapt to User" matches each user's language dynamically.
+                            </small>
+                        </div>
+
                         <div class="z-input-group">
                             <label>Agent Display Name</label>
                             <input class="z-input" type="text" id="aiCharacterName" placeholder="e.g. Tony Soprano">

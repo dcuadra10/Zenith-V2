@@ -48,7 +48,8 @@ function buildColumnMap(cols) {
         'mafiaId', 'leaderId', 'taxRate', 'vault', 'upgrades', 'contributed', 'ownerMafiaId', 'bonusType', 'bonusValue', 'turfId',
         'sectorId', 'totalInvested', 'dirtyMoney', 'jailUntil', 'reputation',
         'jobId', 'lastWork', 'workplaceId', 'employeeCount', 'hiringEnabled', 'salary',
-        'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory'
+        'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
+        'pendingTaxFood', 'pendingTaxWood', 'pendingTaxStone', 'pendingTaxGold'
     ];
     knownColumns.forEach(col => {
         columnNameMap[col.toLowerCase()] = col;
@@ -68,61 +69,131 @@ function restoreKeys(row) {
 
 async function createDbInstance() {
     try {
-        if (!process.env.DATABASE_URL) {
-            console.warn("[WARNING] DATABASE_URL is not defined in .env. Ensure it is set for NeonDB.");
-        }
-        
-        const pool = new Pool({
-            connectionString: process.env.DATABASE_URL || "postgresql://user:pass@host/db",
-            ssl: {
-                rejectUnauthorized: false
-            },
-            max: 10,
-            idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 10000
-        });
-
-        // Handle unexpected errors on idle pool clients to prevent process crashes
-        pool.on('error', (err) => {
-            console.error('[DB] Unexpected error on idle database pool client:', err.message || err);
-        });
-
-        const wrapper = {
-            run: async (query, params = []) => {
-                const { text, values } = convertSqliteToPg(query, params);
-                return pool.query(text, values);
-            },
-            get: async (query, params = []) => {
-                const { text, values } = convertSqliteToPg(query, params);
-                const res = await pool.query(text, values);
-                return restoreKeys(res.rows[0]);
-            },
-            all: async (query, params = []) => {
-                const { text, values } = convertSqliteToPg(query, params);
-                const res = await pool.query(text, values);
-                return res.rows.map(restoreKeys);
-            },
-            exec: async (query) => {
-                const pgQuery = convertSqliteSchemaToPg(query);
-                return pool.query(pgQuery);
-            },
-            transaction: async (callback) => {
-                const client = await pool.connect();
-                try {
-                    await client.query('BEGIN');
-                    const result = await callback(client);
-                    await client.query('COMMIT');
-                    return result;
-                } catch (e) {
-                    await client.query('ROLLBACK');
-                    throw e;
-                } finally {
-                    client.release();
+        if (process.env.DB_TYPE === 'sqlite') {
+            console.log("[DB] Using local SQLite database...");
+            const sqlite3 = require('sqlite3').verbose();
+            const db = new sqlite3.Database(process.env.SQLITE_PATH || './database.sqlite');
+            
+            const wrapper = {
+                run: (query, params = []) => {
+                    return new Promise((resolve, reject) => {
+                        db.run(query, params, function(err) {
+                            if (err) reject(err);
+                            else resolve({ changes: this.changes, lastID: this.lastID });
+                        });
+                    });
+                },
+                get: (query, params = []) => {
+                    return new Promise((resolve, reject) => {
+                        db.get(query, params, (err, row) => {
+                            if (err) reject(err);
+                            else resolve(restoreKeys(row));
+                        });
+                    });
+                },
+                all: (query, params = []) => {
+                    return new Promise((resolve, reject) => {
+                        db.all(query, params, (err, rows) => {
+                            if (err) reject(err);
+                            else resolve(rows ? rows.map(restoreKeys) : []);
+                        });
+                    });
+                },
+                exec: (query) => {
+                    return new Promise((resolve, reject) => {
+                        db.exec(query, (err) => {
+                            if (err) reject(err);
+                            else resolve();
+                        });
+                    });
+                },
+                transaction: async (callback) => {
+                    return new Promise((resolve, reject) => {
+                        db.serialize(async () => {
+                            try {
+                                await new Promise((res, rej) => db.run('BEGIN TRANSACTION', err => err ? rej(err) : res()));
+                                
+                                const client = {
+                                    query: (query, params = []) => {
+                                        return new Promise((res, rej) => {
+                                            db.all(query, params, (err, rows) => {
+                                                if (err) rej(err);
+                                                else res({ rows });
+                                            });
+                                        });
+                                    }
+                                };
+                                
+                                const result = await callback(client);
+                                await new Promise((res, rej) => db.run('COMMIT', err => err ? rej(err) : res()));
+                                resolve(result);
+                            } catch (e) {
+                                db.run('ROLLBACK', () => reject(e));
+                            }
+                        });
+                    });
                 }
+            };
+            
+            dbInstance = wrapper;
+        } else {
+            if (!process.env.DATABASE_URL) {
+                console.warn("[WARNING] DATABASE_URL is not defined in .env. Ensure it is set for NeonDB.");
             }
-        };
-        
-        dbInstance = wrapper;
+            
+            const pool = new Pool({
+                connectionString: process.env.DATABASE_URL || "postgresql://user:pass@host/db",
+                ssl: {
+                    rejectUnauthorized: false
+                },
+                max: 10,
+                idleTimeoutMillis: 30000,
+                connectionTimeoutMillis: 10000
+            });
+
+            // Handle unexpected errors on idle pool clients to prevent process crashes
+            pool.on('error', (err) => {
+                console.error('[DB] Unexpected error on idle database pool client:', err.message || err);
+            });
+
+            const wrapper = {
+                run: async (query, params = []) => {
+                    const { text, values } = convertSqliteToPg(query, params);
+                    const res = await pool.query(text, values);
+                    return { changes: res.rowCount, rows: res.rows };
+                },
+                get: async (query, params = []) => {
+                    const { text, values } = convertSqliteToPg(query, params);
+                    const res = await pool.query(text, values);
+                    return restoreKeys(res.rows[0]);
+                },
+                all: async (query, params = []) => {
+                    const { text, values } = convertSqliteToPg(query, params);
+                    const res = await pool.query(text, values);
+                    return res.rows.map(restoreKeys);
+                },
+                exec: async (query) => {
+                    const pgQuery = convertSqliteSchemaToPg(query);
+                    return pool.query(pgQuery);
+                },
+                transaction: async (callback) => {
+                    const client = await pool.connect();
+                    try {
+                        await client.query('BEGIN');
+                        const result = await callback(client);
+                        await client.query('COMMIT');
+                        return result;
+                    } catch (e) {
+                        await client.query('ROLLBACK');
+                        throw e;
+                    } finally {
+                        client.release();
+                    }
+                }
+            };
+            
+            dbInstance = wrapper;
+        }
 
         // Initialize tables
         await dbInstance.exec(`
@@ -451,7 +522,11 @@ async function createDbInstance() {
                 totalSoldWood BIGINT DEFAULT 0,
                 totalSoldStone BIGINT DEFAULT 0,
                 totalSoldGold BIGINT DEFAULT 0,
-                totalTransactions INTEGER DEFAULT 0
+                totalTransactions INTEGER DEFAULT 0,
+                pendingTaxFood BIGINT DEFAULT 0,
+                pendingTaxWood BIGINT DEFAULT 0,
+                pendingTaxStone BIGINT DEFAULT 0,
+                pendingTaxGold BIGINT DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS rss_transactions (
@@ -781,7 +856,11 @@ async function initializeSchema() {
             totalSoldWood BIGINT DEFAULT 0,
             totalSoldStone BIGINT DEFAULT 0,
             totalSoldGold BIGINT DEFAULT 0,
-            totalTransactions INTEGER DEFAULT 0
+            totalTransactions INTEGER DEFAULT 0,
+            pendingTaxFood BIGINT DEFAULT 0,
+            pendingTaxWood BIGINT DEFAULT 0,
+            pendingTaxStone BIGINT DEFAULT 0,
+            pendingTaxGold BIGINT DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS rss_transactions (
@@ -845,6 +924,12 @@ async function initializeSchema() {
         ],
         r4_tracking: [
             'excuseReason TEXT'
+        ],
+        rss_seller_sales: [
+            'pendingTaxFood BIGINT DEFAULT 0',
+            'pendingTaxWood BIGINT DEFAULT 0',
+            'pendingTaxStone BIGINT DEFAULT 0',
+            'pendingTaxGold BIGINT DEFAULT 0'
         ]
     };
 

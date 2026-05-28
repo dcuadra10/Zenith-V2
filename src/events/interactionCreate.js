@@ -307,17 +307,32 @@ module.exports = {
                     [deductFood1, deductWood1, deductStone1, deductGold1, tx.seller1Id]
                 );
 
-                // Upsert Seller 1 sales metrics (record only actual sold quantity)
+                // Calculate tax to record pending taxes in database
+                const taxFood1 = Math.floor(food1 * taxMultiplier);
+                const taxWood1 = Math.floor(wood1 * taxMultiplier);
+                const taxStone1 = Math.floor(stone1 * taxMultiplier);
+                const taxGold1 = Math.floor(gold1 * taxMultiplier);
+
+                // Upsert Seller 1 sales metrics (record only actual sold quantity and add to pending taxes)
                 await db.run(`
-                    INSERT INTO rss_seller_sales (sellerId, totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, totalTransactions)
-                    VALUES (?, ?, ?, ?, ?, 1)
+                    INSERT INTO rss_seller_sales (
+                        sellerId, 
+                        totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, 
+                        totalTransactions,
+                        pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold
+                    )
+                    VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
                     ON CONFLICT(sellerId) DO UPDATE SET
                         totalSoldFood = rss_seller_sales.totalSoldFood + EXCLUDED.totalSoldFood,
                         totalSoldWood = rss_seller_sales.totalSoldWood + EXCLUDED.totalSoldWood,
                         totalSoldStone = rss_seller_sales.totalSoldStone + EXCLUDED.totalSoldStone,
                         totalSoldGold = rss_seller_sales.totalSoldGold + EXCLUDED.totalSoldGold,
-                        totalTransactions = rss_seller_sales.totalTransactions + 1
-                `, [tx.seller1Id, food1, wood1, stone1, gold1]);
+                        totalTransactions = rss_seller_sales.totalTransactions + 1,
+                        pendingTaxFood = rss_seller_sales.pendingTaxFood + EXCLUDED.pendingTaxFood,
+                        pendingTaxWood = rss_seller_sales.pendingTaxWood + EXCLUDED.pendingTaxWood,
+                        pendingTaxStone = rss_seller_sales.pendingTaxStone + EXCLUDED.pendingTaxStone,
+                        pendingTaxGold = rss_seller_sales.pendingTaxGold + EXCLUDED.pendingTaxGold
+                `, [tx.seller1Id, food1, wood1, stone1, gold1, taxFood1, taxWood1, taxStone1, taxGold1]);
 
                 // Send Seller 1 Tax DM
                 try {
@@ -360,17 +375,32 @@ module.exports = {
                         [deductFood2, deductWood2, deductStone2, deductGold2, tx.seller2Id]
                     );
 
+                    // Calculate tax for Seller 2
+                    const taxFood2 = Math.floor(food2 * taxMultiplier);
+                    const taxWood2 = Math.floor(wood2 * taxMultiplier);
+                    const taxStone2 = Math.floor(stone2 * taxMultiplier);
+                    const taxGold2 = Math.floor(gold2 * taxMultiplier);
+
                     // Upsert Seller 2 sales metrics
                     await db.run(`
-                        INSERT INTO rss_seller_sales (sellerId, totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, totalTransactions)
-                        VALUES (?, ?, ?, ?, ?, 1)
+                        INSERT INTO rss_seller_sales (
+                            sellerId, 
+                            totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, 
+                            totalTransactions,
+                            pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold
+                        )
+                        VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
                         ON CONFLICT(sellerId) DO UPDATE SET
                             totalSoldFood = rss_seller_sales.totalSoldFood + EXCLUDED.totalSoldFood,
                             totalSoldWood = rss_seller_sales.totalSoldWood + EXCLUDED.totalSoldWood,
                             totalSoldStone = rss_seller_sales.totalSoldStone + EXCLUDED.totalSoldStone,
                             totalSoldGold = rss_seller_sales.totalSoldGold + EXCLUDED.totalSoldGold,
-                            totalTransactions = rss_seller_sales.totalTransactions + 1
-                    `, [tx.seller2Id, food2, wood2, stone2, gold2]);
+                            totalTransactions = rss_seller_sales.totalTransactions + 1,
+                            pendingTaxFood = rss_seller_sales.pendingTaxFood + EXCLUDED.pendingTaxFood,
+                            pendingTaxWood = rss_seller_sales.pendingTaxWood + EXCLUDED.pendingTaxWood,
+                            pendingTaxStone = rss_seller_sales.pendingTaxStone + EXCLUDED.pendingTaxStone,
+                            pendingTaxGold = rss_seller_sales.pendingTaxGold + EXCLUDED.pendingTaxGold
+                    `, [tx.seller2Id, food2, wood2, stone2, gold2, taxFood2, taxWood2, taxStone2, taxGold2]);
 
                     // Send Seller 2 Tax DM
                     try {

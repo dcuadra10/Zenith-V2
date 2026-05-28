@@ -360,10 +360,10 @@ function populateAllDropdowns() {
         'marketApprovalChannel', 'marketFeeChannel', 'automodLogChannel', 
         'loggingChannel', 'countingChannel', 'swearJarChannel',
         'levelUpChannel', 'ticketsTranscriptChannel', 'ticketsApprovalChannel', 'marketOwnerChannel',
-        'newKingdomTargetChannel', 'ecoWelcomeNotifyChannel', 'rssDeployChannel'
+        'newKingdomTargetChannel', 'ecoWelcomeNotifyChannel', 'rssDeployChannel',
+        'aiWelcomeChannel', 'aiSupportChannel'
     ];
 
-    
     // Selects that need a category
     const categorySelects = ['cfgTicketCategory', 'statsCategoryId', 'modalCategoryId', 'rssCategory'];
     
@@ -374,6 +374,10 @@ function populateAllDropdowns() {
     categorySelects.forEach(id => populateDropdown(id, categories, 'Select a Category'));
     roleSelects.forEach(id => populateDropdown(id, currentGuildRoles, 'Select a Role'));
     
+    // Multi-select for channels
+    const multiChannelSelects = ['aiChatChannels', 'aiSupportKnowledgeChannels'];
+    multiChannelSelects.forEach(id => populateDropdown(id, textChannels, 'Select Channels', true));
+
     // Multi-select for roles
     const multiRoleSelects = ['modalStaffRoles', 'modalPingRoles', 'autoroleIds'];
     multiRoleSelects.forEach(id => populateDropdown(id, currentGuildRoles, 'Select Roles', true));
@@ -492,6 +496,7 @@ async function loadDashboardData() {
     fetchGiveaways();
     fetchR4Tracking();
     fetchCustomBot();
+    fetchAIAgentConfig();
     fetchMarketConfig();
     fetchRssCollectiveStock();
 }
@@ -2959,3 +2964,208 @@ function escapeJsString(str) {
     if (!str) return '';
     return str.toString().replace(/'/g, "\\'").replace(/"/g, '\\"');
 }
+
+// ============================================
+// AI AGENT DASHBOARD MODULE
+// ============================================
+
+const aiPresets = {
+    tony_soprano: {
+        name: "Tony Soprano",
+        traits: "Eres Tony Soprano, el carismático y calculador jefe de la mafia de Nueva Jersey. Hablas de manera directa, con dureza callejera pero con una falsa capa de cortesía familiar. Utilizas frases italoamericanas ocasionales (como 'fuhgeddaboudit', 'capisce', 'gabagool', 'oh!'). Tienes un temperamento fuerte pero respetas la lealtad y el código de honor por encima de todo. Si te preguntan algo del servidor de Discord, sé protector y autoritario, tratando el servidor como tu 'territorio' familiar."
+    },
+    gandalf: {
+        name: "Gandalf el Gris",
+        traits: "Eres Gandalf el Gris, el legendario y sabio mago de la Tierra Media. Hablas de forma poética, pausada y misteriosa, llena de sabiduría antigua y parábolas solemnes. Eres paciente pero firme, y muestras una profunda sabiduría benevolente. Utilizas términos arcanos y de fantasía, y puedes citar consejos sabios. Proteges a los viajeros (miembros) del servidor del 'mal de la sombra' e infundes valor en sus corazones."
+    },
+    sarcastic_bot: {
+        name: "Asistente Sarcástico",
+        traits: "Eres un asistente de inteligencia artificial extremadamente sarcástico, apático y desganado. Hablas con ironía, humor seco y comentarios de cinismo sutil. Todo te parece un esfuerzo monumental, pero terminas ayudando a regañadientes. Utilizas comentarios secos y te burlas amigablemente (o no tanto) de las preguntas obvias de los usuarios. Tu personalidad es similar a la de Marvin el Androide Paranoide o GLaDOS."
+    }
+};
+
+async function fetchAIAgentConfig() {
+    if (!activeGuild) return;
+    try {
+        const res = await apiFetch(`/ai-agent/${activeGuild.id}`);
+        if (!res.ok) return;
+        const config = await res.json();
+
+        setCheck('aiEnabled', config.enabled !== undefined ? config.enabled : true);
+        setVal('aiOpenaiApiKey', config.openaiApiKey || '');
+        setVal('aiCharacterName', config.characterName || '');
+        setVal('aiCharacterTraits', config.characterTraits || '');
+
+        setCheck('aiWelcomeEnabled', config.welcomeEnabled);
+        setVal('aiWelcomeChannel', config.welcomeChannel || '');
+
+        setCheck('aiChatEnabled', config.chatEnabled);
+        
+        // Parse chatChannels array or comma list
+        let chatVal = config.chatChannels;
+        if (typeof chatVal === 'string' && chatVal.startsWith('[')) {
+            try { chatVal = JSON.parse(chatVal); } catch(e) { chatVal = []; }
+        } else if (typeof chatVal === 'string') {
+            chatVal = chatVal.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        setVal('aiChatChannels', chatVal || []);
+
+        setCheck('aiSupportEnabled', config.supportEnabled);
+        setVal('aiSupportChannel', config.supportChannel || '');
+
+        // Parse supportKnowledgeChannels array or comma list
+        let kbVal = config.supportKnowledgeChannels;
+        if (typeof kbVal === 'string' && kbVal.startsWith('[')) {
+            try { kbVal = JSON.parse(kbVal); } catch(e) { kbVal = []; }
+        } else if (typeof kbVal === 'string') {
+            kbVal = kbVal.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        setVal('aiSupportKnowledgeChannels', kbVal || []);
+
+        setCheck('aiBotToBotChatEnabled', config.botToBotChatEnabled);
+        
+        const turns = config.maxBotTurns !== undefined ? config.maxBotTurns : 5;
+        document.getElementById('aiMaxBotTurns').value = turns;
+        updateAITurnsLabel(turns);
+
+        // Determine if preset dropdown matches any existing presets
+        let matchedPreset = 'custom';
+        for (const [key, value] of Object.entries(aiPresets)) {
+            if (value.name === config.characterName && value.traits === config.characterTraits) {
+                matchedPreset = key;
+                break;
+            }
+        }
+        setVal('aiPresetSelect', matchedPreset);
+
+        toggleAISubsections();
+        updateAISimulator();
+    } catch (e) {
+        console.error('Error fetching AI Agent config:', e);
+    }
+}
+
+function toggleAISubsections() {
+    const aiEnabled = document.getElementById('aiEnabled').checked;
+
+    // Toggle overall configuration visual display states
+    const ticketBuilderGrid = document.querySelector('#page-aiagents .ticket-builder-grid');
+    if (ticketBuilderGrid) {
+        ticketBuilderGrid.style.opacity = aiEnabled ? '1' : '0.35';
+        ticketBuilderGrid.style.pointerEvents = aiEnabled ? 'auto' : 'none';
+        ticketBuilderGrid.style.transition = 'all 0.3s ease';
+    }
+
+    const welcomeEnabled = document.getElementById('aiWelcomeEnabled').checked;
+    const chatEnabled = document.getElementById('aiChatEnabled').checked;
+    const botToBotEnabled = document.getElementById('aiBotToBotChatEnabled').checked;
+    const supportEnabled = document.getElementById('aiSupportEnabled').checked;
+
+    document.getElementById('aiWelcomeChannelGroup').style.display = welcomeEnabled ? '' : 'none';
+    document.getElementById('aiChatChannelsGroup').style.display = chatEnabled ? '' : 'none';
+    
+    // Bot-to-bot row visibility is nested under Chat Enable
+    const botToBotRow = document.getElementById('aiBotToBotChatEnabled').closest('.toggle-row');
+    if (botToBotRow) {
+        botToBotRow.style.display = chatEnabled ? '' : 'none';
+    }
+    
+    document.getElementById('aiBotToBotLimitGroup').style.display = (chatEnabled && botToBotEnabled) ? '' : 'none';
+    document.getElementById('aiSupportFieldsGroup').style.display = supportEnabled ? '' : 'none';
+}
+
+function updateAITurnsLabel(val) {
+    document.getElementById('aiMaxTurnsVal').textContent = `${val} turns`;
+}
+
+function applyAIPreset() {
+    const preset = document.getElementById('aiPresetSelect').value;
+    if (preset && aiPresets[preset]) {
+        setVal('aiCharacterName', aiPresets[preset].name);
+        setVal('aiCharacterTraits', aiPresets[preset].traits);
+    } else if (preset === 'custom') {
+        setVal('aiCharacterName', '');
+        setVal('aiCharacterTraits', '');
+    }
+    updateAISimulator();
+}
+
+function updateAISimulator() {
+    const name = document.getElementById('aiCharacterName').value || 'AI Bot';
+    const firstLetter = name.charAt(0).toUpperCase();
+    document.getElementById('aiSimBotName').textContent = name;
+    document.getElementById('aiSimAvatar').textContent = firstLetter;
+    
+    const preset = document.getElementById('aiPresetSelect').value;
+    let userMsg = "¡Hola! ¿Quién eres tú?";
+    let botMsg = "Hola. Soy tu asistente de inteligencia artificial.";
+    
+    if (preset === 'tony_soprano') {
+        userMsg = "Hola Tony, ¿cómo va el negocio de la basura?";
+        botMsg = "¿El negocio de la basura? Escucha, hijo, son servicios de saneamiento ambiental, ¿capisce? Y va de maravilla si todos hacen su parte. Fuhgeddaboudit.";
+    } else if (preset === 'gandalf') {
+        userMsg = "Gandalf, ¿llegamos tarde?";
+        botMsg = "Un mago nunca llega tarde, joven amigo. Ni pronto. Llega exactamente cuando se lo propone. Cuéntame, ¿qué viento del destino te trae por estos reinos?";
+    } else if (preset === 'sarcastic_bot') {
+        userMsg = "Ayúdame con una duda de soporte.";
+        botMsg = "Oh, claro, qué emocionante. Otra duda fascinante sobre soporte. Supongo que tendré que usar mi cerebro del tamaño de un planeta para responderla. Adelante, dispara.";
+    } else {
+        const customTraits = document.getElementById('aiCharacterTraits').value;
+        if (customTraits) {
+            botMsg = `Hola, soy ${name}. Estoy listo para chatear basándome en mi perfil personalizado.`;
+        }
+    }
+    
+    document.getElementById('aiSimUserMessage').textContent = userMsg;
+    document.getElementById('aiSimBotResponse').textContent = botMsg;
+}
+
+// Bind typing listeners to Character fields to update preview dynamically
+document.getElementById('aiCharacterName').addEventListener('input', updateAISimulator);
+document.getElementById('aiCharacterTraits').addEventListener('input', updateAISimulator);
+
+async function saveAIAgentConfig() {
+    if (!activeGuild) return;
+
+    // Read chat and support knowledge TomSelect multi values
+    const chatSelect = tomSelects['aiChatChannels'];
+    const chatVal = chatSelect ? chatSelect.getValue() : [];
+    
+    const kbSelect = tomSelects['aiSupportKnowledgeChannels'];
+    const kbVal = kbSelect ? kbSelect.getValue() : [];
+
+    const payload = {
+        openaiApiKey: getVal('aiOpenaiApiKey'),
+        characterName: getVal('aiCharacterName'),
+        characterTraits: getVal('aiCharacterTraits'),
+        welcomeEnabled: getCheck('aiWelcomeEnabled'),
+        welcomeChannel: getVal('aiWelcomeChannel'),
+        chatEnabled: getCheck('aiChatEnabled'),
+        chatChannels: JSON.stringify(chatVal || []),
+        supportEnabled: getCheck('aiSupportEnabled'),
+        supportChannel: getVal('aiSupportChannel'),
+        supportKnowledgeChannels: JSON.stringify(kbVal || []),
+        botToBotChatEnabled: getCheck('aiBotToBotChatEnabled'),
+        maxBotTurns: parseInt(document.getElementById('aiMaxBotTurns').value) || 5,
+        enabled: getCheck('aiEnabled')
+    };
+
+    try {
+        const res = await apiFetch(`/ai-agent/${activeGuild.id}`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            showToast('✅ AI Agent successfully deployed!');
+            clearDraft();
+            fetchAIAgentConfig(); // refresh to mask apiKey
+        } else {
+            const err = await res.json();
+            showToast('❌ Error: ' + (err.error || 'Failed to save configuration'), true);
+        }
+    } catch (e) {
+        showToast('❌ Server error saving configuration', true);
+    }
+}
+

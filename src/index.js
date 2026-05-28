@@ -623,6 +623,124 @@ app.post('/api/market-config/:guildId', authenticateToken, async (req, res) => {
     }
 });
 
+// ============================================
+// AI AGENTS ROUTES
+// ============================================
+app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
+    try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+        const db = await getDb();
+        const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ?`, [req.params.guildId]);
+        if (!config) {
+            return res.json({
+                guildId: req.params.guildId,
+                openaiApiKey: '',
+                characterName: '',
+                characterTraits: '',
+                welcomeEnabled: 0,
+                welcomeChannel: '',
+                chatEnabled: 0,
+                chatChannels: '[]',
+                supportEnabled: 0,
+                supportChannel: '',
+                supportKnowledgeChannels: '[]',
+                botToBotChatEnabled: 0,
+                maxBotTurns: 5,
+                enabled: 1
+            });
+        }
+        
+        // Mask OpenAI API Key for security if it exists
+        if (config.openaiApiKey) {
+            config.openaiApiKey = '••••••••••••';
+        }
+        
+        res.json(config);
+    } catch (e) {
+        console.error('[AI Agent API GET Error]:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
+    try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'Forbidden' });
+
+        const db = await getDb();
+        const guildId = req.params.guildId;
+        const {
+            openaiApiKey,
+            characterName,
+            characterTraits,
+            welcomeEnabled,
+            welcomeChannel,
+            chatEnabled,
+            chatChannels,
+            supportEnabled,
+            supportChannel,
+            supportKnowledgeChannels,
+            botToBotChatEnabled,
+            maxBotTurns,
+            enabled
+        } = req.body;
+        
+        // Fetch existing config to see if key needs update or preservation
+        const existing = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ?`, [guildId]);
+        
+        let keyToSave = openaiApiKey;
+        if (openaiApiKey === '••••••••••••' || !openaiApiKey) {
+            keyToSave = existing ? existing.openaiApiKey : '';
+        }
+
+        await db.run(
+            `INSERT INTO ai_agent_configs (
+                guildId, openaiApiKey, characterName, characterTraits,
+                welcomeEnabled, welcomeChannel, chatEnabled, chatChannels,
+                supportEnabled, supportChannel, supportKnowledgeChannels,
+                botToBotChatEnabled, maxBotTurns, enabled
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(guildId) DO UPDATE SET
+             openaiApiKey = excluded.openaiApiKey,
+             characterName = excluded.characterName,
+             characterTraits = excluded.characterTraits,
+             welcomeEnabled = excluded.welcomeEnabled,
+             welcomeChannel = excluded.welcomeChannel,
+             chatEnabled = excluded.chatEnabled,
+             chatChannels = excluded.chatChannels,
+             supportEnabled = excluded.supportEnabled,
+             supportChannel = excluded.supportChannel,
+             supportKnowledgeChannels = excluded.supportKnowledgeChannels,
+             botToBotChatEnabled = excluded.botToBotChatEnabled,
+             maxBotTurns = excluded.maxBotTurns,
+             enabled = excluded.enabled`,
+            [
+                guildId,
+                keyToSave,
+                characterName || '',
+                characterTraits || '',
+                welcomeEnabled ? 1 : 0,
+                welcomeChannel || '',
+                chatEnabled ? 1 : 0,
+                chatChannels || '[]',
+                supportEnabled ? 1 : 0,
+                supportChannel || '',
+                supportKnowledgeChannels || '[]',
+                botToBotChatEnabled ? 1 : 0,
+                parseInt(maxBotTurns) || 5,
+                enabled !== undefined ? (enabled ? 1 : 0) : 1
+            ]
+        );
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[AI Agent API POST Error]:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 
 // GET Transcripts
 app.get('/api/transcripts/:guildId', async (req, res) => {

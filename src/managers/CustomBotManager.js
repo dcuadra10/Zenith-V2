@@ -48,6 +48,7 @@ class CustomBotManager {
         require('../features/serverStats')(client);
         require('../features/giveaways')(client);
         require('../features/r4Tracker')(client);
+        require('../features/aiAgent')(client);
 
         try {
             await client.login(token);

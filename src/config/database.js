@@ -49,7 +49,8 @@ function buildColumnMap(cols) {
         'sectorId', 'totalInvested', 'dirtyMoney', 'jailUntil', 'reputation',
         'jobId', 'lastWork', 'workplaceId', 'employeeCount', 'hiringEnabled', 'salary',
         'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
-        'pendingTaxFood', 'pendingTaxWood', 'pendingTaxStone', 'pendingTaxGold'
+        'pendingTaxFood', 'pendingTaxWood', 'pendingTaxStone', 'pendingTaxGold',
+        'openaiApiKey', 'characterName', 'characterTraits', 'chatEnabled', 'chatChannels', 'supportEnabled', 'supportChannel', 'supportKnowledgeChannels', 'botToBotChatEnabled', 'maxBotTurns', 'enabled'
     ];
     knownColumns.forEach(col => {
         columnNameMap[col.toLowerCase()] = col;
@@ -559,7 +560,27 @@ async function createDbInstance() {
                 channelId TEXT,
                 createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS ai_agent_configs (
+                guildId TEXT PRIMARY KEY,
+                openaiApiKey TEXT,
+                characterName TEXT,
+                characterTraits TEXT,
+                welcomeEnabled INTEGER DEFAULT 0,
+                welcomeChannel TEXT,
+                chatEnabled INTEGER DEFAULT 0,
+                chatChannels TEXT,
+                supportEnabled INTEGER DEFAULT 0,
+                supportChannel TEXT,
+                supportKnowledgeChannels TEXT,
+                botToBotChatEnabled INTEGER DEFAULT 0,
+                maxBotTurns INTEGER DEFAULT 5,
+                enabled INTEGER DEFAULT 1
+            );
         `);
+
+        // Migrate enabled column if table already existed
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN enabled INTEGER DEFAULT 1`); } catch (e) {}
         
         // Auto-migrate ranks
         try { await dbInstance.exec(`UPDATE mafia_members SET rank = 'Consigliere' WHERE rank = 'Underboss'`); } catch (e) {}

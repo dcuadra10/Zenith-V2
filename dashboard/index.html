@@ -127,6 +127,9 @@
             <div class="sidebar-link" data-page="swearjar">
                 <i class="fas fa-glass-whiskey link-icon"></i> Swear Jar
             </div>
+            <div class="sidebar-link" data-page="aiagents" style="color:var(--accent-purple);">
+                <i class="fas fa-brain link-icon"></i> AI Agents
+            </div>
 
             <div class="sidebar-footer">
                 <button class="z-btn z-btn-secondary z-btn-block" onclick="goBackToGuilds()"><i class="fas fa-arrow-left"></i> Switch Kingdom</button>
@@ -1491,6 +1494,199 @@
                         <div class="z-input-group" style="display:flex; align-items:flex-end; gap:12px; margin-bottom:4px;">
                             <button class="z-btn z-btn-primary" style="flex:1; justify-content:center; padding: 12px;" onclick="deployRssPanel('buy')"><i class="fas fa-shopping-cart"></i> Deploy Buy RSS Panel</button>
                             <button class="z-btn z-btn-secondary" style="flex:1; justify-content:center; background:var(--accent-purple-soft); color:#d8b4fe; border-color:#a855f7; padding: 12px;" onclick="deployRssPanel('stock')"><i class="fas fa-boxes"></i> Deploy Stock Panel</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== AI AGENTS SYSTEM ===== -->
+            <section id="page-aiagents" class="page-section">
+                <div class="page-header">
+                    <h1>AI Agents & Characters</h1>
+                    <p>Deploy interactive AI personalities in your kingdom. Configure them as welcome hosts, chat companions, or RAG-based support agents.</p>
+                </div>
+
+                <!-- Global AI Activation Header -->
+                <div class="module-header">
+                    <div class="module-header-info">
+                        <div class="module-icon" style="background:var(--accent-pink-soft);color:var(--accent-pink);"><i class="fas fa-brain"></i></div>
+                        <div>
+                            <h3>AI Core Configuration</h3>
+                            <p>Configure your server's custom OpenAI API credentials and character templates.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Master Switch Card -->
+                <div class="z-card" style="border-color:var(--accent-pink); background:rgba(155, 89, 182, 0.05); margin-bottom: 24px;">
+                    <div class="toggle-row" style="border-bottom:none; padding:0;">
+                        <div class="toggle-info">
+                            <h3 style="color:var(--text-primary); font-family:'Inter',sans-serif; margin-bottom:4px; font-size:1.15rem; font-weight:700;"><i class="fas fa-power-off" style="color:var(--accent-pink); margin-right:8px;"></i> Sistema Principal de IA (Master Power)</h3>
+                            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0;">Apaga o enciende por completo todo el sistema de agentes de IA en este servidor conservando tu configuración intacta.</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="aiEnabled" checked onchange="toggleAISubsections()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="ticket-builder-grid">
+                    <!-- Left Side: Config Form -->
+                    <div class="z-card">
+                        <div class="z-input-group">
+                            <label>OpenAI API Key</label>
+                            <input class="z-input" type="password" id="aiOpenaiApiKey" placeholder="sk-proj-...">
+                            <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">Your key is encrypted and securely stored. We only use it to power this server's custom bot interactions.</small>
+                        </div>
+
+                        <div class="z-card-header" style="margin-top:24px;">
+                            <h3>Character Profile</h3>
+                        </div>
+
+                        <div class="z-input-group">
+                            <label>Character Template Preset</label>
+                            <select class="z-input" id="aiPresetSelect" onchange="applyAIPreset()">
+                                <option value="custom">Custom Character...</option>
+                                <option value="tony_soprano">Tony Soprano (Mafia Boss)</option>
+                                <option value="gandalf">Gandalf (Wise Wizard)</option>
+                                <option value="sarcastic_bot">Sarcastic Assistant (Dry Humor)</option>
+                            </select>
+                        </div>
+
+                        <div class="z-input-group">
+                            <label>Agent Display Name</label>
+                            <input class="z-input" type="text" id="aiCharacterName" placeholder="e.g. Tony Soprano">
+                        </div>
+
+                        <div class="z-input-group">
+                            <label>Character Traits & Prompt Instructions</label>
+                            <textarea class="z-input" id="aiCharacterTraits" style="min-height: 180px;" placeholder="Describe how your character speaks, their history, likes, dislikes, and specific phrasing constraints..."></textarea>
+                        </div>
+
+                        <!-- WELCOME CONFIGS -->
+                        <div class="z-card-header" style="margin-top:32px;">
+                            <h3>Welcome Host</h3>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <h4>Active Greeting Gate</h4>
+                                <p>Welcome new citizens in character when they enter the server.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="aiWelcomeEnabled" onchange="toggleAISubsections()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="z-input-group" id="aiWelcomeChannelGroup" style="margin-top:16px;">
+                            <label>Greeting Channel</label>
+                            <select class="z-input" id="aiWelcomeChannel"></select>
+                        </div>
+
+                        <!-- CHAT CONFIGS -->
+                        <div class="z-card-header" style="margin-top:32px;">
+                            <h3>Conversational Chat</h3>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <h4>Enable Conversation Channels</h4>
+                                <p>Allow the bot to chat when mentioned or inside designated text channels.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="aiChatEnabled" onchange="toggleAISubsections()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="z-input-group" id="aiChatChannelsGroup" style="margin-top:16px;">
+                            <label>Conversational Channels</label>
+                            <select class="z-input" id="aiChatChannels" multiple></select>
+                        </div>
+
+                        <!-- BOT TO BOT CHATS & COOLDOWN -->
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <h4>Bot-to-Bot Conversational Loop</h4>
+                                <p>Allow multiple custom bots in the same channel to talk to each other.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="aiBotToBotChatEnabled" onchange="toggleAISubsections()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div id="aiBotToBotLimitGroup" style="margin-top:16px;">
+                            <div class="z-input-group">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                    <label style="margin-bottom:0;">Maximum Consecutive Turns</label>
+                                    <span id="aiMaxTurnsVal" style="color:var(--gold-500); font-weight:700;">5 turns</span>
+                                </div>
+                                <input type="range" id="aiMaxBotTurns" min="2" max="20" value="5" class="z-input" style="padding:0; background:transparent;" oninput="updateAITurnsLabel(this.value)">
+                                <small style="color:var(--text-muted); font-size:0.72rem; margin-top:8px; display:block; line-height:1.4;">
+                                    ⚠️ **Cost Protection**: Once the turn limit is reached, a **5-minute cooldown** pause will trigger to protect your API keys.
+                                    <br>
+                                    🚀 **Human Priority**: Any message sent by a human user immediately resets the counter to 0 and wakes the bot up, greeting the user!
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- SUPPORT & RAG CONFIGS -->
+                        <div class="z-card-header" style="margin-top:32px;">
+                            <h3>RAG Support Agent</h3>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <h4>Enable AI Q&A Support</h4>
+                                <p>Resolve server questions dynamically using FAQs and Server Rules channels as a context knowledge base.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="aiSupportEnabled" onchange="toggleAISubsections()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div id="aiSupportFieldsGroup" style="margin-top:16px;">
+                            <div class="z-input-group">
+                                <label>Support Channel</label>
+                                <select class="z-input" id="aiSupportChannel"></select>
+                            </div>
+                            <div class="z-input-group">
+                                <label>Knowledge Base Channels</label>
+                                <select class="z-input" id="aiSupportKnowledgeChannels" multiple></select>
+                                <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">Select channels (e.g. #rules, #faq) the AI scans to retrieve factual context for answering users.</small>
+                            </div>
+                        </div>
+
+                        <button class="z-btn z-btn-primary" style="margin-top:32px; width: 100%;" onclick="saveAIAgentConfig()"><i class="fas fa-save"></i> Deploy AI Agent settings</button>
+                    </div>
+
+                    <!-- Right Side: Immersive Chat Preview -->
+                    <div class="z-card" style="position:sticky; top:24px;">
+                        <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:#949ba4; margin-bottom:20px; font-family:'Inter',sans-serif;">Agent Dialogue Simulator</h4>
+                        
+                        <div style="background:#2b2d31; border:1px solid #1e1f22; border-radius:var(--radius-md); padding:20px; min-height:300px; display:flex; flex-direction:column; justify-content:space-between;">
+                            <div class="discord-chat-viewer" id="aiChatPreviewContainer">
+                                <!-- Simulated Discord Messages -->
+                                <div class="discord-message">
+                                    <div class="discord-avatar" style="background:#5865F2;">U</div>
+                                    <div class="discord-content">
+                                        <span style="color:#fff; font-weight:600; font-size:0.9rem;">Citizen</span>
+                                        <span style="color:#949ba4; font-size:0.75rem; margin-left:8px;">Today at 12:00 PM</span>
+                                        <p style="color:#dbdee1; font-size:0.9rem; margin-top:4px;" id="aiSimUserMessage">¡Hola! ¿Quién eres tú?</p>
+                                    </div>
+                                </div>
+
+                                <div class="discord-message" style="margin-top:12px;">
+                                    <div class="discord-avatar" style="background:var(--gold-700);" id="aiSimAvatar">T</div>
+                                    <div class="discord-content">
+                                        <span style="color:var(--gold-500); font-weight:600; font-size:0.9rem;" id="aiSimBotName">Tony Soprano</span>
+                                        <span style="background:#5865F2; color:#fff; font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:6px; font-weight:700; vertical-align:middle;">BOT</span>
+                                        <span style="color:#949ba4; font-size:0.75rem; margin-left:8px;">Today at 12:00 PM</span>
+                                        <p style="color:#dbdee1; font-size:0.9rem; margin-top:4px;" id="aiSimBotResponse">¿Que quién soy yo? ¡Soy Tony Soprano! El tipo que manda aquí. Así que ten cuidado con tus modales, ¿de acuerdo?</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="border-top:1px solid rgba(255,255,255,0.05); padding-top:16px; margin-top:20px; font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Preview updates automatically based on the selected Template.</span>
+                            </div>
                         </div>
                     </div>
                 </div>

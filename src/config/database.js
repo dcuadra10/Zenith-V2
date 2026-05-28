@@ -69,7 +69,81 @@ function restoreKeys(row) {
 
 async function createDbInstance() {
     try {
-        if (process.env.DB_TYPE === 'sqlite') {
+        let useSqlite = process.env.DB_TYPE === 'sqlite';
+        
+        if (!useSqlite && process.env.DATABASE_URL) {
+            let pool;
+            try {
+                console.log("[DB] Attempting PostgreSQL connection...");
+                pool = new Pool({
+                    connectionString: process.env.DATABASE_URL,
+                    ssl: {
+                        rejectUnauthorized: false
+                    },
+                    max: 10,
+                    idleTimeoutMillis: 30000,
+                    connectionTimeoutMillis: 10000
+                });
+
+                pool.on('error', (err) => {
+                    console.error('[DB] Unexpected error on idle database pool client:', err.message || err);
+                });
+
+                // Test connection by executing a quick query to check for quota/permissions
+                await pool.query('SELECT 1');
+                console.log("[DB] PostgreSQL connection successful.");
+
+                const wrapper = {
+                    run: async (query, params = []) => {
+                        const { text, values } = convertSqliteToPg(query, params);
+                        const res = await pool.query(text, values);
+                        return { changes: res.rowCount, rows: res.rows };
+                    },
+                    get: async (query, params = []) => {
+                        const { text, values } = convertSqliteToPg(query, params);
+                        const res = await pool.query(text, values);
+                        return restoreKeys(res.rows[0]);
+                    },
+                    all: async (query, params = []) => {
+                        const { text, values } = convertSqliteToPg(query, params);
+                        const res = await pool.query(text, values);
+                        return res.rows.map(restoreKeys);
+                    },
+                    exec: async (query) => {
+                        const pgQuery = convertSqliteSchemaToPg(query);
+                        return pool.query(pgQuery);
+                    },
+                    transaction: async (callback) => {
+                        const client = await pool.connect();
+                        try {
+                            await client.query('BEGIN');
+                            const result = await callback(client);
+                            await client.query('COMMIT');
+                            return result;
+                        } catch (e) {
+                            await client.query('ROLLBACK');
+                            throw e;
+                        } finally {
+                            client.release();
+                        }
+                    }
+                };
+                
+                dbInstance = wrapper;
+            } catch (pgErr) {
+                console.error("[DB WARNING] PostgreSQL connection failed. Error:", pgErr.message || pgErr);
+                console.warn("[DB WARNING] Falling back to local SQLite database...");
+                if (pool) {
+                    try { await pool.end(); } catch (e) {}
+                }
+                useSqlite = true;
+            }
+        } else if (!useSqlite) {
+            console.warn("[DB WARNING] DATABASE_URL not defined. Defaulting to local SQLite database...");
+            useSqlite = true;
+        }
+
+        if (useSqlite) {
             console.log("[DB] Using local SQLite database...");
             const sqlite3 = require('sqlite3').verbose();
             const db = new sqlite3.Database(process.env.SQLITE_PATH || './database.sqlite');
@@ -132,63 +206,6 @@ async function createDbInstance() {
                             }
                         });
                     });
-                }
-            };
-            
-            dbInstance = wrapper;
-        } else {
-            if (!process.env.DATABASE_URL) {
-                console.warn("[WARNING] DATABASE_URL is not defined in .env. Ensure it is set for NeonDB.");
-            }
-            
-            const pool = new Pool({
-                connectionString: process.env.DATABASE_URL || "postgresql://user:pass@host/db",
-                ssl: {
-                    rejectUnauthorized: false
-                },
-                max: 10,
-                idleTimeoutMillis: 30000,
-                connectionTimeoutMillis: 10000
-            });
-
-            // Handle unexpected errors on idle pool clients to prevent process crashes
-            pool.on('error', (err) => {
-                console.error('[DB] Unexpected error on idle database pool client:', err.message || err);
-            });
-
-            const wrapper = {
-                run: async (query, params = []) => {
-                    const { text, values } = convertSqliteToPg(query, params);
-                    const res = await pool.query(text, values);
-                    return { changes: res.rowCount, rows: res.rows };
-                },
-                get: async (query, params = []) => {
-                    const { text, values } = convertSqliteToPg(query, params);
-                    const res = await pool.query(text, values);
-                    return restoreKeys(res.rows[0]);
-                },
-                all: async (query, params = []) => {
-                    const { text, values } = convertSqliteToPg(query, params);
-                    const res = await pool.query(text, values);
-                    return res.rows.map(restoreKeys);
-                },
-                exec: async (query) => {
-                    const pgQuery = convertSqliteSchemaToPg(query);
-                    return pool.query(pgQuery);
-                },
-                transaction: async (callback) => {
-                    const client = await pool.connect();
-                    try {
-                        await client.query('BEGIN');
-                        const result = await callback(client);
-                        await client.query('COMMIT');
-                        return result;
-                    } catch (e) {
-                        await client.query('ROLLBACK');
-                        throw e;
-                    } finally {
-                        client.release();
-                    }
                 }
             };
             

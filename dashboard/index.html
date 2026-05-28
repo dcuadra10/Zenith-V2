@@ -1614,6 +1614,13 @@
                             <label>Greeting Channel</label>
                             <select class="z-input" id="aiWelcomeChannel"></select>
                         </div>
+                        <div class="z-input-group" id="aiWelcomeMessageGroup" style="margin-top:16px;">
+                            <label>Welcome Message Template</label>
+                            <textarea class="z-input" id="aiWelcomeMessage" style="min-height: 80px;" placeholder="e.g. Welcome to our kingdom {user}! Read #rules and have fun!"></textarea>
+                            <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">
+                                Type the base welcome message template. The AI Agent will read this and rewrite it in its own tone, personality, and style! Supports `{user}`, `{server}`, and `{memberCount}` placeholders.
+                            </small>
+                        </div>
 
                         <!-- CHAT CONFIGS -->
                         <div class="z-card-header" style="margin-top:32px;">

@@ -2999,6 +2999,7 @@ async function fetchAIAgentConfig() {
 
         setCheck('aiWelcomeEnabled', config.welcomeEnabled);
         setVal('aiWelcomeChannel', config.welcomeChannel || '');
+        setVal('aiWelcomeMessage', config.welcomeMessage || '');
 
         setCheck('aiChatEnabled', config.chatEnabled);
         
@@ -3068,6 +3069,7 @@ function toggleAISubsections() {
     const supportEnabled = document.getElementById('aiSupportEnabled').checked;
 
     document.getElementById('aiWelcomeChannelGroup').style.display = welcomeEnabled ? '' : 'none';
+    document.getElementById('aiWelcomeMessageGroup').style.display = welcomeEnabled ? '' : 'none';
     document.getElementById('aiChatChannelsGroup').style.display = chatEnabled ? '' : 'none';
     
     // Bot-to-bot row visibility is nested under Chat Enable
@@ -3230,6 +3232,7 @@ async function saveAIAgentConfig() {
         characterTraits: getVal('aiCharacterTraits'),
         welcomeEnabled: getCheck('aiWelcomeEnabled'),
         welcomeChannel: getVal('aiWelcomeChannel'),
+        welcomeMessage: getVal('aiWelcomeMessage'),
         chatEnabled: getCheck('aiChatEnabled'),
         chatChannels: JSON.stringify(chatVal || []),
         supportEnabled: getCheck('aiSupportEnabled'),

@@ -63,24 +63,55 @@ module.exports = function setupAIAgent(client) {
             const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ?`, [member.guild.id]);
             if (!config || config.enabled === 0 || !config.welcomeEnabled || !config.welcomeChannel || !config.openaiApiKey) return;
 
+            // Wait 1.5 seconds for the Discord system join message to appear in the channel
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
             const welcomeChan = member.guild.channels.cache.get(config.welcomeChannel);
             if (!welcomeChan) return;
 
             welcomeChan.sendTyping().catch(() => {});
+
+            // Construct rich prompt
+            let baseInstructions = `Saluda al nuevo miembro "${member.user.username}" (menciónalo usando <@${member.user.id}>) que acaba de unirse al servidor de Discord. Dale una bienvenida extremadamente cálida y divertida acorde a tu personalidad en una sola respuesta corta de Discord.`;
+            
+            if (config.welcomeMessage) {
+                let template = config.welcomeMessage
+                    .replace(/{user}/g, `<@${member.user.id}>`)
+                    .replace(/{server}/g, member.guild.name)
+                    .replace(/{memberCount}/g, member.guild.memberCount);
+
+                baseInstructions = `Saluda al nuevo miembro "${member.user.username}" (menciónalo usando <@${member.user.id}>).
+Debes reescribir y transmitir el siguiente mensaje de bienvenida de forma divertida y adaptada completamente a tu personalidad, estilo, tono y rasgos de personaje:
+"${template}"
+Asegúrate de incluir la mención al usuario <@${member.user.id}> de forma natural en tu respuesta.`;
+            }
 
             const systemPrompt = `Eres un personaje de Discord llamado "${config.characterName}".
 Tus rasgos y personalidad son:
 ${config.characterTraits}
 
 Instrucciones:
-Saluda al nuevo miembro "${member.user.username}" (menciónalo usando <@${member.user.id}>) que acaba de unirse al servidor de Discord. Dale una bienvenida extremadamente cálida y divertida acorde a tu personalidad en una sola respuesta corta de Discord.${getLanguageInstruction(config.languageMode)}`;
+${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
 
             const welcomeMessage = await askOpenAI(config.openaiApiKey, systemPrompt, [
                 { role: 'user', content: `Dale la bienvenida a <@${member.user.id}>` }
             ]);
 
             if (welcomeMessage) {
-                await welcomeChan.send(welcomeMessage);
+                // Fetch the last 10 messages in the welcome channel to find the Discord system join message for this user
+                const messages = await welcomeChan.messages.fetch({ limit: 10 }).catch(() => null);
+                let joinMsg = null;
+                if (messages) {
+                    joinMsg = messages.find(m => m.author.id === member.id || (m.system && m.type === 7 && m.mentions.users.has(member.id)));
+                }
+
+                if (joinMsg) {
+                    // Simulates pressing the "Wave to say hi!" system button
+                    await joinMsg.react('👋').catch(() => null);
+                    await joinMsg.reply({ content: welcomeMessage }).catch(() => null);
+                } else {
+                    await welcomeChan.send({ content: welcomeMessage }).catch(() => null);
+                }
             }
         } catch (e) {
             console.error('[AI Agent Welcome Gate Error]:', e);

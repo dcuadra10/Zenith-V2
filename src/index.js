@@ -300,11 +300,11 @@ app.post('/api/config/:guildId', authenticateToken, async (req, res) => {
 // Branding Management Removed
 
 // GET Custom Bot Info
-app.get('/api/custom-bot/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-
+app.get('/api/custom-bot/:guildId', authenticateToken, async (req, res) => {
     try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         const db = await getDb();
         const bot = await db.get(`SELECT botToken, clientId, status, errorMessage FROM custom_bots WHERE guildId = ?`, [req.params.guildId]);
         if (bot) {
@@ -319,14 +319,14 @@ app.get('/api/custom-bot/:guildId', async (req, res) => {
 });
 
 // POST Custom Bot Connect
-app.post('/api/custom-bot/:guildId', async (req, res) => {
-    const tokenCookie = req.cookies.discord_token;
-    if (!tokenCookie) return res.status(401).json({ error: 'No autorizado' });
-
-    const { botToken } = req.body;
-    if (!botToken) return res.status(400).json({ error: 'Falta el Token del Bot' });
-
+app.post('/api/custom-bot/:guildId', authenticateToken, async (req, res) => {
     try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const { botToken } = req.body;
+        if (!botToken) return res.status(400).json({ error: 'Falta el Token del Bot' });
+
         const db = await getDb();
         await db.run(
             `INSERT INTO custom_bots (guildId, botToken, status) VALUES (?, ?, 'starting') 
@@ -348,13 +348,30 @@ app.post('/api/custom-bot/:guildId', async (req, res) => {
     }
 });
 
+// DELETE Custom Bot Disconnect
+app.delete('/api/custom-bot/:guildId', authenticateToken, async (req, res) => {
+    try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const customBotManager = require('./managers/CustomBotManager');
+        await customBotManager.stopBot(req.params.guildId);
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error disconnecting custom bot:', e);
+        res.status(500).json({ error: 'Error al desconectar el bot personalizado' });
+    }
+});
+
 // Branding & Custom Bot APIs Removed
 
 // GET Panels for a specific Guild
-app.get('/api/panels/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
+app.get('/api/panels/:guildId', authenticateToken, async (req, res) => {
     try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         const db = await getDb();
         const panels = await db.all(`SELECT * FROM ticket_panels WHERE guildId = ?`, [req.params.guildId]);
         res.json(panels);
@@ -364,15 +381,15 @@ app.get('/api/panels/:guildId', async (req, res) => {
 });
 
 // POST Create or Update Panel
-app.post('/api/panels/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-    
-    const { id, channelId, messageId, panelData } = req.body;
-    const guildId = req.params.guildId;
-    const panelId = id || Math.random().toString(36).substring(2, 10);
-    
+app.post('/api/panels/:guildId', authenticateToken, async (req, res) => {
     try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const { id, channelId, messageId, panelData } = req.body;
+        const guildId = req.params.guildId;
+        const panelId = id || Math.random().toString(36).substring(2, 10);
+        
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return res.status(400).json({ error: 'Bot is not in this guild' });
         
@@ -466,11 +483,15 @@ app.post('/api/panels/:guildId', async (req, res) => {
 });
 
 // DELETE Panel
-app.delete('/api/panels/:id', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
+app.delete('/api/panels/:id', authenticateToken, async (req, res) => {
     try {
         const db = await getDb();
+        const panel = await db.get(`SELECT guildId FROM ticket_panels WHERE id = ?`, [req.params.id]);
+        if (!panel) return res.status(404).json({ error: 'Panel not found' });
+
+        const hasAdmin = await checkAdmin(req.user.id, panel.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         await db.run(`DELETE FROM ticket_panels WHERE id = ?`, [req.params.id]);
         res.json({ success: true });
     } catch(e) {
@@ -479,13 +500,16 @@ app.delete('/api/panels/:id', async (req, res) => {
 });
 
 // Update Panel (EDIT)
-app.put('/api/panels/:id', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-    
+app.put('/api/panels/:id', authenticateToken, async (req, res) => {
     const { panelData } = req.body;
     try {
         const db = await getDb();
+        const panel = await db.get(`SELECT guildId FROM ticket_panels WHERE id = ?`, [req.params.id]);
+        if (!panel) return res.status(404).json({ error: 'Panel not found' });
+
+        const hasAdmin = await checkAdmin(req.user.id, panel.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         await db.run(
             `UPDATE ticket_panels SET panelData = ? WHERE id = ?`,
             [JSON.stringify(panelData), req.params.id]
@@ -498,10 +522,11 @@ app.put('/api/panels/:id', async (req, res) => {
 });
 
 // GET Giveaways
-app.get('/api/giveaways/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
+app.get('/api/giveaways/:guildId', authenticateToken, async (req, res) => {
     try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         const db = await getDb();
         const giveaways = await db.all(`SELECT * FROM giveaways WHERE guildId = ? ORDER BY endTime DESC`, [req.params.guildId]);
         res.json(giveaways || []);
@@ -511,27 +536,21 @@ app.get('/api/giveaways/:guildId', async (req, res) => {
 });
 
 // POST Giveaways
-app.post('/api/giveaways/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-    
+app.post('/api/giveaways/:guildId', authenticateToken, async (req, res) => {
     const { channelId, prize, winnersCount, durationMs, color, requiredRole, pingRole } = req.body;
     const guildId = req.params.guildId;
     
     try {
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return res.status(400).json({ error: 'Bot is not in this guild' });
         
         const channel = guild.channels.cache.get(channelId);
         if (!channel) return res.status(400).json({ error: 'Channel not found' });
         
-        // Fetch user from token to set hostedBy (we can use client.users but we need the admin's ID)
-        let userId = 'Unknown';
-        try {
-            const userRes = await axios.get('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${token}` } });
-            userId = userRes.data.id;
-        } catch(e) {}
-        
+        const userId = req.user.id;
         const endTime = Date.now() + durationMs;
         const endUnix = Math.floor(endTime / 1000); // Unix for Discord <t:...>
         
@@ -642,6 +661,7 @@ app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 characterTraits: '',
                 welcomeEnabled: 0,
                 welcomeChannel: '',
+                welcomeMessage: '',
                 chatEnabled: 0,
                 chatChannels: '[]',
                 supportEnabled: 0,
@@ -679,6 +699,7 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
             characterTraits,
             welcomeEnabled,
             welcomeChannel,
+            welcomeMessage,
             chatEnabled,
             chatChannels,
             supportEnabled,
@@ -701,16 +722,17 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         await db.run(
             `INSERT INTO ai_agent_configs (
                 guildId, openaiApiKey, characterName, characterTraits,
-                welcomeEnabled, welcomeChannel, chatEnabled, chatChannels,
+                welcomeEnabled, welcomeChannel, welcomeMessage, chatEnabled, chatChannels,
                 supportEnabled, supportChannel, supportKnowledgeChannels,
                 botToBotChatEnabled, maxBotTurns, enabled, languageMode
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(guildId) DO UPDATE SET
              openaiApiKey = excluded.openaiApiKey,
              characterName = excluded.characterName,
              characterTraits = excluded.characterTraits,
              welcomeEnabled = excluded.welcomeEnabled,
              welcomeChannel = excluded.welcomeChannel,
+             welcomeMessage = excluded.welcomeMessage,
              chatEnabled = excluded.chatEnabled,
              chatChannels = excluded.chatChannels,
              supportEnabled = excluded.supportEnabled,
@@ -727,6 +749,7 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 characterTraits || '',
                 welcomeEnabled ? 1 : 0,
                 welcomeChannel || '',
+                welcomeMessage || '',
                 chatEnabled ? 1 : 0,
                 chatChannels || '[]',
                 supportEnabled ? 1 : 0,
@@ -818,24 +841,12 @@ Keep it highly structured and detailed, and write the instructions in English so
 });
 
 
-// GET Transcripts
-app.get('/api/transcripts/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-    try {
-        const db = await getDb();
-        const transcripts = await db.all(`SELECT ticketId, userId, closedAt, logContent FROM ticket_transcripts WHERE guildId = ? ORDER BY closedAt DESC LIMIT 50`, [req.params.guildId]);
-        res.json(transcripts);
-    } catch (e) {
-        res.status(500).json({ error: 'Error fetching transcripts' });
-    }
-});
-
 // GET Module Configs
-app.get('/api/modules/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
+app.get('/api/modules/:guildId', authenticateToken, async (req, res) => {
     try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         const db = await getDb();
         const configRaw = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [req.params.guildId]);
         if (!configRaw) return res.json({});
@@ -853,8 +864,10 @@ app.get('/api/modules/:guildId', async (req, res) => {
 });
 
 // GET Guild Roles
-app.get('/api/guild/:guildId/roles', async (req, res) => {
+app.get('/api/guild/:guildId/roles', authenticateToken, async (req, res) => {
     try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
 
         const guild = client.guilds.cache.get(req.params.guildId);
         if (!guild) return res.status(404).json({ error: 'Guild not found' });
@@ -870,14 +883,14 @@ app.get('/api/guild/:guildId/roles', async (req, res) => {
 });
 
 // POST Module Configs
-app.post('/api/modules/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-    
+app.post('/api/modules/:guildId', authenticateToken, async (req, res) => {
     const b = req.body;
     const guildId = req.params.guildId;
     
     try {
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         const db = await getDb();
         
         // Build dynamic upsert
@@ -1096,11 +1109,11 @@ app.post('/api/rss/deploy-panel/:guildId', authenticateToken, async (req, res) =
 });
 
 // GET R4 Tracking Data
-app.get('/api/r4-tracking/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-
+app.get('/api/r4-tracking/:guildId', authenticateToken, async (req, res) => {
     try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         const db = await getDb();
         const records = await db.all(`SELECT * FROM r4_tracking WHERE guildId = ? ORDER BY weekId DESC`, [req.params.guildId]);
         
@@ -1109,8 +1122,8 @@ app.get('/api/r4-tracking/:guildId', async (req, res) => {
             const guild = client.guilds.cache.get(req.params.guildId);
             if (guild) {
                 try {
-                    const members = await guild.members.fetch();
-                    members.forEach(m => {
+                    await guild.members.fetch();
+                    guild.members.cache.forEach(m => {
                         membersMap[m.id] = {
                             username: m.user.username,
                             displayName: m.displayName,
@@ -1138,12 +1151,12 @@ app.get('/api/r4-tracking/:guildId', async (req, res) => {
 });
 
 // POST Excuse R4 User
-app.post('/api/r4-tracking/excuse/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-
+app.post('/api/r4-tracking/excuse/:guildId', authenticateToken, async (req, res) => {
     const { userId, weekId, excused, excuseReason } = req.body;
     try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
         const db = await getDb();
         // Use an UPSERT so we insert a new record if they haven't logged any activity yet!
         await db.run(
@@ -1162,19 +1175,10 @@ app.post('/api/r4-tracking/excuse/:guildId', async (req, res) => {
 });
 
 // GET Transcripts List
-app.get('/api/transcripts/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-
+app.get('/api/transcripts/:guildId', authenticateToken, async (req, res) => {
     try {
-        const userGuilds = await fetch('https://discord.com/api/users/@me/guilds', {
-            headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.json());
-
-        const guild = userGuilds.find(g => g.id === req.params.guildId);
-        if (!guild || !(guild.permissions & 0x8)) {
-            return res.status(403).json({ error: 'Insufficient permissions' });
-        }
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
 
         const db = await getDb();
         const logs = await db.all('SELECT ticketId, userId, closedAt FROM ticket_transcripts WHERE guildId = ? ORDER BY closedAt DESC', [req.params.guildId]);
@@ -1186,19 +1190,10 @@ app.get('/api/transcripts/:guildId', async (req, res) => {
 });
 
 // GET Single Transcript Content
-app.get('/api/transcripts/:guildId/:ticketId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-
+app.get('/api/transcripts/:guildId/:ticketId', authenticateToken, async (req, res) => {
     try {
-        const userGuilds = await fetch('https://discord.com/api/users/@me/guilds', {
-            headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.json());
-
-        const guild = userGuilds.find(g => g.id === req.params.guildId);
-        if (!guild || !(guild.permissions & 0x8)) {
-            return res.status(403).json({ error: 'Insufficient permissions' });
-        }
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
 
         const db = await getDb();
         const transcript = await db.get('SELECT logContent FROM ticket_transcripts WHERE guildId = ? AND ticketId = ?', [req.params.guildId, req.params.ticketId]);
@@ -1212,19 +1207,10 @@ app.get('/api/transcripts/:guildId/:ticketId', async (req, res) => {
 });
 
 // POST Import Levels from Backup
-app.post('/api/levels/import/:guildId', async (req, res) => {
-    const token = req.cookies.discord_token;
-    if (!token) return res.status(401).json({ error: 'No autorizado' });
-
+app.post('/api/levels/import/:guildId', authenticateToken, async (req, res) => {
     try {
-        const userGuilds = await axios.get('https://discord.com/api/users/@me/guilds', {
-            headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.data);
-
-        const guild = userGuilds.find(g => g.id === req.params.guildId);
-        if (!guild || !(guild.permissions & 0x8)) {
-            return res.status(403).json({ error: 'Insufficient permissions' });
-        }
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
 
         const levelsData = req.body.levels;
         if (!levelsData || !Array.isArray(levelsData)) {

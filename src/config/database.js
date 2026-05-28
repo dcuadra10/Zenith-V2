@@ -568,6 +568,7 @@ async function createDbInstance() {
                 characterTraits TEXT,
                 welcomeEnabled INTEGER DEFAULT 0,
                 welcomeChannel TEXT,
+                welcomeMessage TEXT,
                 chatEnabled INTEGER DEFAULT 0,
                 chatChannels TEXT,
                 supportEnabled INTEGER DEFAULT 0,
@@ -975,7 +976,7 @@ async function initializeSchema() {
         ],
         ai_agent_configs: [
             'openaiApiKey TEXT', 'characterName TEXT', 'characterTraits TEXT',
-            'welcomeEnabled INTEGER DEFAULT 0', 'welcomeChannel TEXT',
+            'welcomeEnabled INTEGER DEFAULT 0', 'welcomeChannel TEXT', 'welcomeMessage TEXT',
             'chatEnabled INTEGER DEFAULT 0', 'chatChannels TEXT',
             'supportEnabled INTEGER DEFAULT 0', 'supportChannel TEXT',
             'supportKnowledgeChannels TEXT', 'botToBotChatEnabled INTEGER DEFAULT 0',

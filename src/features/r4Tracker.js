@@ -23,16 +23,47 @@ module.exports = (client) => {
 
             for (const key in groups) {
                 const group = groups[key];
-                const conf = await db.get(`SELECT r4TrackingAdQuota, r4TrackingMsgQuota, spreadsheetId FROM module_configs mc JOIN guild_configs gc ON mc.guildId = gc.guildId WHERE mc.guildId = ?`, [group.guildId]);
+                const conf = await db.get(`SELECT r4TrackingAdQuota, r4TrackingMsgQuota, r4TrackingRole, spreadsheetId FROM module_configs mc JOIN guild_configs gc ON mc.guildId = gc.guildId WHERE mc.guildId = ?`, [group.guildId]);
                 
                 if (!conf) continue;
 
                 const adQuota = conf.r4TrackingAdQuota || 40;
                 const msgQuota = conf.r4TrackingMsgQuota || 245;
+                const roleIdRaw = conf.r4TrackingRole || conf.r4trackingrole;
+                const r4RoleId = roleIdRaw ? roleIdRaw.replace(/[^0-9]/g, '') : null;
+
+                let guild = null;
+                try {
+                    guild = await client.guilds.fetch(group.guildId);
+                } catch (e) {
+                    console.log(`Could not fetch guild ${group.guildId} for R4 tracking evaluation`);
+                }
+
+                if (!guild || !r4RoleId) {
+                    // Mark as processed if guild or role is missing/invalid to keep the queue clean
+                    for (const record of group.records) {
+                        await db.run(`UPDATE r4_tracking SET isProcessed = 1 WHERE userId = ? AND guildId = ? AND weekId = ?`, [record.userId, record.guildId, record.weekId]);
+                    }
+                    continue;
+                }
 
                 const sheetData = [];
 
                 for (const record of group.records) {
+                    let member = null;
+                    try {
+                        member = await guild.members.fetch(record.userId);
+                    } catch (e) {
+                        // User left the guild or failed to fetch
+                    }
+
+                    if (!member || !member.roles.cache.has(r4RoleId)) {
+                        // User is no longer in the guild or no longer has the R4 role.
+                        // Mark as processed so we don't check again, but do NOT send DM or add to Sheets.
+                        await db.run(`UPDATE r4_tracking SET isProcessed = 1 WHERE userId = ? AND guildId = ? AND weekId = ?`, [record.userId, record.guildId, record.weekId]);
+                        continue;
+                    }
+
                     const adPct = (record.ads / adQuota) * 100;
                     const msgPct = (record.messages / msgQuota) * 100;
                     const totalPct = Math.min(Math.round(adPct + msgPct), 200);

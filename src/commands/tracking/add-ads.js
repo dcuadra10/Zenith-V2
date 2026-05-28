@@ -110,15 +110,15 @@ async function processAdsSubmission(interaction, amount) {
                     
                     const leaderboardEmbed = new EmbedBuilder()
                       .setTitle('🏆 Top Ad Publishers')
-                      .setColor('Gold');
+                      .setColor('#FFD700');
                       
                     if (!topUsers || topUsers.length === 0) {
-                        leaderboardEmbed.setDescription('No ads have been registered yet. Be the first!');
+                        leaderboardEmbed.setDescription('🏆 **Leaderboard of the Week**\n\n*The board is currently vacant. Be the first to register an ad and secure the top spot!*');
                     } else {
-                        let desc = '';
+                        let desc = '🏆 **Leaderboard of the Week**\n\n';
                         topUsers.forEach((u, i) => {
                             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅';
-                            desc += `${medal} **<@${u.userId}>**: ${u.totalAds} Ads\n`;
+                            desc += `${medal} <@${u.userId}> ── **${u.totalAds}** ads\n`;
                         });
                         leaderboardEmbed.setDescription(desc);
                     }

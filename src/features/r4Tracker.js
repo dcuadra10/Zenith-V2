@@ -1,5 +1,5 @@
 const { getDb } = require('../config/database');
-const { getISOWeekString } = require('../utils/dateHelpers');
+const { getISOWeekString, isWeekWithinExcuse } = require('../utils/dateHelpers');
 const { exportR4WeeklyData } = require('../utils/googleSheetsConnector');
 
 module.exports = (client) => {
@@ -64,12 +64,25 @@ module.exports = (client) => {
                         continue;
                     }
 
+                    // Check if they are excused under r4_excuses
+                    const excuse = await db.get(`SELECT startWeekId, durationWeeks, excuseReason FROM r4_excuses WHERE userId = ? AND guildId = ?`, [record.userId, record.guildId]);
+                    let isExcused = record.excused === 1;
+                    let excuseReason = record.excuseReason;
+
+                    if (excuse) {
+                        const excuseCheck = isWeekWithinExcuse(excuse.startWeekId, excuse.durationWeeks, record.weekId);
+                        if (excuseCheck.excused) {
+                            isExcused = true;
+                            excuseReason = excuse.excuseReason || 'Excusado';
+                        }
+                    }
+
                     const adPct = (record.ads / adQuota) * 100;
                     const msgPct = (record.messages / msgQuota) * 100;
                     const totalPct = Math.min(Math.round(adPct + msgPct), 200);
 
                     let status = 'Failing';
-                    if (record.excused) status = 'Excused';
+                    if (isExcused) status = 'Excused';
                     else if (totalPct >= 100) status = 'Passed';
                     else if (totalPct >= 75) status = 'Warning';
 
@@ -83,7 +96,7 @@ module.exports = (client) => {
                     });
 
                     // If failing (<75%) and not excused, send DM
-                    if (totalPct < 75 && !record.excused) {
+                    if (totalPct < 75 && !isExcused) {
                         try {
                             const user = await client.users.fetch(record.userId);
                             if (user) {

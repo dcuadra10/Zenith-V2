@@ -1889,6 +1889,18 @@
                     <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Excuse Reason</label>
                     <input class="z-input" type="text" id="r4ExcuseReason" placeholder="e.g. Vacation, Sick leave, Exam week..." style="width:100%; box-sizing:border-box;">
                 </div>
+                <div class="z-input-group" id="r4ExcuseDurationGroup" style="margin-bottom:20px; display:none;">
+                    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Excuse Duration (Weeks)</label>
+                    <select class="z-input" id="r4ExcuseDuration" style="width:100%; box-sizing:border-box; background: rgba(30,30,40,0.9); border: 1px solid var(--border-subtle); color: #fff; padding: 10px; border-radius: var(--radius-md);">
+                        <option value="1">1 Week</option>
+                        <option value="2">2 Weeks</option>
+                        <option value="3">3 Weeks</option>
+                        <option value="4">4 Weeks</option>
+                        <option value="6">6 Weeks</option>
+                        <option value="8">8 Weeks</option>
+                        <option value="12">12 Weeks</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px;">
                 <button class="z-btn z-btn-secondary" onclick="closeModal('r4ExcuseModal')">Cancel</button>

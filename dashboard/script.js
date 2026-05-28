@@ -2828,12 +2828,14 @@ function renderR4Table() {
         const msgPct = (item.messages / msgQuota) * 100;
         const totalPct = Math.min(Math.round(adPct + msgPct), 200);
 
+
         let statusText = `${totalPct}%`;
         let statusColor = 'var(--accent-red, #ef4444)';
         let barColor = 'var(--accent-red, #ef4444)';
 
         if (item.excused) {
-            statusText = `Excused`;
+            const leftText = item.excuseWeeksRemaining > 0 ? ` (${item.excuseWeeksRemaining} wks left)` : '';
+            statusText = `Excused${leftText}`;
             statusColor = 'var(--accent-purple, #a855f7)';
             barColor = 'var(--accent-purple, #a855f7)';
         } else if (totalPct >= 100) {
@@ -2882,26 +2884,36 @@ function renderR4Table() {
             <td><strong>${item.messages}</strong></td>
             <td>${progressHtml}</td>
             <td>
-                <button class="z-btn z-btn-secondary z-btn-sm" style="display:flex; align-items:center; gap:4px; padding: 4px 8px; font-size: 0.75rem;" onclick="openR4ExcuseModal('${item.userId}', '${escapeJsString(item.displayName)}', '${item.weekId}', ${item.excused ? 1 : 0}, '${escapeJsString(item.excuseReason || '')}')">
+                <button class="z-btn z-btn-secondary z-btn-sm" style="display:flex; align-items:center; gap:4px; padding: 4px 8px; font-size: 0.75rem;" onclick="openR4ExcuseModal('${item.userId}', '${escapeJsString(item.displayName)}', '${item.weekId}', ${item.excused ? 1 : 0}, '${escapeJsString(item.excuseReason || '')}', ${item.excuseWeeksRemaining || 0})">
                     <i class="fas fa-user-shield"></i> Excuse
                 </button>
             </td>
         `;
+
         tbody.appendChild(row);
     });
 }
-
-function openR4ExcuseModal(userId, displayName, weekId, excused, excuseReason) {
+function openR4ExcuseModal(userId, displayName, weekId, excused, excuseReason, excuseWeeksRemaining) {
     document.getElementById('r4ExcuseUserId').value = userId;
     document.getElementById('r4ExcuseWeekId').value = weekId;
     document.getElementById('r4ExcuseModalTitle').textContent = `Excuse Officer: ${displayName}`;
-    document.getElementById('r4ExcuseModalSubtitle').textContent = `Set or clear exoneration for week ${weekId}.`;
+    
+    let subtitleText = `Set or clear exoneration starting week ${weekId}.`;
+    if (excused && excuseWeeksRemaining > 0) {
+        subtitleText += ` (Currently excused with ${excuseWeeksRemaining} week(s) remaining)`;
+    }
+    document.getElementById('r4ExcuseModalSubtitle').textContent = subtitleText;
     
     const toggle = document.getElementById('r4ExcuseToggle');
     toggle.checked = excused === 1;
     
     const reasonInput = document.getElementById('r4ExcuseReason');
     reasonInput.value = excuseReason || '';
+
+    const durationSelect = document.getElementById('r4ExcuseDuration');
+    if (durationSelect) {
+        durationSelect.value = excuseWeeksRemaining > 0 ? String(excuseWeeksRemaining) : "1";
+    }
     
     toggleR4ExcuseInput();
     
@@ -2915,8 +2927,12 @@ function openR4ExcuseModal(userId, displayName, weekId, excused, excuseReason) {
 function toggleR4ExcuseInput() {
     const isExcused = document.getElementById('r4ExcuseToggle').checked;
     const reasonGroup = document.getElementById('r4ExcuseReasonGroup');
+    const durationGroup = document.getElementById('r4ExcuseDurationGroup');
     if (reasonGroup) {
         reasonGroup.style.display = isExcused ? 'block' : 'none';
+    }
+    if (durationGroup) {
+        durationGroup.style.display = isExcused ? 'block' : 'none';
     }
 }
 
@@ -2925,6 +2941,7 @@ async function saveR4Excuse() {
     const weekId = document.getElementById('r4ExcuseWeekId').value;
     const excused = document.getElementById('r4ExcuseToggle').checked;
     const excuseReason = document.getElementById('r4ExcuseReason').value;
+    const durationWeeks = parseInt(document.getElementById('r4ExcuseDuration').value, 10) || 1;
 
     showToast('Updating officer excuse status...');
     try {
@@ -2934,7 +2951,8 @@ async function saveR4Excuse() {
                 userId,
                 weekId,
                 excused,
-                excuseReason
+                excuseReason,
+                durationWeeks
             })
         });
         const data = await res.json();
@@ -2949,7 +2967,6 @@ async function saveR4Excuse() {
         showToast('❌ Server error updating excuse', true);
     }
 }
-
 function escapeHtml(str) {
     if (!str) return '';
     return str.toString()

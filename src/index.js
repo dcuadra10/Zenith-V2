@@ -1117,6 +1117,13 @@ app.get('/api/r4-tracking/:guildId', authenticateToken, async (req, res) => {
         const db = await getDb();
         const records = await db.all(`SELECT * FROM r4_tracking WHERE guildId = ? ORDER BY weekId DESC`, [req.params.guildId]);
         
+        // Retrieve active multi-week excuses for this guild
+        const excuses = await db.all(`SELECT * FROM r4_excuses WHERE guildId = ?`, [req.params.guildId]);
+        const excusesMap = {};
+        excuses.forEach(exc => {
+            excusesMap[exc.userId] = exc;
+        });
+
         let membersMap = {};
         if (client.isReady()) {
             const guild = client.guilds.cache.get(req.params.guildId);
@@ -1136,12 +1143,33 @@ app.get('/api/r4-tracking/:guildId', authenticateToken, async (req, res) => {
             }
         }
 
-        const enrichedRecords = records.map(r => ({
-            ...r,
-            username: membersMap[r.userId]?.username || r.userId,
-            displayName: membersMap[r.userId]?.displayName || r.userId,
-            avatar: membersMap[r.userId]?.avatar || null
-        }));
+        const { isWeekWithinExcuse } = require('./utils/dateHelpers');
+
+        const enrichedRecords = records.map(r => {
+            const exc = excusesMap[r.userId];
+            let isExcused = r.excused === 1;
+            let excuseReason = r.excuseReason;
+            let excuseWeeksRemaining = 0;
+
+            if (exc) {
+                const check = isWeekWithinExcuse(exc.startWeekId, exc.durationWeeks, r.weekId);
+                if (check.excused) {
+                    isExcused = true;
+                    excuseReason = exc.excuseReason || 'Excusado';
+                    excuseWeeksRemaining = check.weeksRemaining;
+                }
+            }
+
+            return {
+                ...r,
+                username: membersMap[r.userId]?.username || r.userId,
+                displayName: membersMap[r.userId]?.displayName || r.userId,
+                avatar: membersMap[r.userId]?.avatar || null,
+                excused: isExcused ? 1 : 0,
+                excuseReason: excuseReason,
+                excuseWeeksRemaining: excuseWeeksRemaining
+            };
+        });
 
         res.json(enrichedRecords || []);
     } catch (e) {
@@ -1152,21 +1180,50 @@ app.get('/api/r4-tracking/:guildId', authenticateToken, async (req, res) => {
 
 // POST Excuse R4 User
 app.post('/api/r4-tracking/excuse/:guildId', authenticateToken, async (req, res) => {
-    const { userId, weekId, excused, excuseReason } = req.body;
+    const { userId, weekId, excused, excuseReason, durationWeeks } = req.body;
+    const duration = parseInt(durationWeeks, 10) || 1;
     try {
         const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
         if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
 
         const db = await getDb();
-        // Use an UPSERT so we insert a new record if they haven't logged any activity yet!
-        await db.run(
-            `INSERT INTO r4_tracking (userId, guildId, weekId, excused, excuseReason, messages, ads, isProcessed)
-             VALUES (?, ?, ?, ?, ?, 0, 0, 0)
-             ON CONFLICT(userId, guildId, weekId) DO UPDATE SET 
-                excused = EXCLUDED.excused,
-                excuseReason = EXCLUDED.excuseReason`,
-            [userId, req.params.guildId, weekId, excused ? 1 : 0, excused ? (excuseReason || 'Excusado') : null]
-        );
+
+        if (excused) {
+            // Save excuse in r4_excuses table
+            await db.run(
+                `INSERT INTO r4_excuses (userId, guildId, startWeekId, durationWeeks, excuseReason)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(userId, guildId) DO UPDATE SET 
+                    startWeekId = EXCLUDED.startWeekId,
+                    durationWeeks = EXCLUDED.durationWeeks,
+                    excuseReason = EXCLUDED.excuseReason`,
+                [userId, req.params.guildId, weekId, duration, excuseReason || 'Excusado']
+            );
+
+            // Sync r4_tracking row for current week for compatibility
+            await db.run(
+                `INSERT INTO r4_tracking (userId, guildId, weekId, excused, excuseReason, messages, ads, isProcessed)
+                 VALUES (?, ?, ?, 1, ?, 0, 0, 0)
+                 ON CONFLICT(userId, guildId, weekId) DO UPDATE SET 
+                    excused = 1,
+                    excuseReason = EXCLUDED.excuseReason`,
+                [userId, req.params.guildId, weekId, excuseReason || 'Excusado']
+            );
+        } else {
+            // Clear excuse in r4_excuses table
+            await db.run(
+                `DELETE FROM r4_excuses WHERE userId = ? AND guildId = ?`,
+                [userId, req.params.guildId]
+            );
+
+            // Clear excuse in r4_tracking row for current week
+            await db.run(
+                `UPDATE r4_tracking SET excused = 0, excuseReason = NULL 
+                 WHERE userId = ? AND guildId = ? AND weekId = ?`,
+                 [userId, req.params.guildId, weekId]
+            );
+        }
+
         res.json({ success: true });
     } catch (e) {
         console.error('Error excusing user:', e);

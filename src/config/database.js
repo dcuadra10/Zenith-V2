@@ -298,6 +298,16 @@ async function createDbInstance() {
                 PRIMARY KEY (userId, guildId, weekId)
             );
 
+            CREATE TABLE IF NOT EXISTS r4_excuses (
+                userId TEXT,
+                guildId TEXT,
+                startWeekId TEXT,
+                durationWeeks INTEGER DEFAULT 1,
+                excuseReason TEXT,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (userId, guildId)
+            );
+
             CREATE TABLE IF NOT EXISTS module_configs (
                 guildId TEXT PRIMARY KEY,
                 -- Welcome
@@ -733,6 +743,16 @@ async function initializeSchema() {
             excuseReason TEXT,
             isProcessed INTEGER DEFAULT 0,
             PRIMARY KEY (userId, guildId, weekId)
+        );
+
+        CREATE TABLE IF NOT EXISTS r4_excuses (
+            userId TEXT,
+            guildId TEXT,
+            startWeekId TEXT,
+            durationWeeks INTEGER DEFAULT 1,
+            excuseReason TEXT,
+            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (userId, guildId)
         );
 
         CREATE TABLE IF NOT EXISTS module_configs (

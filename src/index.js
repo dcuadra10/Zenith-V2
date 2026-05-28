@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js'); // Zenith City Life Update
+require('./utils/memberCache');
 require('dotenv').config();
 const { validateEnv } = require('./config/env');
 const express = require('express');

@@ -44,6 +44,82 @@ function remapEmbed(embed, threadMap, guildId) {
     return builder;
 }
 
+// Helper to fetch all messages in a channel/thread chronologically (oldest first)
+async function fetchAllMessages(channel) {
+    const allMessages = [];
+    let lastId = null;
+    while (true) {
+        try {
+            const options = { limit: 100 };
+            if (lastId) options.before = lastId;
+            const messages = await channel.messages.fetch(options);
+            if (messages.size === 0) break;
+            allMessages.push(...messages.values());
+            lastId = messages.lastKey();
+            if (messages.size < 100) break;
+        } catch (e) {
+            console.error(`Failed to fetch messages for ${channel.name || channel.id}:`, e);
+            break;
+        }
+    }
+    return allMessages.reverse();
+}
+
+// Helper to fetch all active and archived threads in a text channel
+async function fetchAllChannelThreads(sourceChannel) {
+    const allThreads = [];
+    
+    // 1. Fetch active threads
+    try {
+        const active = await sourceChannel.threads.fetchActive();
+        allThreads.push(...active.threads.values());
+    } catch (err) {
+        console.error('Error fetching active threads:', err);
+    }
+    
+    // 2. Fetch public archived threads in pagination loop
+    try {
+        let hasMore = true;
+        let before = null;
+        while (hasMore) {
+            const options = { type: 'public', limit: 100 };
+            if (before) options.before = before;
+            const fetched = await sourceChannel.threads.fetchArchived(options);
+            allThreads.push(...fetched.threads.values());
+            hasMore = fetched.hasMore;
+            if (fetched.threads.size > 0) {
+                before = fetched.threads.lastKey();
+            } else {
+                hasMore = false;
+            }
+        }
+    } catch (err) {
+        console.error('Error fetching public archived threads:', err);
+    }
+    
+    // 3. Fetch private archived threads in pagination loop
+    try {
+        let hasMore = true;
+        let before = null;
+        while (hasMore) {
+            const options = { type: 'private', limit: 100 };
+            if (before) options.before = before;
+            const fetched = await sourceChannel.threads.fetchArchived(options);
+            allThreads.push(...fetched.threads.values());
+            hasMore = fetched.hasMore;
+            if (fetched.threads.size > 0) {
+                before = fetched.threads.lastKey();
+            } else {
+                hasMore = false;
+            }
+        }
+    } catch (err) {
+        console.warn('Skipped private archived threads:', err.message);
+    }
+    
+    return allThreads;
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('copy-channel')
@@ -77,15 +153,10 @@ module.exports = {
         const guild = interaction.guild;
         const threadMap = new Map(); // oldThreadId -> newThreadId
         
-        // 1. Fetch all threads of the source channel
+        // 1. Fetch all threads of the source channel paginated
         let allSourceThreads = [];
         try {
-            const activeThreads = await sourceChannel.threads.fetchActive();
-            const archivedThreads = await sourceChannel.threads.fetchArchived();
-            allSourceThreads = [
-                ...Array.from(activeThreads.threads.values()),
-                ...Array.from(archivedThreads.threads.values())
-            ];
+            allSourceThreads = await fetchAllChannelThreads(sourceChannel);
         } catch (err) {
             return await interaction.editReply(`❌ Failed to fetch threads from source channel: ${err.message}`);
         }
@@ -134,10 +205,9 @@ module.exports = {
         
         await interaction.editReply(`ℹ️ Replicated all **${threadMap.size}** threads. Cloning channel messages and remapping links...`);
         
-        // 4. Fetch and clone main channel messages
+        // 4. Fetch and clone main channel messages paginated
         try {
-            const channelMsgs = await sourceChannel.messages.fetch({ limit: 100 });
-            const sortedChannelMsgs = Array.from(channelMsgs.values()).reverse();
+            const sortedChannelMsgs = await fetchAllMessages(sourceChannel);
             
             for (const msg of sortedChannelMsgs) {
                 if (msg.author.bot && msg.webhookId) continue;
@@ -158,7 +228,7 @@ module.exports = {
         
         await interaction.editReply(`ℹ️ Cloned main channel messages. Replicating message history inside threads...`);
         
-        // 5. Replicate messages inside each thread
+        // 5. Replicate messages inside each thread paginated
         for (const thread of allSourceThreads) {
             const newThreadId = threadMap.get(thread.id);
             if (!newThreadId) continue;
@@ -167,8 +237,7 @@ module.exports = {
                 const newThread = await guild.channels.fetch(newThreadId);
                 console.log(`[CLONER] Copying messages for thread: ${thread.name}`);
                 
-                const threadMsgs = await thread.messages.fetch({ limit: 100 });
-                const sortedThreadMsgs = Array.from(threadMsgs.values()).reverse();
+                const sortedThreadMsgs = await fetchAllMessages(thread);
                 
                 for (const msg of sortedThreadMsgs) {
                     if (msg.author.bot && msg.webhookId) continue;

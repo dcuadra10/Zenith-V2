@@ -21,28 +21,80 @@ function extractThreadIds(text) {
     return Array.from(threadIds);
 }
 
-// Helper to clone messages from source thread to target thread
-async function cloneThreadMessages(originalThread, targetThread) {
-    try {
-        const messages = await originalThread.messages.fetch({ limit: 100 });
-        const sortedMsgs = Array.from(messages.values()).reverse();
-        
-        // Skip first message if it was already sent to create the post
-        const remainingMsgs = sortedMsgs.slice(1);
-        
-        for (const msg of remainingMsgs) {
-            if (msg.author.bot && msg.webhookId) continue; // Skip bot webhook integration messages
-            if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0) continue;
-            
-            await targetThread.send({
-                content: `**${msg.author.username}**: ${msg.content || ''}`,
-                embeds: msg.embeds,
-                files: Array.from(msg.attachments.values()).map(a => a.url)
-            });
+// Helper to fetch all messages in a channel/thread chronologically (oldest first)
+async function fetchAllMessages(channel) {
+    const allMessages = [];
+    let lastId = null;
+    while (true) {
+        try {
+            const options = { limit: 100 };
+            if (lastId) options.before = lastId;
+            const messages = await channel.messages.fetch(options);
+            if (messages.size === 0) break;
+            allMessages.push(...messages.values());
+            lastId = messages.lastKey();
+            if (messages.size < 100) break;
+        } catch (e) {
+            console.error(`Failed to fetch messages for ${channel.name || channel.id}:`, e);
+            break;
         }
-    } catch (e) {
-        console.error(`Failed to clone messages for thread ${originalThread.name}:`, e);
     }
+    return allMessages.reverse();
+}
+
+// Helper to fetch all active and archived threads in a text channel
+async function fetchAllChannelThreads(sourceChannel) {
+    const allThreads = [];
+    
+    // 1. Fetch active threads
+    try {
+        const active = await sourceChannel.threads.fetchActive();
+        allThreads.push(...active.threads.values());
+    } catch (err) {
+        console.error('Error fetching active threads:', err);
+    }
+    
+    // 2. Fetch public archived threads in pagination loop
+    try {
+        let hasMore = true;
+        let before = null;
+        while (hasMore) {
+            const options = { type: 'public', limit: 100 };
+            if (before) options.before = before;
+            const fetched = await sourceChannel.threads.fetchArchived(options);
+            allThreads.push(...fetched.threads.values());
+            hasMore = fetched.hasMore;
+            if (fetched.threads.size > 0) {
+                before = fetched.threads.lastKey();
+            } else {
+                hasMore = false;
+            }
+        }
+    } catch (err) {
+        console.error('Error fetching public archived threads:', err);
+    }
+    
+    // 3. Fetch private archived threads in pagination loop
+    try {
+        let hasMore = true;
+        let before = null;
+        while (hasMore) {
+            const options = { type: 'private', limit: 100 };
+            if (before) options.before = before;
+            const fetched = await sourceChannel.threads.fetchArchived(options);
+            allThreads.push(...fetched.threads.values());
+            hasMore = fetched.hasMore;
+            if (fetched.threads.size > 0) {
+                before = fetched.threads.lastKey();
+            } else {
+                hasMore = false;
+            }
+        }
+    } catch (err) {
+        console.warn('Skipped private archived threads:', err.message);
+    }
+    
+    return allThreads;
 }
 
 module.exports = {
@@ -76,7 +128,8 @@ module.exports = {
         const messageId = interaction.options.getString('message_id');
         
         const guild = interaction.guild;
-        const sections = []; // Array of { name: string, threadIds: string[] }
+        const sections = []; // Array of { id?: string, name: string, threadIds: string[] }
+        const allReferencedThreadIds = new Set();
         
         if (messageId) {
             // Method B: Parse markdown headers or embed fields from the message
@@ -144,15 +197,11 @@ module.exports = {
         } else {
             // Method A: Parse from active/archived threads in the source channel
             try {
-                const activeThreads = await sourceChannel.threads.fetchActive();
-                const archivedThreads = await sourceChannel.threads.fetchArchived();
-                const allThreads = [
-                    ...Array.from(activeThreads.threads.values()),
-                    ...Array.from(archivedThreads.threads.values())
-                ];
+                const allThreads = await fetchAllChannelThreads(sourceChannel);
                 
                 for (const thread of allThreads) {
                     // Check if this thread represents a section by checking its messages for other threads
+                    // We fetch up to 50 messages to check for references
                     const msgs = await thread.messages.fetch({ limit: 50 });
                     const threadIds = new Set();
                     
@@ -182,9 +231,12 @@ module.exports = {
                     
                     if (threadIds.size > 0) {
                         sections.push({
+                            id: thread.id,
                             name: thread.name,
                             threadIds: Array.from(threadIds)
                         });
+                        // Track which threads are referenced
+                        threadIds.forEach(id => allReferencedThreadIds.add(id));
                     }
                 }
             } catch (err) {
@@ -192,13 +244,17 @@ module.exports = {
             }
         }
         
-        if (sections.length === 0) {
+        // Filter sections: if a thread is referenced as a sub-thread in any other section, it is a TOPIC, not a SECTION!
+        // We only filter for Method A, since Method B has explicit header structures.
+        const finalSections = messageId ? sections : sections.filter(section => !allReferencedThreadIds.has(section.id));
+        
+        if (finalSections.length === 0) {
             return await interaction.editReply('❌ No sections or referenced threads were identified. Make sure threads are properly linked inside the source/embed.');
         }
         
-        await interaction.editReply(`ℹ️ Found **${sections.length}** sections to replicate. Starting clone process...`);
+        await interaction.editReply(`ℹ️ Found **${finalSections.length}** sections to replicate. Starting clone process...`);
         
-        for (const section of sections) {
+        for (const section of finalSections) {
             try {
                 // 1. Create the Forum Channel for the Section
                 console.log(`[CLONER] Creating forum channel: ${section.name}`);
@@ -217,10 +273,8 @@ module.exports = {
                         
                         console.log(`[CLONER] Cloning thread ${originalThread.name} into forum ${forumChannel.name}`);
                         
-                        // Fetch messages of original thread
-                        const messages = await originalThread.messages.fetch({ limit: 100 });
-                        const sortedMsgs = Array.from(messages.values()).reverse();
-                        
+                        // Fetch ALL messages of original thread chronologically (oldest first)
+                        const sortedMsgs = await fetchAllMessages(originalThread);
                         const firstMsg = sortedMsgs[0];
                         if (!firstMsg) continue;
                         
@@ -235,7 +289,16 @@ module.exports = {
                         });
                         
                         // Clone the rest of the messages
-                        await cloneThreadMessages(originalThread, post);
+                        for (const msg of sortedMsgs.slice(1)) {
+                            if (msg.author.bot && msg.webhookId) continue;
+                            if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0) continue;
+                            
+                            await post.send({
+                                content: `**${msg.author.username}**: ${msg.content || ''}`,
+                                embeds: msg.embeds,
+                                files: Array.from(msg.attachments.values()).map(a => a.url)
+                            });
+                        }
                     } catch (threadErr) {
                         console.error(`Error cloning thread ${threadId}:`, threadErr);
                     }

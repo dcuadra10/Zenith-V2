@@ -776,7 +776,7 @@ module.exports = {
 
                 if (!isSuccess) {
                     const fine = 2000 * targetBank.security * 10;
-                    await db.run(`UPDATE economy_mafias SET balance = MAX(0, balance - ?) WHERE id = ?`, [fine, user.mafiaId]);
+                    await db.run(`UPDATE economy_mafias SET vault = MAX(0, vault - ?) WHERE id = ?`, [fine, user.mafiaId]);
                     return await interaction.followUp({ 
                         content: `🧨 **HEIST FAILED!** The SWAT team arrived. The mafia lost **${fine}** in cleanup. Participants narrowly escaped.` 
                     });

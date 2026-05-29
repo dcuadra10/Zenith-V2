@@ -2599,6 +2599,11 @@ async function fetchCustomBot() {
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
+                        ${(bot.status === 'error' || bot.status === 'inactive') ? `
+                            <button class="z-btn" style="padding:6px 10px; font-size:0.75rem; background:rgba(241, 196, 15, 0.15); border: 1px solid #f1c40f; color:#f1c40f; cursor: pointer; border-radius: 4px;" onclick="event.stopPropagation(); reconnectAgentClient('${bot.agentId}')">
+                                <i class="fas fa-redo"></i> Try Again
+                            </button>
+                        ` : ''}
                         <button class="z-btn" style="padding:6px 10px; font-size:0.75rem; background:rgba(231, 76, 60, 0.15); border: 1px solid #e74c3c; color:#e74c3c; cursor: pointer; border-radius: 4px;" onclick="event.stopPropagation(); deleteAgentClient('${bot.agentId}')">
                             <i class="fas fa-trash"></i> Delete
                         </button>
@@ -2634,6 +2639,25 @@ async function deleteAgentClient(agentId) {
         }
     } catch (e) {
         showToast('❌ Server error deleting agent', true);
+    }
+}
+
+async function reconnectAgentClient(agentId) {
+    showToast('Reconnecting agent...');
+    try {
+        const res = await apiFetch(`/custom-bot/${activeGuild.id}/reconnect`, {
+            method: 'POST',
+            body: JSON.stringify({ agentId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('🔄 Reconnection attempt started!');
+            fetchCustomBot(); // refresh to show "Connecting..." status and start polling
+        } else {
+            showToast('❌ Error: ' + (data.error || 'Failed to reconnect'), true);
+        }
+    } catch (e) {
+        showToast('❌ Server error reconnecting agent', true);
     }
 }
 

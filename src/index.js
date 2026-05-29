@@ -357,6 +357,54 @@ app.post('/api/custom-bot/:guildId', authenticateToken, async (req, res) => {
     }
 });
 
+// POST Custom Bot Reconnect
+app.post('/api/custom-bot/:guildId/reconnect', authenticateToken, async (req, res) => {
+    try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const { agentId } = req.body;
+        if (!agentId) return res.status(400).json({ error: 'Falta el ID del Agente' });
+
+        const db = await getDb();
+        const agent = await db.get('SELECT botToken FROM ai_agent_configs WHERE guildId = ? AND agentId = ?', [req.params.guildId, agentId]);
+        if (!agent || !agent.botToken) {
+            return res.status(404).json({ error: 'Agente o Token no encontrado' });
+        }
+
+        const botToken = agent.botToken;
+
+        const existing = await db.get('SELECT * FROM custom_bots WHERE botToken = ?', [botToken]);
+        if (!existing) {
+            await db.run(
+                "INSERT INTO custom_bots (guildId, botToken, status) VALUES (?, ?, 'starting')",
+                [req.params.guildId, botToken]
+            );
+        } else {
+            await db.run(
+                "UPDATE custom_bots SET guildId = ?, status = 'starting', errorMessage = NULL WHERE botToken = ?",
+                [req.params.guildId, botToken]
+            );
+        }
+
+        await db.run(
+            "UPDATE ai_agent_configs SET status = 'starting', errorMessage = NULL WHERE guildId = ? AND agentId = ?",
+            [req.params.guildId, agentId]
+        );
+
+        // Trigger restart in background
+        const customBotManager = require('./managers/CustomBotManager');
+        customBotManager.restartBot(req.params.guildId, botToken).catch(err => {
+            console.error('[AI Agent Reconnect async error]:', err);
+        });
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error reconnecting custom bot:', e);
+        res.status(500).json({ error: 'Error al reconectar el bot personalizado' });
+    }
+});
+
 // DELETE Custom Bot Disconnect
 app.delete('/api/custom-bot/:guildId', authenticateToken, async (req, res) => {
     try {

@@ -129,6 +129,9 @@
             <div class="sidebar-link" data-page="swearjar">
                 <i class="fas fa-glass-whiskey link-icon"></i> Swear Jar
             </div>
+            <div class="sidebar-link" data-page="giveaways">
+                <i class="fas fa-gift link-icon" style="color:var(--accent-red);"></i> Giveaways
+            </div>
             <div class="sidebar-link" data-page="aiagents" style="color:var(--accent-purple);">
                 <i class="fas fa-brain link-icon"></i> AI Agents
             </div>
@@ -1466,6 +1469,67 @@
                             <button class="z-btn z-btn-primary" style="flex:1; justify-content:center; padding: 12px;" onclick="deployRssPanel('buy')"><i class="fas fa-shopping-cart"></i> Deploy Buy RSS Panel</button>
                             <button class="z-btn z-btn-secondary" style="flex:1; justify-content:center; background:var(--accent-purple-soft); color:#d8b4fe; border-color:#a855f7; padding: 12px;" onclick="deployRssPanel('stock')"><i class="fas fa-boxes"></i> Deploy Stock Panel</button>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== GIVEAWAYS MODULE ===== -->
+            <section id="page-giveaways" class="page-section">
+                <div class="page-header">
+                    <h1>Giveaways</h1>
+                    <p>Configure the internal giveaway system to allow specific roles to run the /giveaway command, set log channels, and automatically reward economy coins to winners.</p>
+                </div>
+
+                <div class="module-header">
+                    <div class="module-header-info">
+                        <div class="module-icon" style="background:var(--accent-red-soft);color:var(--accent-red);"><i class="fas fa-gift"></i></div>
+                        <div>
+                            <h3>Giveaways Configuration</h3>
+                            <p>Control who can manage giveaways and what rewards they offer.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ticket-builder-grid">
+                    <div class="z-card">
+                        <div class="z-card-header">
+                            <h3>Manager & Logging Settings</h3>
+                        </div>
+                        <div class="input-grid">
+                            <div class="input-row">
+                                <div class="z-input-group">
+                                    <label>Manager Role</label>
+                                    <select class="z-input" id="giveawaysManagerRole"></select>
+                                    <small style="color:var(--text-muted); font-size:0.75rem;">Allows this role to use the /giveaway command (Admins always have access).</small>
+                                </div>
+                                <div class="z-input-group">
+                                    <label>Giveaways Log Channel</label>
+                                    <select class="z-input" id="giveawaysLogChannel"></select>
+                                    <small style="color:var(--text-muted); font-size:0.75rem;">Where to send start/end/reroll announcements.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="z-card-header" style="margin-top:24px;">
+                            <h3>Economy Integration</h3>
+                        </div>
+                        <div class="input-row">
+                            <div class="toggle-row" style="flex:1;">
+                                <div class="toggle-info">
+                                    <h4>Reward Coins to Winners</h4>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="giveawaysEcoReward">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="z-input-group" style="flex:1;">
+                                <label>Coins Per Winner</label>
+                                <input class="z-input" type="number" id="giveawaysEcoCoins" value="200" min="0">
+                            </div>
+                        </div>
+
+                        <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('giveaways')"><i class="fas fa-save"></i> Save Giveaway Settings</button>
                     </div>
                 </div>
             </section>

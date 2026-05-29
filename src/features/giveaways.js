@@ -53,21 +53,39 @@ async function checkGiveaways(client) {
                 
                 await message.edit({ embeds: [newEmbed], components: [] });
 
+                const conf = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [ga.guildId]);
+
                 // Announce winners
                 if (winners.length > 0) {
                     await channel.send(`🎉 Congratulations ${winners.map(w => `<@${w.id}>`).join(', ')}! You won the **${ga.prize}**!`);
                     
                     // Economy reward for winners
-                    const conf = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [ga.guildId]);
-                    if (conf && conf.ecoEnabled) {
+                    if (conf && conf.giveawaysEcoReward) {
                         const { addBalance } = require('../utils/economyHandler');
-                        const amount = conf.ecoCoinsPerGiveaway || 200;
+                        const amount = conf.giveawaysEcoCoins || 200;
                         for (const winner of winners) {
                             await addBalance(winner.id, amount, ga.guildId);
                         }
                     }
                 } else {
                     await channel.send(`🛑 No valid participants entered the **${ga.prize}** giveaway.`);
+                }
+
+                // Log the end
+                if (conf && conf.giveawaysLogChannel) {
+                    const logChan = guild.channels.cache.get(conf.giveawaysLogChannel);
+                    if (logChan) {
+                        const logEmbed = new EmbedBuilder()
+                            .setTitle('🏁 Giveaway Ended')
+                            .setColor('#e74c3c')
+                            .addFields(
+                                { name: 'Prize', value: ga.prize, inline: true },
+                                { name: 'Winners', value: winners.length > 0 ? winners.map(w => `<@${w.id}>`).join(', ') : 'None', inline: true },
+                                { name: 'Channel', value: `<#${ga.channelId}>`, inline: true }
+                            )
+                            .setTimestamp();
+                        await logChan.send({ embeds: [logEmbed] }).catch(() => {});
+                    }
                 }
             } catch (e) {
                 console.error(`Error ending giveaway ${ga.id}`, e);

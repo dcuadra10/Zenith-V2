@@ -5,7 +5,6 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('giveaway')
         .setDescription('Create and manage giveaways')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('start')
@@ -33,6 +32,15 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
         const db = await getDb();
+        const conf = await db.get(`SELECT giveawaysManagerRole, giveawaysLogChannel FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
+        
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        const hasManagerRole = conf?.giveawaysManagerRole && interaction.member.roles.cache.has(conf.giveawaysManagerRole);
+
+        if (!isAdmin && !hasManagerRole) {
+            return interaction.editReply({ content: '❌ You do not have permission to manage giveaways.' });
+        }
+
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'start') {
@@ -68,6 +76,23 @@ module.exports = {
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
                     [message.id, interaction.guild.id, channel.id, prize, winners, endTime, interaction.user.id, reqRole ? reqRole.id : null, pingRole ? pingRole.id : null]
                 );
+
+                if (conf?.giveawaysLogChannel) {
+                    const logChan = interaction.guild.channels.cache.get(conf.giveawaysLogChannel);
+                    if (logChan) {
+                        const logEmbed = new EmbedBuilder()
+                            .setTitle('📢 Giveaway Started')
+                            .setColor('#3498db')
+                            .addFields(
+                                { name: 'Prize', value: prize, inline: true },
+                                { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+                                { name: 'Hosted By', value: `<@${interaction.user.id}>`, inline: true },
+                                { name: 'Ends At', value: `<t:${endUnix}:f>`, inline: true }
+                            )
+                            .setTimestamp();
+                        await logChan.send({ embeds: [logEmbed] }).catch(() => {});
+                    }
+                }
 
                 await interaction.editReply({ content: `✅ Giveaway started successfully in ${channel}!` });
             } catch (error) {
@@ -112,6 +137,23 @@ module.exports = {
                 
                 const newWinner = validUsers[Math.floor(Math.random() * validUsers.length)];
                 await channel.send(`🎉 **GIVEAWAY REROLL!** Congratulations <@${newWinner.id}>, you are the new winner of **${ga.prize}**!`);
+                
+                if (conf?.giveawaysLogChannel) {
+                    const logChan = interaction.guild.channels.cache.get(conf.giveawaysLogChannel);
+                    if (logChan) {
+                        const logEmbed = new EmbedBuilder()
+                            .setTitle('🔄 Giveaway Rerolled')
+                            .setColor('#e67e22')
+                            .addFields(
+                                { name: 'Prize', value: ga.prize, inline: true },
+                                { name: 'New Winner', value: `<@${newWinner.id}>`, inline: true },
+                                { name: 'Action By', value: `<@${interaction.user.id}>`, inline: true }
+                            )
+                            .setTimestamp();
+                        await logChan.send({ embeds: [logEmbed] }).catch(() => {});
+                    }
+                }
+
                 await interaction.editReply({ content: `✅ Giveaway rerolled! Winner: <@${newWinner.id}>` });
             } catch (error) {
                 console.error(error);

@@ -798,6 +798,12 @@ function loadModuleToggles(mods) {
     setVal('rssSellerRole', mods.rsssellerrole);
     setVal('rssTaxRate', mods.rsstaxrate ?? 10);
     setVal('rssCategory', mods.rsscategory);
+    
+    // Giveaways
+    setVal('giveawaysManagerRole', mods.giveawaysmanagerrole);
+    setVal('giveawaysLogChannel', mods.giveawayslogchannel);
+    setCheck('giveawaysEcoReward', mods.giveawaysecoreward);
+    setVal('giveawaysEcoCoins', mods.giveawaysecocoins ?? 200);
 }
 
 function setCheck(id, val) {
@@ -962,8 +968,15 @@ async function saveModuleConfig(moduleName) {
         // RSS
         rssEnabled: getCheck('toggleRss'),
         rssSellerRole: getVal('rssSellerRole'),
-        rssTaxRate: parseInt(getVal('rssTaxRate')) || 10,
-        rssCategory: getVal('rssCategory')
+        rssTaxRate: parseFloat(getVal('rssTaxRate')) || 10,
+        rssCategory: getVal('rssCategory'),
+
+        // Giveaways
+        giveawaysEnabled: getCheck('toggleGiveaways'),
+        giveawaysManagerRole: getVal('giveawaysManagerRole'),
+        giveawaysLogChannel: getVal('giveawaysLogChannel'),
+        giveawaysEcoReward: getCheck('giveawaysEcoReward'),
+        giveawaysEcoCoins: parseInt(getVal('giveawaysEcoCoins')) || 200
     };
 
     try {

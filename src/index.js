@@ -1154,7 +1154,8 @@ app.post('/api/modules/:guildId', authenticateToken, async (req, res) => {
             'swearJarEnabled', 'swearJarChannel', 'swearJarWords', 'swearJarPing', 'swearJarTitle', 'swearJarMessage', 'swearJarColor',
             'newKingdomEnabled', 'newKingdomSourceChannel', 'newKingdomTargetChannel', 'newKingdomPingRole',
             'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
-            'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory'
+            'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
+            'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins'
         ];
         
         const allFields = ['guildId', ...fields];

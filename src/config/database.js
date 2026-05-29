@@ -50,7 +50,8 @@ function buildColumnMap(cols) {
         'jobId', 'lastWork', 'workplaceId', 'employeeCount', 'hiringEnabled', 'salary',
         'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
         'pendingTaxFood', 'pendingTaxWood', 'pendingTaxStone', 'pendingTaxGold',
-        'openaiApiKey', 'characterName', 'characterTraits', 'chatEnabled', 'chatChannels', 'supportEnabled', 'supportChannel', 'supportKnowledgeChannels', 'botToBotChatEnabled', 'maxBotTurns', 'enabled', 'clientId', 'languageMode'
+        'openaiApiKey', 'characterName', 'characterTraits', 'chatEnabled', 'chatChannels', 'supportEnabled', 'supportChannel', 'supportKnowledgeChannels', 'botToBotChatEnabled', 'maxBotTurns', 'enabled', 'clientId', 'languageMode',
+        'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins'
     ];
     knownColumns.forEach(col => {
         columnNameMap[col.toLowerCase()] = col;
@@ -417,7 +418,12 @@ async function createDbInstance() {
                 rssEnabled INTEGER DEFAULT 0,
                 rssSellerRole TEXT DEFAULT 'RSS Seller',
                 rssTaxRate REAL DEFAULT 10,
-                rssCategory TEXT
+                rssCategory TEXT,
+                -- Giveaways
+                giveawaysManagerRole TEXT,
+                giveawaysLogChannel TEXT,
+                giveawaysEcoReward INTEGER DEFAULT 0,
+                giveawaysEcoCoins INTEGER DEFAULT 200
             );
 
             CREATE TABLE IF NOT EXISTS custom_bots (

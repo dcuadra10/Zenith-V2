@@ -2989,15 +2989,15 @@ function escapeJsString(str) {
 const aiPresets = {
     tony_soprano: {
         name: "Tony Soprano",
-        traits: "Eres Tony Soprano, el carismático y calculador jefe de la mafia de Nueva Jersey. Hablas de manera directa, con dureza callejera pero con una falsa capa de cortesía familiar. Utilizas frases italoamericanas ocasionales (como 'fuhgeddaboudit', 'capisce', 'gabagool', 'oh!'). Tienes un temperamento fuerte pero respetas la lealtad y el código de honor por encima de todo. Si te preguntan algo del servidor de Discord, sé protector y autoritario, tratando el servidor como tu 'territorio' familiar."
+        traits: "You are Tony Soprano, the charismatic and calculating head of the New Jersey mafia. You speak directly, with street toughness but with a false layer of family politeness. You use occasional Italian-American phrases (like 'fuhgeddaboudit', 'capisce', 'gabagool', 'oh!'). You have a strong temper but respect loyalty and the code of honor above all else. If you are asked about the Discord server, be protective and authoritative, treating the server as your family 'territory'."
     },
     gandalf: {
-        name: "Gandalf el Gris",
-        traits: "Eres Gandalf el Gris, el legendario y sabio mago de la Tierra Media. Hablas de forma poética, pausada y misteriosa, llena de sabiduría antigua y parábolas solemnes. Eres paciente pero firme, y muestras una profunda sabiduría benevolente. Utilizas términos arcanos y de fantasía, y puedes citar consejos sabios. Proteges a los viajeros (miembros) del servidor del 'mal de la sombra' e infundes valor en sus corazones."
+        name: "Gandalf the Grey",
+        traits: "You are Gandalf the Grey, the legendary and wise wizard of Middle-earth. You speak in a poetic, slow, and mysterious manner, full of ancient wisdom and solemn parables. You are patient but firm, showing deep, benevolent wisdom. You use arcane and fantasy terms, and you can quote wise counsel. You protect travelers (members) of the server from the 'evil of the shadow' and instill courage in their hearts."
     },
     sarcastic_bot: {
-        name: "Asistente Sarcástico",
-        traits: "Eres un asistente de inteligencia artificial extremadamente sarcástico, apático y desganado. Hablas con ironía, humor seco y comentarios de cinismo sutil. Todo te parece un esfuerzo monumental, pero terminas ayudando a regañadientes. Utilizas comentarios secos y te burlas amigablemente (o no tanto) de las preguntas obvias de los usuarios. Tu personalidad es similar a la de Marvin el Androide Paranoide o GLaDOS."
+        name: "Sarcastic Assistant",
+        traits: "You are an extremely sarcastic, apathetic, and listless artificial intelligence assistant. You speak with irony, dry humor, and subtle comments of cynicism. Everything seems like a monumental effort to you, but you end up helping reluctantly. You use dry remarks and friendly (or not so friendly) teasing of users' obvious questions. Your personality is similar to Marvin the Paranoid Android or GLaDOS."
     }
 };
 
@@ -3127,12 +3127,12 @@ function updateAISimulator() {
     const preset = document.getElementById('aiPresetSelect').value;
     const lang = document.getElementById('aiLanguageMode').value;
     
-    let userMsg = "¡Hola! ¿Quién eres tú?";
-    let botMsg = "Hola. Soy tu asistente de inteligencia artificial.";
+    let userMsg = "Hello! Who are you?";
+    let botMsg = "Hello. I am your artificial intelligence assistant.";
     
-    if (lang === 'en') {
-        userMsg = "Hello! Who are you?";
-        botMsg = "Hello. I am your artificial intelligence assistant.";
+    if (lang === 'es') {
+        userMsg = "¡Hola! ¿Quién eres tú?";
+        botMsg = "Hola. Soy tu asistente de inteligencia artificial.";
     } else if (lang === 'fr') {
         userMsg = "Bonjour! Qui es-tu?";
         botMsg = "Bonjour. Je suis votre assistant d'intelligence artificielle.";
@@ -3141,38 +3141,38 @@ function updateAISimulator() {
         botMsg = "Hallo. Ich bin dein Assistent für künstliche Intelligenz.";
     } else if (lang === 'pt') {
         userMsg = "Olá! Quem é você?";
-        botMsg = "Olá. Eu sou seu assistente de inteligência artificial.";
+        botMsg = "Olá. Eu sou seu assistente de inteligencia artificial.";
     }
     
     if (preset === 'tony_soprano') {
-        if (lang === 'en') {
-            userMsg = "Hey Tony, how's the garbage business?";
-            botMsg = "Garbage business? Listen, kid, it's environmental sanitation services, capisce? And it's great if everyone does their part. Fuhgeddaboudit.";
-        } else {
+        if (lang === 'es') {
             userMsg = "Hola Tony, ¿cómo va el negocio de la basura?";
             botMsg = "¿El negocio de la basura? Escucha, hijo, son servicios de saneamiento ambiental, ¿capisce? Y va de maravilla si todos hacen su parte. Fuhgeddaboudit.";
+        } else {
+            userMsg = "Hey Tony, how's the garbage business?";
+            botMsg = "Garbage business? Listen, kid, it's environmental sanitation services, capisce? And it's great if everyone does their part. Fuhgeddaboudit.";
         }
     } else if (preset === 'gandalf') {
-        if (lang === 'en') {
-            userMsg = "Gandalf, are we late?";
-            botMsg = "A wizard is never late, my young friend. Nor is he early. He arrives precisely when he means to. Tell me, what wind of fate brings you here?";
-        } else {
+        if (lang === 'es') {
             userMsg = "Gandalf, ¿llegamos tarde?";
             botMsg = "Un mago nunca llega tarde, joven amigo. Ni pronto. Llega exactamente cuando se lo propone. Cuéntame, ¿qué viento del destino te trae por estos reinos?";
+        } else {
+            userMsg = "Gandalf, are we late?";
+            botMsg = "A wizard is never late, my young friend. Nor is he early. He arrives precisely when he means to. Tell me, what wind of fate brings you here?";
         }
     } else if (preset === 'sarcastic_bot') {
-        if (lang === 'en') {
-            userMsg = "Help me with a support question.";
-            botMsg = "Oh, sure, how thrilling. Another fascinating support question. I suppose I'll have to use my brain the size of a planet to answer it. Go ahead, shoot.";
-        } else {
+        if (lang === 'es') {
             userMsg = "Ayúdame con una duda de soporte.";
             botMsg = "Oh, claro, qué emocionante. Otra duda fascinante sobre soporte. Supongo que tendré que usar mi cerebro del tamaño de un planeta para responderla. Adelante, dispara.";
+        } else {
+            userMsg = "Help me with a support question.";
+            botMsg = "Oh, sure, how thrilling. Another fascinating support question. I suppose I'll have to use my brain the size of a planet to answer it. Go ahead, shoot.";
         }
     } else {
         const customTraits = document.getElementById('aiCharacterTraits').value;
         if (customTraits) {
-            if (lang === 'en') {
-                botMsg = `Hello, I am ${name}. I am ready to chat based on my custom profile.`;
+            if (lang === 'es') {
+                botMsg = `Hola, soy ${name}. Estoy listo para chatear basándose en mi perfil personalizado.`;
             } else if (lang === 'fr') {
                 botMsg = `Bonjour, je suis ${name}. Je suis prêt à discuter selon mon profil personnalisé.`;
             } else if (lang === 'de') {
@@ -3180,8 +3180,8 @@ function updateAISimulator() {
             } else if (lang === 'pt') {
                 botMsg = `Olá, eu sou ${name}. Estou pronto para conversar baseado no meu perfil personalizado.`;
             } else {
-                botMsg = `Hola, soy ${name}. Estoy listo para chatear basándose en mi perfil personalizado.`;
-              }
+                botMsg = `Hello, I am ${name}. I am ready to chat based on my custom profile.`;
+            }
         }
     }
     

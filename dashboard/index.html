@@ -165,36 +165,7 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 32px;">
 
-                    <div class="z-card" id="customBotCard">
-                        <div class="z-card-header">
-                            <h3><i class="fas fa-robot"></i> Custom Bot Hosting</h3>
-                            <span style="background:var(--accent-purple); color:#fff; font-size:0.65rem; padding:3px 8px; border-radius:4px; font-weight:700; letter-spacing:0.5px;">PREMIUM</span>
-                        </div>
-                        <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:20px;">Deploy your very own bot instance using our infrastructure. Fully branded in the member list.</p>
-                        
-                        <div id="customBotStatus" style="background:#2b2d31; border-radius:var(--radius-lg); padding:16px; margin-bottom:24px; border:1px solid #1e1f22; display:flex; align-items:center; gap:16px;">
-                            <div style="font-size:2rem; color:var(--text-muted);"><i class="fas fa-power-off"></i></div>
-                            <div>
-                                <h4 style="color:#f2f3f5; margin:0 0 4px 0; font-size:0.95rem;">Status: <span id="cbState" style="color:var(--text-muted);">Disconnected</span></h4>
-                                <p style="margin:0; font-size:0.8rem; color:#dbdee1;" id="cbError">No custom bot is currently linked to this server.</p>
-                            </div>
-                        </div>
-
-                        <div class="z-input-group">
-                            <label>Discord Bot Token</label>
-                            <input class="z-input" type="password" id="customBotToken" placeholder="Paste your bot token here">
-                            <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">Get this from the <a href="https://discord.com/developers/applications" target="_blank" style="color:var(--accent-purple);">Discord Developer Portal</a>.</small>
-                        </div>
-
-                        <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap;">
-                            <button class="z-btn z-btn-primary" style="flex:1;" onclick="connectCustomBot()"><i class="fas fa-plug"></i> Connect Bot</button>
-                            <button class="z-btn z-btn-secondary" style="flex:1; background:var(--accent-red-soft); color:var(--accent-red); border-color:var(--accent-red);" onclick="disconnectCustomBot()"><i class="fas fa-unlink"></i> Disconnect</button>
-                        </div>
-                    </div>
-
-                </div>
             </section>
 
 
@@ -1533,8 +1504,39 @@
 
                 <div class="ticket-builder-grid">
                     <!-- Left Side: Config Form -->
-                    <div class="z-card">
-                        <div class="grid-2">
+                    <div style="display:flex; flex-direction:column; gap:24px;">
+                        
+                        <!-- Custom Bot Hosting Card -->
+                        <div class="z-card" id="customBotCard" style="border-color:var(--accent-purple);">
+                            <div class="z-card-header">
+                                <h3 style="display:flex; align-items:center; gap:8px;"><i class="fas fa-robot" style="color:var(--accent-purple);"></i> Custom Bot Host (Discord Client)</h3>
+                                <span style="background:var(--accent-purple); color:#fff; font-size:0.65rem; padding:3px 8px; border-radius:4px; font-weight:700; letter-spacing:0.5px;">PREMIUM</span>
+                            </div>
+                            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:20px;">Deploy your very own bot instance using our infrastructure. Fully branded in the member list.</p>
+                            
+                            <div id="customBotStatus" style="background:#2b2d31; border-radius:var(--radius-lg); padding:16px; margin-bottom:24px; border:1px solid #1e1f22; display:flex; align-items:center; gap:16px;">
+                                <div style="font-size:2rem; color:var(--text-muted);"><i class="fas fa-power-off"></i></div>
+                                <div>
+                                    <h4 style="color:#f2f3f5; margin:0 0 4px 0; font-size:0.95rem;">Client Status: <span id="cbState" style="color:var(--text-muted);">Disconnected</span></h4>
+                                    <p style="margin:0; font-size:0.8rem; color:#dbdee1;" id="cbError">No custom bot is currently linked to this server.</p>
+                                </div>
+                            </div>
+
+                            <div class="z-input-group">
+                                <label>Discord Bot Token</label>
+                                <input class="z-input" type="password" id="customBotToken" placeholder="Paste your bot token here">
+                                <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">Get this from the <a href="https://discord.com/developers/applications" target="_blank" style="color:var(--accent-purple);">Discord Developer Portal</a>.</small>
+                            </div>
+
+                            <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap;">
+                                <button class="z-btn z-btn-primary" style="flex:1;" onclick="connectCustomBot()"><i class="fas fa-plug"></i> Connect Bot Client</button>
+                                <button class="z-btn z-btn-secondary" style="flex:1; background:var(--accent-red-soft); color:var(--accent-red); border-color:var(--accent-red);" onclick="disconnectCustomBot()"><i class="fas fa-unlink"></i> Disconnect Bot</button>
+                            </div>
+                        </div>
+
+                        <!-- Core AI Configurations -->
+                        <div class="z-card">
+                            <div class="grid-2">
                             <div class="z-input-group">
                                 <label>AI Provider</label>
                                 <select class="z-input" id="aiProvider">
@@ -1739,6 +1741,7 @@
 
                         <button class="z-btn z-btn-primary" style="margin-top:32px; width: 100%;" onclick="saveAIAgentConfig()"><i class="fas fa-save"></i> Deploy AI Agent settings</button>
                     </div>
+                </div>
 
                     <!-- Right Side: Immersive Chat Preview -->
                     <div class="z-card" style="position:sticky; top:24px;">

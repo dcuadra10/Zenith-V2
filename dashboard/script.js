@@ -3010,6 +3010,9 @@ async function fetchAIAgentConfig() {
 
         setCheck('aiEnabled', config.enabled !== undefined ? config.enabled : true);
         setVal('aiOpenaiApiKey', config.openaiApiKey || '');
+        setVal('aiWelcomeOpenaiApiKey', config.welcomeOpenaiApiKey || '');
+        setVal('aiChatOpenaiApiKey', config.chatOpenaiApiKey || '');
+        setVal('aiSupportOpenaiApiKey', config.supportOpenaiApiKey || '');
         setVal('aiCharacterName', config.characterName || '');
         setVal('aiCharacterTraits', config.characterTraits || '');
         setVal('aiLanguageMode', config.languageMode || 'en');
@@ -3245,6 +3248,9 @@ async function saveAIAgentConfig() {
 
     const payload = {
         openaiApiKey: getVal('aiOpenaiApiKey'),
+        welcomeOpenaiApiKey: getVal('aiWelcomeOpenaiApiKey'),
+        chatOpenaiApiKey: getVal('aiChatOpenaiApiKey'),
+        supportOpenaiApiKey: getVal('aiSupportOpenaiApiKey'),
         characterName: getVal('aiCharacterName'),
         characterTraits: getVal('aiCharacterTraits'),
         welcomeEnabled: getCheck('aiWelcomeEnabled'),

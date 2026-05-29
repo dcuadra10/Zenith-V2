@@ -61,7 +61,8 @@ module.exports = function setupAIAgent(client) {
         try {
             const db = await getDb();
             const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ?`, [member.guild.id]);
-            if (!config || config.enabled === 0 || !config.welcomeEnabled || !config.welcomeChannel || !config.openaiApiKey) return;
+            const welcomeKey = config.welcomeOpenaiApiKey || config.openaiApiKey;
+            if (!config || config.enabled === 0 || !config.welcomeEnabled || !config.welcomeChannel || !welcomeKey) return;
 
             // Wait 1.5 seconds for the Discord system join message to appear in the channel
             await new Promise(resolve => setTimeout(resolve, 1500));
@@ -93,7 +94,7 @@ ${config.characterTraits}
 Instrucciones:
 ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
 
-            const welcomeMessage = await askOpenAI(config.openaiApiKey, systemPrompt, [
+            const welcomeMessage = await askOpenAI(welcomeKey, systemPrompt, [
                 { role: 'user', content: `Dale la bienvenida a <@${member.user.id}>` }
             ]);
 
@@ -127,7 +128,7 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
         try {
             const db = await getDb();
             const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ?`, [message.guild.id]);
-            if (!config || config.enabled === 0 || !config.openaiApiKey) return;
+            if (!config || config.enabled === 0) return;
 
             const channelKey = `${message.guild.id}:${message.channel.id}`;
 
@@ -148,6 +149,11 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
 
             // If not in a support channel, not in a chat channel, and not explicitly mentioned, ignore
             if (!isChatChannel && !isSupportChannel && !isMentioned) return;
+
+            const chatKey = config.chatOpenaiApiKey || config.openaiApiKey;
+            const supportKey = config.supportOpenaiApiKey || config.openaiApiKey;
+            const activeKey = isSupportChannel ? supportKey : chatKey;
+            if (!activeKey) return;
 
             // Handle Cooldown Protection for bot-to-bot chat in chat channels
             if (message.author.bot) {
@@ -178,7 +184,7 @@ ${config.characterTraits}
 Instrucciones:
 Explica de manera divertida y totalmente metido en tu personaje que has estado hablando demasiado seguido y que te vas a tomar un breve descanso (de exactamente 5 minutos) para tomar aire.${getLanguageInstruction(config.languageMode)}`;
 
-                    const cooldownText = await askOpenAI(config.openaiApiKey, systemPrompt, [
+                    const cooldownText = await askOpenAI(chatKey, systemPrompt, [
                         { role: 'user', content: 'Di que te vas a tomar un descanso de 5 minutos.' }
                     ]);
 
@@ -246,7 +252,7 @@ Si la información oficial no responde la duda, explica de forma educada (en tu 
             // Introduce a small typing delay for realism (1.5s - 3s)
             await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1500));
 
-            const responseText = await askOpenAI(config.openaiApiKey, systemPrompt, history);
+            const responseText = await askOpenAI(activeKey, systemPrompt, history);
             if (responseText) {
                 await message.reply(responseText).catch(() => {});
             }

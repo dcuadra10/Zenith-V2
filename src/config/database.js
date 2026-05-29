@@ -588,7 +588,10 @@ async function createDbInstance() {
                 maxBotTurns INTEGER DEFAULT 5,
                 enabled INTEGER DEFAULT 1,
                 clientId TEXT,
-                languageMode TEXT DEFAULT 'en'
+                languageMode TEXT DEFAULT 'en',
+                welcomeOpenaiApiKey TEXT,
+                chatOpenaiApiKey TEXT,
+                supportOpenaiApiKey TEXT
             );
         `);
 
@@ -596,6 +599,9 @@ async function createDbInstance() {
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN enabled INTEGER DEFAULT 1`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN clientId TEXT`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN languageMode TEXT DEFAULT 'en'`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN welcomeOpenaiApiKey TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN chatOpenaiApiKey TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportOpenaiApiKey TEXT`); } catch (e) {}
         
         // Auto-migrate ranks
         try { await dbInstance.exec(`UPDATE mafia_members SET rank = 'Consigliere' WHERE rank = 'Underboss'`); } catch (e) {}
@@ -1001,7 +1007,8 @@ async function initializeSchema() {
             'supportEnabled INTEGER DEFAULT 0', 'supportChannel TEXT',
             'supportKnowledgeChannels TEXT', 'botToBotChatEnabled INTEGER DEFAULT 0',
             'maxBotTurns INTEGER DEFAULT 5', 'enabled INTEGER DEFAULT 1',
-            'clientId TEXT', 'languageMode TEXT DEFAULT \'en\''
+            'clientId TEXT', 'languageMode TEXT DEFAULT \'en\'',
+            'welcomeOpenaiApiKey TEXT', 'chatOpenaiApiKey TEXT', 'supportOpenaiApiKey TEXT'
         ]
     };
 

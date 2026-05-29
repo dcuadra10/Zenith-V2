@@ -657,6 +657,9 @@ app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
             return res.json({
                 guildId: req.params.guildId,
                 openaiApiKey: '',
+                welcomeOpenaiApiKey: '',
+                chatOpenaiApiKey: '',
+                supportOpenaiApiKey: '',
                 characterName: '',
                 characterTraits: '',
                 welcomeEnabled: 0,
@@ -678,6 +681,15 @@ app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         if (config.openaiApiKey) {
             config.openaiApiKey = '••••••••••••';
         }
+        if (config.welcomeOpenaiApiKey) {
+            config.welcomeOpenaiApiKey = '••••••••••••';
+        }
+        if (config.chatOpenaiApiKey) {
+            config.chatOpenaiApiKey = '••••••••••••';
+        }
+        if (config.supportOpenaiApiKey) {
+            config.supportOpenaiApiKey = '••••••••••••';
+        }
         
         res.json(config);
     } catch (e) {
@@ -695,6 +707,9 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         const guildId = req.params.guildId;
         const {
             openaiApiKey,
+            welcomeOpenaiApiKey,
+            chatOpenaiApiKey,
+            supportOpenaiApiKey,
             characterName,
             characterTraits,
             welcomeEnabled,
@@ -712,22 +727,40 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         } = req.body;
         
         // Fetch existing config to see if key needs update or preservation
-        const existing = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ?`, [guildId]);
+        const existing = await db.get(`SELECT openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey FROM ai_agent_configs WHERE guildId = ?`, [guildId]);
         
         let keyToSave = openaiApiKey;
         if (openaiApiKey === '••••••••••••' || !openaiApiKey) {
             keyToSave = existing ? existing.openaiApiKey : '';
         }
 
+        let welcomeKeyToSave = welcomeOpenaiApiKey;
+        if (welcomeOpenaiApiKey === '••••••••••••' || !welcomeOpenaiApiKey) {
+            welcomeKeyToSave = existing ? existing.welcomeOpenaiApiKey : '';
+        }
+
+        let chatKeyToSave = chatOpenaiApiKey;
+        if (chatOpenaiApiKey === '••••••••••••' || !chatOpenaiApiKey) {
+            chatKeyToSave = existing ? existing.chatOpenaiApiKey : '';
+        }
+
+        let supportKeyToSave = supportOpenaiApiKey;
+        if (supportOpenaiApiKey === '••••••••••••' || !supportOpenaiApiKey) {
+            supportKeyToSave = existing ? existing.supportOpenaiApiKey : '';
+        }
+
         await db.run(
             `INSERT INTO ai_agent_configs (
-                guildId, openaiApiKey, characterName, characterTraits,
-                welcomeEnabled, welcomeChannel, welcomeMessage, chatEnabled, chatChannels,
-                supportEnabled, supportChannel, supportKnowledgeChannels,
+                guildId, openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey,
+                characterName, characterTraits, welcomeEnabled, welcomeChannel, welcomeMessage, 
+                chatEnabled, chatChannels, supportEnabled, supportChannel, supportKnowledgeChannels,
                 botToBotChatEnabled, maxBotTurns, enabled, languageMode
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(guildId) DO UPDATE SET
              openaiApiKey = excluded.openaiApiKey,
+             welcomeOpenaiApiKey = excluded.welcomeOpenaiApiKey,
+             chatOpenaiApiKey = excluded.chatOpenaiApiKey,
+             supportOpenaiApiKey = excluded.supportOpenaiApiKey,
              characterName = excluded.characterName,
              characterTraits = excluded.characterTraits,
              welcomeEnabled = excluded.welcomeEnabled,
@@ -745,6 +778,9 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
             [
                 guildId,
                 keyToSave,
+                welcomeKeyToSave,
+                chatKeyToSave,
+                supportKeyToSave,
                 characterName || '',
                 characterTraits || '',
                 welcomeEnabled ? 1 : 0,

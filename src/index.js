@@ -900,7 +900,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 welcomeCharacterName, welcomeCharacterTraits, chatCharacterName, chatCharacterTraits,
                 supportCharacterName, supportCharacterTraits
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(guildId, agentId) DO UPDATE SET
+             ON CONFLICT(agentId) DO UPDATE SET
+             guildId = excluded.guildId,
              botToken = excluded.botToken,
              openaiApiKey = excluded.openaiApiKey,
              welcomeOpenaiApiKey = excluded.welcomeOpenaiApiKey,
@@ -1438,8 +1439,7 @@ app.post('/api/r4-tracking/excuse/:guildId', authenticateToken, async (req, res)
             await db.run(
                 `INSERT INTO r4_excuses (userId, guildId, startWeekId, durationWeeks, excuseReason)
                  VALUES (?, ?, ?, ?, ?)
-                 ON CONFLICT(userId, guildId) DO UPDATE SET 
-                    startWeekId = EXCLUDED.startWeekId,
+                 ON CONFLICT(userId, guildId, startWeekId) DO UPDATE SET 
                     durationWeeks = EXCLUDED.durationWeeks,
                     excuseReason = EXCLUDED.excuseReason`,
                 [userId, req.params.guildId, weekId, duration, excuseReason || 'Excusado']

@@ -2599,6 +2599,9 @@ async function fetchCustomBot() {
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
+                        <button class="z-btn" style="padding:6px 10px; font-size:0.75rem; background:rgba(155, 89, 182, 0.15); border: 1px solid #9b59b6; color:#9b59b6; cursor: pointer; border-radius: 4px;" onclick="event.stopPropagation(); selectAgentClient('${bot.agentId}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
                         ${(bot.status !== 'active' && bot.status !== 'starting') ? `
                             <button class="z-btn" style="padding:6px 10px; font-size:0.75rem; background:rgba(241, 196, 15, 0.15); border: 1px solid #f1c40f; color:#f1c40f; cursor: pointer; border-radius: 4px;" onclick="event.stopPropagation(); reconnectAgentClient('${bot.agentId}')">
                                 <i class="fas fa-redo"></i> Try Again

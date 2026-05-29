@@ -2599,7 +2599,7 @@ async function fetchCustomBot() {
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        ${(bot.status === 'error' || bot.status === 'inactive') ? `
+                        ${(bot.status !== 'active' && bot.status !== 'starting') ? `
                             <button class="z-btn" style="padding:6px 10px; font-size:0.75rem; background:rgba(241, 196, 15, 0.15); border: 1px solid #f1c40f; color:#f1c40f; cursor: pointer; border-radius: 4px;" onclick="event.stopPropagation(); reconnectAgentClient('${bot.agentId}')">
                                 <i class="fas fa-redo"></i> Try Again
                             </button>

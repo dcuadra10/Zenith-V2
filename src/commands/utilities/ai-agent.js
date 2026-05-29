@@ -4,35 +4,35 @@ const { getDb } = require('../../config/database');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ai-agent')
-        .setDescription('Gestión de Agentes de IA en tu servidor (Admins únicamente).')
+        .setDescription('Manage AI Agents on your server (Admins only).')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('toggle')
-                .setDescription('Activa o desactiva un agente de IA específico.')
+                .setDescription('Enable or disable a specific AI agent.')
                 .addStringOption(option =>
-                    option.setName('agente')
-                        .setDescription('El agente a configurar')
+                    option.setName('agent')
+                        .setDescription('The agent to configure')
                         .setRequired(true)
                         .addChoices(
-                            { name: 'Todos los Bots (Apagar/Encender todos en el servidor)', value: 'all-bots' },
-                            { name: 'AI Agent de este Bot (Apagar/Encender este bot)', value: 'system' },
-                            { name: 'Welcome Host (Bienvenidas)', value: 'welcome' },
-                            { name: 'Conversational Chat (Chatear)', value: 'chat' },
-                            { name: 'RAG Support (Soporte FAQ)', value: 'support' },
-                            { name: 'Bot-to-Bot Chats (Chat entre bots)', value: 'bot-to-bot' }
+                            { name: 'All Bots (Turn all on/off for this server)', value: 'all-bots' },
+                            { name: 'This Bot\'s AI Agent (Turn this bot on/off)', value: 'system' },
+                            { name: 'Welcome Host (Greetings)', value: 'welcome' },
+                            { name: 'Conversational Chat', value: 'chat' },
+                            { name: 'RAG Support (FAQ Support)', value: 'support' },
+                            { name: 'Bot-to-Bot Chats', value: 'bot-to-bot' }
                         )
                 )
                 .addBooleanOption(option =>
-                    option.setName('estado')
-                        .setDescription('Activar (True) o Desactivar (False)')
+                    option.setName('state')
+                        .setDescription('Enable (True) or Disable (False)')
                         .setRequired(true)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('status')
-                .setDescription('Muestra el estado actual de los agentes de IA en el servidor.')
+                .setDescription('Show the current status of AI agents on this server.')
         ),
 
     async execute(interaction) {
@@ -59,21 +59,21 @@ module.exports = {
         }
 
         if (subcommand === 'toggle') {
-            const agent = interaction.options.getString('agente');
-            const estado = interaction.options.getBoolean('estado');
-            const estadoVal = estado ? 1 : 0;
+            const agent = interaction.options.getString('agent');
+            const state = interaction.options.getBoolean('state');
+            const stateVal = state ? 1 : 0;
 
             let dbField = '';
             let agentName = '';
 
             if (agent === 'all-bots') {
                 // Global operation: Turn off/on ALL bots in the current server simultaneously
-                await db.run(`UPDATE ai_agent_configs SET enabled = ? WHERE guildId = ?`, [estadoVal, guildId]);
-                agentName = 'Todos los Bots del Servidor 🤖💯';
+                await db.run(`UPDATE ai_agent_configs SET enabled = ? WHERE guildId = ?`, [stateVal, guildId]);
+                agentName = 'All Server Bots 🤖💯';
             } else {
                 if (agent === 'system') {
                     dbField = 'enabled';
-                    agentName = 'AI Agent Completo 🧠';
+                    agentName = 'Full AI Agent 🧠';
                 } else if (agent === 'welcome') {
                     dbField = 'welcomeEnabled';
                     agentName = 'Welcome Host 🚪';
@@ -88,13 +88,13 @@ module.exports = {
                     agentName = 'Bot-to-Bot Chats 🤖🤖';
                 }
 
-                await db.run(`UPDATE ai_agent_configs SET ${dbField} = ? WHERE guildId = ? AND clientId = ?`, [estadoVal, guildId, clientId]);
+                await db.run(`UPDATE ai_agent_configs SET ${dbField} = ? WHERE guildId = ? AND clientId = ?`, [stateVal, guildId, clientId]);
             }
 
             const embed = new EmbedBuilder()
                 .setTitle('🧠 AI Agent Core Control')
-                .setDescription(`El agente/sistema **${agentName}** ha sido **${estado ? 'ACTIVADO / ENCENDIDO' : 'DESACTIVADO / APAGADO POR COMPLETO'}** con éxito.`)
-                .setColor(estado ? '#2ecc71' : '#e74c3c')
+                .setDescription(`The agent/system **${agentName}** has been successfully **${state ? 'ENABLED / TURNED ON' : 'DISABLED / COMPLETELY SHUT DOWN'}**.`)
+                .setColor(state ? '#2ecc71' : '#e74c3c')
                 .setFooter({ text: 'Project Zenith Command Center' })
                 .setTimestamp();
 
@@ -103,20 +103,20 @@ module.exports = {
 
         if (subcommand === 'status') {
             const embed = new EmbedBuilder()
-                .setTitle('🧠 AI Agent - Server Status')
-                .setDescription(`Aquí tienes el estado actual del bot **${interaction.client.user.username}** en tu servidor:`)
+                .setTitle('🧠 AI Agent — Server Status')
+                .setDescription(`Here is the current status of bot **${interaction.client.user.username}** on your server:`)
                 .addFields(
-                    { name: 'Estado General 🧠', value: config.enabled !== 0 ? '✅ **ACTIVO (Encendido)**' : '❌ **INACTIVO (Apagado por Completo)**', inline: false },
-                    { name: 'Nombre de Personaje 🎭', value: config.characterName || '*No configurado (Ver dashboard)*', inline: true },
-                    { name: 'Límite de Turnos 🔄', value: `${config.maxBotTurns || 5} turnos consecutivas`, inline: true },
+                    { name: 'Overall Status 🧠', value: config.enabled !== 0 ? '✅ **ACTIVE (On)**' : '❌ **INACTIVE (Completely Off)**', inline: false },
+                    { name: 'Character Name 🎭', value: config.characterName || '*Not configured (See dashboard)*', inline: true },
+                    { name: 'Turn Limit 🔄', value: `${config.maxBotTurns || 5} consecutive turns`, inline: true },
                     { name: '\u200b', value: '\u200b', inline: false },
-                    { name: 'Welcome Host 🚪', value: config.welcomeEnabled ? '✅ **Activo**' : '❌ **Inactivo**', inline: true },
-                    { name: 'Conversational Chat 💬', value: config.chatEnabled ? '✅ **Activo**' : '❌ **Inactivo**', inline: true },
-                    { name: 'RAG Support Agent 🛠️', value: config.supportEnabled ? '✅ **Activo**' : '❌ **Inactivo**', inline: true },
-                    { name: 'Bot-to-Bot Chats 🤖🤖', value: config.botToBotChatEnabled ? '✅ **Activo**' : '❌ **Inactivo**', inline: true }
+                    { name: 'Welcome Host 🚪', value: config.welcomeEnabled ? '✅ **Active**' : '❌ **Inactive**', inline: true },
+                    { name: 'Conversational Chat 💬', value: config.chatEnabled ? '✅ **Active**' : '❌ **Inactive**', inline: true },
+                    { name: 'RAG Support Agent 🛠️', value: config.supportEnabled ? '✅ **Active**' : '❌ **Inactive**', inline: true },
+                    { name: 'Bot-to-Bot Chats 🤖🤖', value: config.botToBotChatEnabled ? '✅ **Active**' : '❌ **Inactive**', inline: true }
                 )
                 .setColor(config.enabled !== 0 ? '#ffd700' : '#4f545c')
-                .setFooter({ text: 'Configura rasgos y canales adicionales en el dashboard de Zenith.' })
+                .setFooter({ text: 'Configure traits and channels in the Zenith dashboard.' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });

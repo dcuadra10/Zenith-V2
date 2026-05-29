@@ -72,11 +72,8 @@ async function calculateBonuses(userId, guildId, amount) {
  */
 async function removeBalance(userId, amount) {
     const db = await getDb();
-    const user = await db.get(`SELECT balance FROM users WHERE userId = ?`, [userId]);
-    if (!user || user.balance < amount) return false;
-
-    await db.run(`UPDATE users SET balance = balance - ? WHERE userId = ?`, [amount, userId]);
-    return true;
+    const result = await db.run(`UPDATE users SET balance = balance - ? WHERE userId = ? AND balance >= ?`, [amount, userId, amount]);
+    return result.changes > 0;
 }
 
 module.exports = { addBalance, removeBalance };

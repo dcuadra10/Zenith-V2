@@ -149,6 +149,9 @@ async function createDbInstance() {
             const sqlite3 = require('sqlite3').verbose();
             const db = new sqlite3.Database(process.env.SQLITE_PATH || './database.sqlite');
             
+            db.configure('busyTimeout', 5000); // 5s timeout instead of immediate lock error
+            db.on('error', err => console.error('[DB ERROR] SQLite global error:', err.message || err));
+            
             const wrapper = {
                 run: (query, params = []) => {
                     return new Promise((resolve, reject) => {

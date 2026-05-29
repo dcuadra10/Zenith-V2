@@ -3,6 +3,8 @@ const { processAdsSubmission } = require('../commands/tracking/add-ads');
 const { handleTicketSelection, handleApplicationStartButton, createTicketChannel } = require('../utils/applicationHandler');
 const { getDb } = require('../config/database');
 
+const economyCooldowns = new Map();
+
 module.exports = {
     name: 'interactionCreate',
     async execute(interaction, client) {
@@ -20,6 +22,17 @@ module.exports = {
         console.log(`[INTERACTION] Type: ${interaction.type}, Name: ${interaction.commandName || interaction.customId}, User: ${interaction.user.tag}`);
         if (interaction.isChatInputCommand()) {
             const commandName = interaction.commandName;
+            
+            const economyCommands = ['work', 'rob', 'pay', 'jail', 'shop', 'buy', 'bank', 'stocks', 'mafia', 'businesses', 'influence', 'jobs', 'balance', 'eco-admin'];
+            if (economyCommands.includes(commandName)) {
+                const now = Date.now();
+                const userCd = economyCooldowns.get(interaction.user.id);
+                if (userCd && now < userCd) {
+                    return await interaction.reply({ content: '⏳ Please slow down. (1s cooldown)', ephemeral: true }).catch(() => {});
+                }
+                economyCooldowns.set(interaction.user.id, now + 1000);
+            }
+
             const publicCommands = ['help', 'jail', 'mafia', 'family'];
             const slowCommands = ['help', 'mafia', 'businesses', 'jail', 'influence', 'family'];
             
@@ -79,11 +92,15 @@ module.exports = {
             try {
                 await command.execute(interaction);
             } catch (error) {
-                console.error(error);
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ content: '❌ There was an error executing this command.', ephemeral: true });
-                } else {
-                    await interaction.reply({ content: '❌ There was an error executing this command.', ephemeral: true });
+                console.error(`[COMMAND ERROR] ${commandName}:`, error.message || error);
+                try {
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.followUp({ content: '❌ There was an error executing this command.', ephemeral: true }).catch(() => {});
+                    } else {
+                        await interaction.reply({ content: '❌ There was an error executing this command.', ephemeral: true }).catch(() => {});
+                    }
+                } catch (e) {
+                    console.error('[FATAL] Could not send error message to Discord:', e.message);
                 }
             }
         } 

@@ -3009,9 +3009,13 @@ async function fetchAIAgentConfig() {
         const config = await res.json();
 
         setCheck('aiEnabled', config.enabled !== undefined ? config.enabled : true);
+        setVal('aiProvider', config.aiProvider || 'openai');
         setVal('aiOpenaiApiKey', config.openaiApiKey || '');
+        setVal('welcomeProvider', config.welcomeProvider || 'openai');
         setVal('aiWelcomeOpenaiApiKey', config.welcomeOpenaiApiKey || '');
+        setVal('chatProvider', config.chatProvider || 'openai');
         setVal('aiChatOpenaiApiKey', config.chatOpenaiApiKey || '');
+        setVal('supportProvider', config.supportProvider || 'openai');
         setVal('aiSupportOpenaiApiKey', config.supportOpenaiApiKey || '');
         setVal('aiCharacterName', config.characterName || '');
         setVal('aiCharacterTraits', config.characterTraits || '');
@@ -3247,9 +3251,13 @@ async function saveAIAgentConfig() {
     const kbVal = kbSelect ? kbSelect.getValue() : [];
 
     const payload = {
+        aiProvider: getVal('aiProvider'),
         openaiApiKey: getVal('aiOpenaiApiKey'),
+        welcomeProvider: getVal('welcomeProvider'),
         welcomeOpenaiApiKey: getVal('aiWelcomeOpenaiApiKey'),
+        chatProvider: getVal('chatProvider'),
         chatOpenaiApiKey: getVal('aiChatOpenaiApiKey'),
+        supportProvider: getVal('supportProvider'),
         supportOpenaiApiKey: getVal('aiSupportOpenaiApiKey'),
         characterName: getVal('aiCharacterName'),
         characterTraits: getVal('aiCharacterTraits'),

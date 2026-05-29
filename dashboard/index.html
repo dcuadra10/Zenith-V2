@@ -1534,11 +1534,20 @@
                 <div class="ticket-builder-grid">
                     <!-- Left Side: Config Form -->
                     <div class="z-card">
-                        <div class="z-input-group">
-                            <label>OpenAI API Key</label>
-                            <input class="z-input" type="password" id="aiOpenaiApiKey" placeholder="sk-proj-...">
-                            <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">Your key is encrypted and securely stored. We only use it to power this server's custom bot interactions.</small>
+                        <div class="grid-2">
+                            <div class="z-input-group">
+                                <label>AI Provider</label>
+                                <select class="z-input" id="aiProvider">
+                                    <option value="openai">OpenAI (GPT-4o mini)</option>
+                                    <option value="claude">Claude (Sonnet 3.5)</option>
+                                </select>
+                            </div>
+                            <div class="z-input-group">
+                                <label>API Key (OpenAI / Claude)</label>
+                                <input class="z-input" type="password" id="aiOpenaiApiKey" placeholder="e.g. sk-proj-... or sk-ant-...">
+                            </div>
                         </div>
+                        <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block; margin-bottom:12px;">Your key is encrypted and securely stored. We only use it to power this server's custom bot interactions.</small>
 
                         <div class="z-card-header" style="margin-top:24px;">
                             <h3>Character Profile</h3>
@@ -1614,11 +1623,20 @@
                             <label>Greeting Channel</label>
                             <select class="z-input" id="aiWelcomeChannel"></select>
                         </div>
-                        <div class="z-input-group" id="aiWelcomeApiKeyGroup" style="margin-top:16px;">
-                            <label>Welcome Host OpenAI API Key (Optional)</label>
-                            <input class="z-input" type="password" id="aiWelcomeOpenaiApiKey" placeholder="sk-proj-...">
-                            <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">If left blank, falls back to the global OpenAI API Key.</small>
+                        <div class="grid-2" id="aiWelcomeApiKeyGroup" style="margin-top:16px;">
+                            <div class="z-input-group">
+                                <label>Welcome AI Provider</label>
+                                <select class="z-input" id="welcomeProvider">
+                                    <option value="openai">OpenAI (GPT-4o mini)</option>
+                                    <option value="claude">Claude (Sonnet 3.5)</option>
+                                </select>
+                            </div>
+                            <div class="z-input-group">
+                                <label>Welcome API Key (Optional)</label>
+                                <input class="z-input" type="password" id="aiWelcomeOpenaiApiKey" placeholder="e.g. sk-proj-... or sk-ant-...">
+                            </div>
                         </div>
+                        <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block; margin-bottom:12px;">If left blank, falls back to the global configurations.</small>
                         <div class="z-input-group" id="aiWelcomeMessageGroup" style="margin-top:16px;">
                             <label>Welcome Message Template</label>
                             <textarea class="z-input" id="aiWelcomeMessage" style="min-height: 80px;" placeholder="e.g. Welcome to our kingdom {user}! Read #rules and have fun!"></textarea>
@@ -1645,11 +1663,20 @@
                             <label>Conversational Channels</label>
                             <select class="z-input" id="aiChatChannels" multiple></select>
                         </div>
-                        <div class="z-input-group" id="aiChatApiKeyGroup" style="margin-top:16px;">
-                            <label>Conversational Chat OpenAI API Key (Optional)</label>
-                            <input class="z-input" type="password" id="aiChatOpenaiApiKey" placeholder="sk-proj-...">
-                            <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">If left blank, falls back to the global OpenAI API Key.</small>
+                        <div class="grid-2" id="aiChatApiKeyGroup" style="margin-top:16px;">
+                            <div class="z-input-group">
+                                <label>Chat AI Provider</label>
+                                <select class="z-input" id="chatProvider">
+                                    <option value="openai">OpenAI (GPT-4o mini)</option>
+                                    <option value="claude">Claude (Sonnet 3.5)</option>
+                                </select>
+                            </div>
+                            <div class="z-input-group">
+                                <label>Chat API Key (Optional)</label>
+                                <input class="z-input" type="password" id="aiChatOpenaiApiKey" placeholder="e.g. sk-proj-... or sk-ant-...">
+                            </div>
                         </div>
+                        <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block; margin-bottom:12px;">If left blank, falls back to the global configurations.</small>
 
                         <!-- BOT TO BOT CHATS & COOLDOWN -->
                         <div class="toggle-row">
@@ -1701,11 +1728,20 @@
                                 <select class="z-input" id="aiSupportKnowledgeChannels" multiple></select>
                                 <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">Select channels (e.g. #rules, #faq) the AI scans to retrieve factual context for answering users.</small>
                             </div>
-                            <div class="z-input-group" style="margin-top:16px;">
-                                <label>RAG Support OpenAI API Key (Optional)</label>
-                                <input class="z-input" type="password" id="aiSupportOpenaiApiKey" placeholder="sk-proj-...">
-                                <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">If left blank, falls back to the global OpenAI API Key.</small>
+                            <div class="grid-2" style="margin-top:16px;">
+                                <div class="z-input-group">
+                                    <label>Support AI Provider</label>
+                                    <select class="z-input" id="supportProvider">
+                                        <option value="openai">OpenAI (GPT-4o mini)</option>
+                                        <option value="claude">Claude (Sonnet 3.5)</option>
+                                    </select>
+                                </div>
+                                <div class="z-input-group">
+                                    <label>Support API Key (Optional)</label>
+                                    <input class="z-input" type="password" id="aiSupportOpenaiApiKey" placeholder="e.g. sk-proj-... or sk-ant-...">
+                                </div>
                             </div>
+                            <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block; margin-bottom:12px;">If left blank, falls back to the global configurations.</small>
                         </div>
 
                         <button class="z-btn z-btn-primary" style="margin-top:32px; width: 100%;" onclick="saveAIAgentConfig()"><i class="fas fa-save"></i> Deploy AI Agent settings</button>

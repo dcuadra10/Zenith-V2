@@ -214,12 +214,18 @@ module.exports = {
                 if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0) continue;
                 
                 const finalContent = remapContent(msg.content, threadMap, guild.id);
-                const finalEmbeds = msg.embeds.map(e => remapEmbed(e, threadMap, guild.id));
+                const finalEmbeds = msg.embeds.filter(e => e.data && e.data.type === 'rich').map(e => remapEmbed(e, threadMap, guild.id));
                 
+                let sendContent = finalContent;
+                if (!msg.author.bot) {
+                    sendContent = finalContent ? `**${msg.author.username}**: ${finalContent}` : `**${msg.author.username}** sent an embed/attachment.`;
+                }
+
                 await targetChannel.send({
-                    content: `**${msg.author.username}**: ${finalContent || ''}`,
-                    embeds: finalEmbeds,
-                    files: Array.from(msg.attachments.values()).map(a => a.url)
+                    content: sendContent || null,
+                    embeds: finalEmbeds.length > 0 ? finalEmbeds : undefined,
+                    files: Array.from(msg.attachments.values()).map(a => a.url),
+                    components: msg.components && msg.components.length > 0 ? msg.components : undefined
                 });
             }
         } catch (err) {
@@ -244,12 +250,18 @@ module.exports = {
                     if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0) continue;
                     
                     const finalContent = remapContent(msg.content, threadMap, guild.id);
-                    const finalEmbeds = msg.embeds.map(e => remapEmbed(e, threadMap, guild.id));
+                    const finalEmbeds = msg.embeds.filter(e => e.data && e.data.type === 'rich').map(e => remapEmbed(e, threadMap, guild.id));
                     
+                    let sendContent = finalContent;
+                    if (!msg.author.bot) {
+                        sendContent = finalContent ? `**${msg.author.username}**: ${finalContent}` : `**${msg.author.username}** sent an embed/attachment.`;
+                    }
+
                     await newThread.send({
-                        content: `**${msg.author.username}**: ${finalContent || ''}`,
-                        embeds: finalEmbeds,
-                        files: Array.from(msg.attachments.values()).map(a => a.url)
+                        content: sendContent || null,
+                        embeds: finalEmbeds.length > 0 ? finalEmbeds : undefined,
+                        files: Array.from(msg.attachments.values()).map(a => a.url),
+                        components: msg.components && msg.components.length > 0 ? msg.components : undefined
                     });
                 }
             } catch (err) {

@@ -278,13 +278,20 @@ module.exports = {
                         const firstMsg = sortedMsgs[0];
                         if (!firstMsg) continue;
                         
+                        const finalFirstEmbeds = firstMsg.embeds.filter(e => e.data && e.data.type === 'rich');
+                        let firstSendContent = firstMsg.content;
+                        if (!firstMsg.author.bot) {
+                            firstSendContent = firstMsg.content ? `**${firstMsg.author.username}**: ${firstMsg.content}` : `**${firstMsg.author.username}** created this post.`;
+                        }
+
                         // Create the Forum Post (Thread)
                         const post = await forumChannel.threads.create({
                             name: originalThread.name,
                             message: {
-                                content: firstMsg.content ? `**${firstMsg.author.username}**: ${firstMsg.content}` : `**${firstMsg.author.username}** created this post.`,
-                                embeds: firstMsg.embeds,
-                                files: Array.from(firstMsg.attachments.values()).map(a => a.url)
+                                content: firstSendContent || null,
+                                embeds: finalFirstEmbeds.length > 0 ? finalFirstEmbeds : undefined,
+                                files: Array.from(firstMsg.attachments.values()).map(a => a.url),
+                                components: firstMsg.components && firstMsg.components.length > 0 ? firstMsg.components : undefined
                             }
                         });
                         
@@ -293,10 +300,17 @@ module.exports = {
                             if (msg.author.bot && msg.webhookId) continue;
                             if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0) continue;
                             
+                            const finalEmbeds = msg.embeds.filter(e => e.data && e.data.type === 'rich');
+                            let sendContent = msg.content;
+                            if (!msg.author.bot) {
+                                sendContent = msg.content ? `**${msg.author.username}**: ${msg.content}` : `**${msg.author.username}** sent an embed/attachment.`;
+                            }
+
                             await post.send({
-                                content: `**${msg.author.username}**: ${msg.content || ''}`,
-                                embeds: msg.embeds,
-                                files: Array.from(msg.attachments.values()).map(a => a.url)
+                                content: sendContent || null,
+                                embeds: finalEmbeds.length > 0 ? finalEmbeds : undefined,
+                                files: Array.from(msg.attachments.values()).map(a => a.url),
+                                components: msg.components && msg.components.length > 0 ? msg.components : undefined
                             });
                         }
                     } catch (threadErr) {

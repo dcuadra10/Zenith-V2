@@ -188,4 +188,126 @@ async function generateMafiaHierarchy(mafiaName, members, extraData = {}) {
     return canvas.toBuffer('image/png');
 }
 
-module.exports = { generateFamilyTree, generateMafiaHierarchy };
+async function generateLeaderboardImage(title, entries, backgroundPath) {
+    const canvas = createCanvas(900, 600);
+    const ctx = canvas.getContext('2d');
+
+    // Load and draw background image
+    try {
+        const bg = await loadImage(backgroundPath);
+        ctx.drawImage(bg, 0, 0, 900, 600);
+    } catch (e) {
+        // Fallback gradient if image fails
+        const grad = ctx.createLinearGradient(0, 0, 0, 600);
+        grad.addColorStop(0, '#0f0c29');
+        grad.addColorStop(0.5, '#302b63');
+        grad.addColorStop(1, '#24243e');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 900, 600);
+    }
+
+    // Dark glass overlay panel
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.beginPath();
+    ctx.roundRect(40, 30, 820, 540, 20);
+    ctx.fill();
+
+    // Subtle border glow
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(40, 30, 820, 540, 20);
+    ctx.stroke();
+
+    // Title with gold gradient
+    const titleGrad = ctx.createLinearGradient(200, 60, 700, 60);
+    titleGrad.addColorStop(0, '#fbbf24');
+    titleGrad.addColorStop(0.5, '#fde68a');
+    titleGrad.addColorStop(1, '#f59e0b');
+    ctx.fillStyle = titleGrad;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = 'rgba(251, 191, 36, 0.5)';
+    ctx.fillText(title, 450, 85);
+    ctx.shadowBlur = 0;
+
+    // Decorative separator line
+    const lineGrad = ctx.createLinearGradient(100, 105, 800, 105);
+    lineGrad.addColorStop(0, 'transparent');
+    lineGrad.addColorStop(0.3, 'rgba(251, 191, 36, 0.5)');
+    lineGrad.addColorStop(0.7, 'rgba(251, 191, 36, 0.5)');
+    lineGrad.addColorStop(1, 'transparent');
+    ctx.strokeStyle = lineGrad;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(100, 105);
+    ctx.lineTo(800, 105);
+    ctx.stroke();
+
+    // Medal colors and labels
+    const medalColors = ['#fbbf24', '#c0c0c0', '#cd7f32'];
+    const medalLabels = ['🥇', '🥈', '🥉'];
+
+    // Render each entry
+    const startY = 135;
+    const rowHeight = 42;
+    const maxEntries = Math.min(entries.length, 10);
+
+    for (let i = 0; i < maxEntries; i++) {
+        const entry = entries[i];
+        const y = startY + i * rowHeight;
+
+        // Row highlight for top 3
+        if (i < 3) {
+            ctx.fillStyle = `rgba(251, 191, 36, ${0.08 - i * 0.02})`;
+            ctx.beginPath();
+            ctx.roundRect(60, y - 5, 780, 36, 8);
+            ctx.fill();
+        }
+
+        // Rank number / medal
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 20px sans-serif';
+        if (i < 3) {
+            ctx.fillStyle = medalColors[i];
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = medalColors[i];
+            ctx.fillText(medalLabels[i], 80, y + 22);
+            ctx.shadowBlur = 0;
+        } else {
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText(`#${i + 1}`, 80, y + 22);
+        }
+
+        // Username
+        ctx.fillStyle = i < 3 ? '#ffffff' : '#d1d5db';
+        ctx.font = i < 3 ? 'bold 18px sans-serif' : '500 17px sans-serif';
+        const displayName = entry.name.length > 22 ? entry.name.substring(0, 22) + '…' : entry.name;
+        ctx.fillText(displayName, 130, y + 22);
+
+        // Value (right-aligned)
+        ctx.textAlign = 'right';
+        ctx.fillStyle = i < 3 ? '#fde68a' : '#9ca3af';
+        ctx.font = i < 3 ? 'bold 18px sans-serif' : '500 17px sans-serif';
+        ctx.fillText(entry.value, 820, y + 22);
+    }
+
+    if (entries.length === 0) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#6b7280';
+        ctx.font = 'italic 18px sans-serif';
+        ctx.fillText('The board is currently vacant. Be the first!', 450, 300);
+    }
+
+    // Footer branding
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+    ctx.font = '500 13px sans-serif';
+    ctx.fillText('Powered by Zenith', 450, 555);
+
+    return canvas.toBuffer('image/png');
+}
+
+module.exports = { generateFamilyTree, generateMafiaHierarchy, generateLeaderboardImage };

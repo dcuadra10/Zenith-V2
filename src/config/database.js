@@ -399,6 +399,7 @@ async function createDbInstance() {
                 levelUpColor TEXT,
                 levelUpUseEmbed INTEGER DEFAULT 1,
                 levelingBackground TEXT,
+                leaderboardImageEnabled INTEGER DEFAULT 0,
                 -- Economy Rewards
                 ecoEnabled INTEGER DEFAULT 0,
                 ecoCoinsPerMessage INTEGER DEFAULT 1,
@@ -591,7 +592,11 @@ async function createDbInstance() {
                 languageMode TEXT DEFAULT 'en',
                 welcomeOpenaiApiKey TEXT,
                 chatOpenaiApiKey TEXT,
-                supportOpenaiApiKey TEXT
+                supportOpenaiApiKey TEXT,
+                aiProvider TEXT DEFAULT 'openai',
+                welcomeProvider TEXT DEFAULT 'openai',
+                chatProvider TEXT DEFAULT 'openai',
+                supportProvider TEXT DEFAULT 'openai'
             );
         `);
 
@@ -602,6 +607,10 @@ async function createDbInstance() {
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN welcomeOpenaiApiKey TEXT`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN chatOpenaiApiKey TEXT`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportOpenaiApiKey TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN aiProvider TEXT DEFAULT 'openai'`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN welcomeProvider TEXT DEFAULT 'openai'`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN chatProvider TEXT DEFAULT 'openai'`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportProvider TEXT DEFAULT 'openai'`); } catch (e) {}
         
         // Auto-migrate ranks
         try { await dbInstance.exec(`UPDATE mafia_members SET rank = 'Consigliere' WHERE rank = 'Underboss'`); } catch (e) {}
@@ -615,7 +624,7 @@ async function createDbInstance() {
             'swearJarTitle TEXT', 'swearJarMessage TEXT', 'swearJarColor TEXT',
             'logVoice INTEGER DEFAULT 1', 'logServer INTEGER DEFAULT 1', 'logInvites INTEGER DEFAULT 1',
             'levelUpTitle TEXT', 'levelUpMessage TEXT', 'levelUpColor TEXT', 'levelUpUseEmbed INTEGER DEFAULT 1',
-            'levelingBackground TEXT',
+            'levelingBackground TEXT', 'leaderboardImageEnabled INTEGER DEFAULT 0',
             'newKingdomEnabled INTEGER DEFAULT 0', 'newKingdomSourceChannel TEXT', 'newKingdomTargetChannel TEXT', 'newKingdomPingRole TEXT',
             'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
             'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT'
@@ -964,7 +973,7 @@ async function initializeSchema() {
             'swearJarTitle TEXT', 'swearJarMessage TEXT', 'swearJarColor TEXT',
             'logVoice INTEGER DEFAULT 1', 'logServer INTEGER DEFAULT 1', 'logInvites INTEGER DEFAULT 1',
             'levelUpTitle TEXT', 'levelUpMessage TEXT', 'levelUpColor TEXT', 'levelUpUseEmbed INTEGER DEFAULT 1',
-            'levelingBackground TEXT',
+            'levelingBackground TEXT', 'leaderboardImageEnabled INTEGER DEFAULT 0',
             'newKingdomEnabled INTEGER DEFAULT 0', 'newKingdomSourceChannel TEXT', 'newKingdomTargetChannel TEXT', 'newKingdomPingRole TEXT',
             'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
             'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT'
@@ -1008,7 +1017,8 @@ async function initializeSchema() {
             'supportKnowledgeChannels TEXT', 'botToBotChatEnabled INTEGER DEFAULT 0',
             'maxBotTurns INTEGER DEFAULT 5', 'enabled INTEGER DEFAULT 1',
             'clientId TEXT', 'languageMode TEXT DEFAULT \'en\'',
-            'welcomeOpenaiApiKey TEXT', 'chatOpenaiApiKey TEXT', 'supportOpenaiApiKey TEXT'
+            'welcomeOpenaiApiKey TEXT', 'chatOpenaiApiKey TEXT', 'supportOpenaiApiKey TEXT',
+            'aiProvider TEXT DEFAULT \'openai\'', 'welcomeProvider TEXT DEFAULT \'openai\'', 'chatProvider TEXT DEFAULT \'openai\'', 'supportProvider TEXT DEFAULT \'openai\''
         ]
     };
 

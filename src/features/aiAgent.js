@@ -53,6 +53,60 @@ async function askOpenAI(apiKey, systemPrompt, messageHistory) {
     }
 }
 
+async function askClaude(apiKey, systemPrompt, messageHistory) {
+    try {
+        // Convert OpenAI-style message history to Claude format
+        const messages = messageHistory.map(m => ({
+            role: m.role === 'assistant' ? 'assistant' : 'user',
+            content: m.content
+        }));
+
+        // Claude requires alternating user/assistant messages; merge consecutive same-role messages
+        const mergedMessages = [];
+        for (const msg of messages) {
+            if (mergedMessages.length > 0 && mergedMessages[mergedMessages.length - 1].role === msg.role) {
+                mergedMessages[mergedMessages.length - 1].content += '\n' + msg.content;
+            } else {
+                mergedMessages.push({ ...msg });
+            }
+        }
+
+        // Ensure first message is from user (Claude requirement)
+        if (mergedMessages.length === 0 || mergedMessages[0].role !== 'user') {
+            mergedMessages.unshift({ role: 'user', content: '...' });
+        }
+
+        const response = await axios.post(
+            'https://api.anthropic.com/v1/messages',
+            {
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 300,
+                system: systemPrompt,
+                messages: mergedMessages
+            },
+            {
+                headers: {
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'Content-Type': 'application/json'
+                },
+                timeout: 15000
+            }
+        );
+        return response.data?.content?.[0]?.text;
+    } catch (err) {
+        console.error('[Claude API Error]:', err.response?.data || err.message);
+        return null;
+    }
+}
+
+async function askAI(provider, apiKey, systemPrompt, messageHistory) {
+    if (provider === 'claude') {
+        return askClaude(apiKey, systemPrompt, messageHistory);
+    }
+    return askOpenAI(apiKey, systemPrompt, messageHistory);
+}
+
 module.exports = function setupAIAgent(client) {
     // 1. WELCOME GATE EVENT
     client.on('guildMemberAdd', async member => {
@@ -94,7 +148,8 @@ ${config.characterTraits}
 Instrucciones:
 ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
 
-            const welcomeMessage = await askOpenAI(welcomeKey, systemPrompt, [
+            const provider = config.welcomeProvider || config.aiProvider || 'openai';
+            const welcomeMessage = await askAI(provider, welcomeKey, systemPrompt, [
                 { role: 'user', content: `Dale la bienvenida a <@${member.user.id}>` }
             ]);
 
@@ -184,7 +239,8 @@ ${config.characterTraits}
 Instrucciones:
 Explica de manera divertida y totalmente metido en tu personaje que has estado hablando demasiado seguido y que te vas a tomar un breve descanso (de exactamente 5 minutos) para tomar aire.${getLanguageInstruction(config.languageMode)}`;
 
-                    const cooldownText = await askOpenAI(chatKey, systemPrompt, [
+                    const chatProvider = config.chatProvider || config.aiProvider || 'openai';
+                    const cooldownText = await askAI(chatProvider, chatKey, systemPrompt, [
                         { role: 'user', content: 'Di que te vas a tomar un descanso de 5 minutos.' }
                     ]);
 
@@ -252,7 +308,10 @@ Si la información oficial no responde la duda, explica de forma educada (en tu 
             // Introduce a small typing delay for realism (1.5s - 3s)
             await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1500));
 
-            const responseText = await askOpenAI(activeKey, systemPrompt, history);
+            const activeProvider = isSupportChannel 
+                ? (config.supportProvider || config.aiProvider || 'openai')
+                : (config.chatProvider || config.aiProvider || 'openai');
+            const responseText = await askAI(activeProvider, activeKey, systemPrompt, history);
             if (responseText) {
                 await message.reply(responseText).catch(() => {});
             }

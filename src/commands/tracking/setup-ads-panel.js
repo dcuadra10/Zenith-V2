@@ -11,27 +11,58 @@ module.exports = {
 
   async execute(interaction) {
     const db = await getDb();
-    
-    const leaderboardEmbed = new EmbedBuilder()
-      .setTitle('🏆 Top Ad Publishers')
-      .setColor('#FFD700');
-      
+    const conf = await db.get(`SELECT leaderboardImageEnabled FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
+    const useImage = conf?.leaderboardImageEnabled ? true : false;
+
     const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id]);
     
-    if (!topUsers || topUsers.length === 0) {
-        leaderboardEmbed.setDescription('🏆 **Leaderboard of the Week**\n\n*The board is currently vacant. Be the first to register an ad and secure the top spot!*');
-    } else {
-        let desc = '🏆 **Leaderboard of the Week**\n\n';
-        topUsers.forEach((u, i) => {
-            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅';
-            desc += `${medal} <@${u.userId}> ── **${u.totalAds}** ads\n`;
-        });
-        leaderboardEmbed.setDescription(desc);
-    }
-
     const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
-    const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });
-    leaderboardEmbed.setImage('attachment://zenith_bg.png');
+    const files = [];
+    let leaderboardEmbed = null;
+
+    if (useImage) {
+        // --- IMAGE MODE: Leaderboard baked into canvas ---
+        const { generateLeaderboardImage } = require('../../utils/imageGenerator');
+
+        const entries = [];
+        for (const u of topUsers) {
+            let name = `User ${u.userId.slice(-4)}`;
+            try {
+                const member = await interaction.guild.members.fetch(u.userId).catch(() => null);
+                if (member) name = member.displayName || member.user.username;
+            } catch (e) {}
+            entries.push({ name, value: `${u.totalAds} ads` });
+        }
+
+        const buffer = await generateLeaderboardImage('🏆  Leaderboard of the Week', entries, imagePath);
+        const imgAttachment = new AttachmentBuilder(buffer, { name: 'leaderboard.png' });
+        files.push(imgAttachment);
+
+        leaderboardEmbed = new EmbedBuilder()
+            .setTitle('🏆 Top Ad Publishers')
+            .setColor('#FFD700')
+            .setImage('attachment://leaderboard.png');
+    } else {
+        // --- CLASSIC MODE: Text embed ---
+        leaderboardEmbed = new EmbedBuilder()
+            .setTitle('🏆 Top Ad Publishers')
+            .setColor('#FFD700');
+
+        if (!topUsers || topUsers.length === 0) {
+            leaderboardEmbed.setDescription('🏆 **Leaderboard of the Week**\n\n*The board is currently vacant. Be the first to register an ad and secure the top spot!*');
+        } else {
+            let desc = '🏆 **Leaderboard of the Week**\n\n';
+            topUsers.forEach((u, i) => {
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅';
+                desc += `${medal} <@${u.userId}> ── **${u.totalAds}** ads\n`;
+            });
+            leaderboardEmbed.setDescription(desc);
+        }
+
+        const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });
+        files.push(attachment);
+        leaderboardEmbed.setImage('attachment://zenith_bg.png');
+    }
 
     const currentWeekId = getISOWeekString();
 
@@ -61,7 +92,7 @@ module.exports = {
           .setStyle(ButtonStyle.Primary),
       );
 
-    const payload = { embeds: [leaderboardEmbed, embed], components: [row], files: [attachment] };
+    const payload = { embeds: [leaderboardEmbed, embed], components: [row], files };
     await interaction.channel.send(payload);
     await interaction.reply({ content: 'Panel deployed successfully.', ephemeral: true });
   }

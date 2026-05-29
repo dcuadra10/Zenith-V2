@@ -659,6 +659,9 @@ app.post('/api/market-config/:guildId', authenticateToken, async (req, res) => {
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // ============================================
 // AI AGENTS ROUTES
 // ============================================
@@ -878,14 +881,20 @@ app.post('/api/ai-agent/:guildId/research', authenticateToken, async (req, res) 
 
         const db = await getDb();
         const guildId = req.params.guildId;
-        const { characterName, language } = req.body;
+        const { characterName, language, clientId } = req.body;
 
         if (!characterName) {
             return res.status(400).json({ error: 'Character name is required' });
         }
 
-        // Get saved OpenAI API key for this server
-        const config = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ?`, [guildId]);
+        // Get saved OpenAI API key for this server and client with fallback
+        let config = null;
+        if (clientId) {
+            config = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [guildId, clientId]);
+        }
+        if (!config || !config.openaiApiKey) {
+            config = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ? AND openaiApiKey IS NOT NULL AND openaiApiKey != '' LIMIT 1`, [guildId]);
+        }
         const apiKey = config ? config.openaiApiKey : null;
 
         if (!apiKey) {

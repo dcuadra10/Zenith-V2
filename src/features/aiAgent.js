@@ -116,8 +116,11 @@ module.exports = function setupAIAgent(client) {
 
         try {
             const db = await getDb();
-            const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [member.guild.id, client.user.id]);
-            const welcomeKey = config.welcomeOpenaiApiKey || config.openaiApiKey;
+            let config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [member.guild.id, client.user.id]);
+            if (!config && client.token) {
+                config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND botToken = ?`, [member.guild.id, client.token]);
+            }
+            const welcomeKey = config?.welcomeOpenaiApiKey || config?.openaiApiKey;
             if (!config || config.enabled === 0 || !config.welcomeEnabled || !config.welcomeChannel || !welcomeKey) return;
 
             // Wait 1.5 seconds for the Discord system join message to appear in the channel
@@ -188,7 +191,11 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
 
         try {
             const db = await getDb();
-            const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [message.guild.id, client.user.id]);
+            let config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [message.guild.id, client.user.id]);
+            // Fallback: if no config found by clientId, try matching by botToken
+            if (!config && client.token) {
+                config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND botToken = ?`, [message.guild.id, client.token]);
+            }
             if (!config || config.enabled === 0) return;
 
             const channelKey = `${message.guild.id}:${message.channel.id}`;
@@ -328,7 +335,12 @@ Si la información oficial no responde la duda, explica de forma educada (en tu 
                 : (config.chatProvider || config.aiProvider || 'openai');
             const responseText = await askAI(activeProvider, activeKey, systemPrompt, history);
             if (responseText) {
-                await message.reply(responseText).catch(() => {});
+                await message.reply(responseText).catch(err => {
+                    console.error('[AI Agent Reply Error]:', err.message);
+                });
+            } else {
+                console.error(`[AI Agent] API returned null for guild ${message.guild.id}, provider: ${activeProvider}`);
+                await message.reply('⚠️ I tried to respond but my AI brain had a hiccup. Please check the API key configuration in the dashboard.').catch(() => {});
             }
         } catch (e) {
             console.error('[AI Agent Message Handle Error]:', e);

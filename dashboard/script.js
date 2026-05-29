@@ -3020,6 +3020,13 @@ async function fetchAIAgentConfig() {
         setVal('aiCharacterName', config.characterName || '');
         setVal('aiCharacterTraits', config.characterTraits || '');
         setVal('aiLanguageMode', config.languageMode || 'en');
+        setVal('aiWelcomeCharacterName', config.welcomeCharacterName || '');
+        setVal('aiWelcomeCharacterTraits', config.welcomeCharacterTraits || '');
+        setVal('aiChatCharacterName', config.chatCharacterName || '');
+        setVal('aiChatCharacterTraits', config.chatCharacterTraits || '');
+        setVal('aiSupportCharacterName', config.supportCharacterName || '');
+        setVal('aiSupportCharacterTraits', config.supportCharacterTraits || '');
+
 
         setCheck('aiWelcomeEnabled', config.welcomeEnabled);
         setVal('aiWelcomeChannel', config.welcomeChannel || '');
@@ -3261,6 +3268,12 @@ async function saveAIAgentConfig() {
         supportOpenaiApiKey: getVal('aiSupportOpenaiApiKey'),
         characterName: getVal('aiCharacterName'),
         characterTraits: getVal('aiCharacterTraits'),
+        welcomeCharacterName: getVal('aiWelcomeCharacterName'),
+        welcomeCharacterTraits: getVal('aiWelcomeCharacterTraits'),
+        chatCharacterName: getVal('aiChatCharacterName'),
+        chatCharacterTraits: getVal('aiChatCharacterTraits'),
+        supportCharacterName: getVal('aiSupportCharacterName'),
+        supportCharacterTraits: getVal('aiSupportCharacterTraits'),
         welcomeEnabled: getCheck('aiWelcomeEnabled'),
         welcomeChannel: getVal('aiWelcomeChannel'),
         welcomeMessage: getVal('aiWelcomeMessage'),
@@ -3273,6 +3286,7 @@ async function saveAIAgentConfig() {
         maxBotTurns: parseInt(document.getElementById('aiMaxBotTurns').value) || 5,
         enabled: getCheck('aiEnabled'),
         languageMode: getVal('aiLanguageMode')
+
     };
 
     try {

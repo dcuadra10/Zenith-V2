@@ -611,6 +611,12 @@ async function createDbInstance() {
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN welcomeProvider TEXT DEFAULT 'openai'`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN chatProvider TEXT DEFAULT 'openai'`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportProvider TEXT DEFAULT 'openai'`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN welcomeCharacterName TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN welcomeCharacterTraits TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN chatCharacterName TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN chatCharacterTraits TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportCharacterName TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportCharacterTraits TEXT`); } catch (e) {}
         
         // Auto-migrate ranks
         try { await dbInstance.exec(`UPDATE mafia_members SET rank = 'Consigliere' WHERE rank = 'Underboss'`); } catch (e) {}

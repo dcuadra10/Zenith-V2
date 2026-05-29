@@ -666,6 +666,12 @@ app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 supportProvider: 'openai',
                 characterName: '',
                 characterTraits: '',
+                welcomeCharacterName: '',
+                welcomeCharacterTraits: '',
+                chatCharacterName: '',
+                chatCharacterTraits: '',
+                supportCharacterName: '',
+                supportCharacterTraits: '',
                 welcomeEnabled: 0,
                 welcomeChannel: '',
                 welcomeMessage: '',
@@ -720,6 +726,12 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
             supportProvider,
             characterName,
             characterTraits,
+            welcomeCharacterName,
+            welcomeCharacterTraits,
+            chatCharacterName,
+            chatCharacterTraits,
+            supportCharacterName,
+            supportCharacterTraits,
             welcomeEnabled,
             welcomeChannel,
             welcomeMessage,
@@ -735,7 +747,7 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         } = req.body;
         
         // Fetch existing config to see if key needs update or preservation
-        const existing = await db.get(`SELECT openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey FROM ai_agent_configs WHERE guildId = ?`, [guildId]);
+        const existing = await db.get('SELECT openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey FROM ai_agent_configs WHERE guildId = ?', [guildId]);
         
         let keyToSave = openaiApiKey;
         if (openaiApiKey === '••••••••••••' || !openaiApiKey) {
@@ -763,8 +775,10 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 aiProvider, welcomeProvider, chatProvider, supportProvider,
                 characterName, characterTraits, welcomeEnabled, welcomeChannel, welcomeMessage, 
                 chatEnabled, chatChannels, supportEnabled, supportChannel, supportKnowledgeChannels,
-                botToBotChatEnabled, maxBotTurns, enabled, languageMode
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                botToBotChatEnabled, maxBotTurns, enabled, languageMode,
+                welcomeCharacterName, welcomeCharacterTraits, chatCharacterName, chatCharacterTraits,
+                supportCharacterName, supportCharacterTraits
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(guildId) DO UPDATE SET
              openaiApiKey = excluded.openaiApiKey,
              welcomeOpenaiApiKey = excluded.welcomeOpenaiApiKey,
@@ -787,7 +801,13 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
              botToBotChatEnabled = excluded.botToBotChatEnabled,
              maxBotTurns = excluded.maxBotTurns,
              enabled = excluded.enabled,
-             languageMode = excluded.languageMode`,
+             languageMode = excluded.languageMode,
+             welcomeCharacterName = excluded.welcomeCharacterName,
+             welcomeCharacterTraits = excluded.welcomeCharacterTraits,
+             chatCharacterName = excluded.chatCharacterName,
+             chatCharacterTraits = excluded.chatCharacterTraits,
+             supportCharacterName = excluded.supportCharacterName,
+             supportCharacterTraits = excluded.supportCharacterTraits`,
             [
                 guildId,
                 keyToSave,
@@ -811,7 +831,13 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 botToBotChatEnabled ? 1 : 0,
                 parseInt(maxBotTurns) || 5,
                 enabled !== undefined ? (enabled ? 1 : 0) : 1,
-                languageMode || 'en'
+                languageMode || 'en',
+                welcomeCharacterName || '',
+                welcomeCharacterTraits || '',
+                chatCharacterName || '',
+                chatCharacterTraits || '',
+                supportCharacterName || '',
+                supportCharacterTraits || ''
             ]
         );
 

@@ -141,10 +141,13 @@ Debes reescribir y transmitir el siguiente mensaje de bienvenida de forma divert
 Asegúrate de incluir la mención al usuario <@${member.user.id}> de forma natural en tu respuesta.`;
             }
 
-            const systemPrompt = `Eres un personaje de Discord llamado "${config.characterName}".
-Tus rasgos y personalidad son:
-${config.characterTraits}
+            const charName = config.welcomeCharacterName || config.characterName || 'Welcome Host';
+            const charTraits = config.welcomeCharacterTraits || config.characterTraits || '';
 
+            const systemPrompt = `Eres un personaje de Discord llamado "${charName}".
+Tus rasgos y personalidad son:
+${charTraits}
+ 
 Instrucciones:
 ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
 
@@ -233,10 +236,12 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
                     
                     // Send premium visual alert and in-character message explaining the rest
                     await message.channel.sendTyping().catch(() => {});
-                    const systemPrompt = `Eres el personaje "${config.characterName}".
+                    const chatCharName = config.chatCharacterName || config.characterName || 'Assistant';
+                    const chatCharTraits = config.chatCharacterTraits || config.characterTraits || '';
+                    const systemPrompt = `Eres el personaje "${chatCharName}".
 Tus rasgos y personalidad son:
-${config.characterTraits}
-
+${chatCharTraits}
+ 
 Instrucciones:
 Explica de manera divertida y totalmente metido en tu personaje que has estado hablando demasiado seguido y que te vas a tomar un breve descanso (de exactamente 5 minutos) para tomar aire.${getLanguageInstruction(config.languageMode)}`;
 
@@ -288,9 +293,16 @@ Explica de manera divertida y totalmente metido en tu personaje que has estado h
             }
 
             // Construct rich system prompt
-            const systemPrompt = `Eres un personaje interactivo de Discord llamado "${config.characterName}".
+            const charName = isSupportChannel
+                ? (config.supportCharacterName || config.characterName || 'Support Agent')
+                : (config.chatCharacterName || config.characterName || 'Chat Agent');
+            const charTraits = isSupportChannel
+                ? (config.supportCharacterTraits || config.characterTraits || '')
+                : (config.chatCharacterTraits || config.characterTraits || '');
+
+            const systemPrompt = `Eres un personaje interactivo de Discord llamado "${charName}".
 Tus rasgos y personalidad son:
-${config.characterTraits}
+${charTraits}
 
 Instrucciones de comportamiento:
 1. Responde SIEMPRE metido completamente en tu personaje, manteniendo tu tono, estilo y personalidad en cada respuesta.

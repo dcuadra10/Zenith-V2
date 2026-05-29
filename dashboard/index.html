@@ -1644,6 +1644,18 @@
                                 Type the base welcome message template. The AI Agent will read this and rewrite it in its own tone, personality, and style! Supports `{user}`, `{server}`, and `{memberCount}` placeholders.
                             </small>
                         </div>
+                        <!-- Welcome Host Custom Character Overrides -->
+                        <div class="grid-2" style="margin-top:16px;">
+                            <div class="z-input-group">
+                                <label>Welcome Host Display Name (Optional)</label>
+                                <input class="z-input" type="text" id="aiWelcomeCharacterName" placeholder="e.g. Welcome Host">
+                            </div>
+                        </div>
+                        <div class="z-input-group" style="margin-top:12px;">
+                            <label>Welcome Host Traits & Instructions (Optional)</label>
+                            <textarea class="z-input" id="aiWelcomeCharacterTraits" style="min-height: 80px;" placeholder="Describe specific instructions for this welcome agent. If left blank, falls back to the global profile."></textarea>
+                        </div>
+
 
                         <!-- CHAT CONFIGS -->
                         <div class="z-card-header" style="margin-top:32px;">
@@ -1677,6 +1689,18 @@
                             </div>
                         </div>
                         <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block; margin-bottom:12px;">If left blank, falls back to the global configurations.</small>
+                        <!-- Conversational Chat Custom Character Overrides -->
+                        <div class="grid-2" style="margin-top:16px;">
+                            <div class="z-input-group">
+                                <label>Chat Agent Display Name (Optional)</label>
+                                <input class="z-input" type="text" id="aiChatCharacterName" placeholder="e.g. Chat Agent">
+                            </div>
+                        </div>
+                        <div class="z-input-group" style="margin-top:12px;">
+                            <label>Chat Agent Traits & Instructions (Optional)</label>
+                            <textarea class="z-input" id="aiChatCharacterTraits" style="min-height: 80px;" placeholder="Describe specific instructions for this conversational agent. If left blank, falls back to the global profile."></textarea>
+                        </div>
+
 
                         <!-- BOT TO BOT CHATS & COOLDOWN -->
                         <div class="toggle-row">
@@ -1742,6 +1766,17 @@
                                 </div>
                             </div>
                             <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block; margin-bottom:12px;">If left blank, falls back to the global configurations.</small>
+                            <!-- RAG Support Agent Custom Character Overrides -->
+                            <div class="grid-2" style="margin-top:16px;">
+                                <div class="z-input-group">
+                                    <label>Support Agent Display Name (Optional)</label>
+                                    <input class="z-input" type="text" id="aiSupportCharacterName" placeholder="e.g. Support Agent">
+                                </div>
+                            </div>
+                            <div class="z-input-group" style="margin-top:12px;">
+                                <label>Support Agent Traits & Instructions (Optional)</label>
+                                <textarea class="z-input" id="aiSupportCharacterTraits" style="min-height: 80px;" placeholder="Describe specific instructions for this support agent. If left blank, falls back to the global profile."></textarea>
+                            </div>
                         </div>
 
                         <button class="z-btn z-btn-primary" style="margin-top:32px; width: 100%;" onclick="saveAIAgentConfig()"><i class="fas fa-save"></i> Deploy AI Agent settings</button>

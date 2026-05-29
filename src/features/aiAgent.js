@@ -116,7 +116,7 @@ module.exports = function setupAIAgent(client) {
 
         try {
             const db = await getDb();
-            const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ?`, [member.guild.id]);
+            const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [member.guild.id, client.user.id]);
             const welcomeKey = config.welcomeOpenaiApiKey || config.openaiApiKey;
             if (!config || config.enabled === 0 || !config.welcomeEnabled || !config.welcomeChannel || !welcomeKey) return;
 
@@ -188,7 +188,7 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
 
         try {
             const db = await getDb();
-            const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ?`, [message.guild.id]);
+            const config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [message.guild.id, client.user.id]);
             if (!config || config.enabled === 0) return;
 
             const channelKey = `${message.guild.id}:${message.channel.id}`;

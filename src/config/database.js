@@ -418,8 +418,8 @@ async function createDbInstance() {
             );
 
             CREATE TABLE IF NOT EXISTS custom_bots (
-                guildId TEXT PRIMARY KEY,
-                botToken TEXT NOT NULL,
+                guildId TEXT,
+                botToken TEXT PRIMARY KEY,
                 clientId TEXT,
                 status TEXT DEFAULT 'inactive',
                 errorMessage TEXT
@@ -573,7 +573,8 @@ async function createDbInstance() {
             );
 
             CREATE TABLE IF NOT EXISTS ai_agent_configs (
-                guildId TEXT PRIMARY KEY,
+                guildId TEXT,
+                clientId TEXT,
                 openaiApiKey TEXT,
                 characterName TEXT,
                 characterTraits TEXT,
@@ -588,7 +589,6 @@ async function createDbInstance() {
                 botToBotChatEnabled INTEGER DEFAULT 0,
                 maxBotTurns INTEGER DEFAULT 5,
                 enabled INTEGER DEFAULT 1,
-                clientId TEXT,
                 languageMode TEXT DEFAULT 'en',
                 welcomeOpenaiApiKey TEXT,
                 chatOpenaiApiKey TEXT,
@@ -596,7 +596,8 @@ async function createDbInstance() {
                 aiProvider TEXT DEFAULT 'openai',
                 welcomeProvider TEXT DEFAULT 'openai',
                 chatProvider TEXT DEFAULT 'openai',
-                supportProvider TEXT DEFAULT 'openai'
+                supportProvider TEXT DEFAULT 'openai',
+                PRIMARY KEY (guildId, clientId)
             );
         `);
 
@@ -617,6 +618,89 @@ async function createDbInstance() {
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN chatCharacterTraits TEXT`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportCharacterName TEXT`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportCharacterTraits TEXT`); } catch (e) {}
+        
+        // Migrate custom_bots and ai_agent_configs schema to multi-bot support
+        try {
+            const tableInfo = await dbInstance.all("PRAGMA table_info(custom_bots)");
+            const isGuildIdPk = tableInfo.some(col => col.name === 'guildId' && col.pk === 1);
+            if (isGuildIdPk) {
+                await dbInstance.exec(`ALTER TABLE custom_bots RENAME TO temp_custom_bots`);
+                await dbInstance.exec(`
+                    CREATE TABLE custom_bots (
+                        guildId TEXT,
+                        botToken TEXT PRIMARY KEY,
+                        clientId TEXT,
+                        status TEXT DEFAULT 'inactive',
+                        errorMessage TEXT
+                    )
+                `);
+                await dbInstance.exec(`INSERT OR IGNORE INTO custom_bots (guildId, botToken, clientId, status, errorMessage) SELECT guildId, botToken, clientId, status, errorMessage FROM temp_custom_bots`);
+                await dbInstance.exec(`DROP TABLE temp_custom_bots`);
+                console.log("[MIGRATION] custom_bots successfully migrated to botToken PRIMARY KEY");
+            }
+        } catch (e) {
+            console.error("[MIGRATION] Failed migrating custom_bots table:", e.message);
+        }
+
+        try {
+            const tableInfo = await dbInstance.all("PRAGMA table_info(ai_agent_configs)");
+            const isGuildIdPk = tableInfo.some(col => col.name === 'guildId' && col.pk === 1);
+            if (isGuildIdPk) {
+                await dbInstance.exec(`ALTER TABLE ai_agent_configs RENAME TO temp_ai_agent_configs`);
+                await dbInstance.exec(`
+                    CREATE TABLE ai_agent_configs (
+                        guildId TEXT,
+                        clientId TEXT,
+                        openaiApiKey TEXT,
+                        welcomeOpenaiApiKey TEXT,
+                        chatOpenaiApiKey TEXT,
+                        supportOpenaiApiKey TEXT,
+                        aiProvider TEXT DEFAULT 'openai',
+                        welcomeProvider TEXT DEFAULT 'openai',
+                        chatProvider TEXT DEFAULT 'openai',
+                        supportProvider TEXT DEFAULT 'openai',
+                        characterName TEXT,
+                        characterTraits TEXT,
+                        welcomeCharacterName TEXT,
+                        welcomeCharacterTraits TEXT,
+                        chatCharacterName TEXT,
+                        chatCharacterTraits TEXT,
+                        supportCharacterName TEXT,
+                        supportCharacterTraits TEXT,
+                        welcomeEnabled INTEGER DEFAULT 0,
+                        welcomeChannel TEXT,
+                        welcomeMessage TEXT,
+                        chatEnabled INTEGER DEFAULT 0,
+                        chatChannels TEXT,
+                        supportEnabled INTEGER DEFAULT 0,
+                        supportChannel TEXT,
+                        supportKnowledgeChannels TEXT,
+                        botToBotChatEnabled INTEGER DEFAULT 0,
+                        maxBotTurns INTEGER DEFAULT 5,
+                        enabled INTEGER DEFAULT 1,
+                        languageMode TEXT DEFAULT 'en',
+                        PRIMARY KEY (guildId, clientId)
+                    )
+                `);
+                await dbInstance.exec(`INSERT OR IGNORE INTO ai_agent_configs (
+                    guildId, clientId, openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey,
+                    aiProvider, welcomeProvider, chatProvider, supportProvider,
+                    characterName, characterTraits, welcomeCharacterName, welcomeCharacterTraits, chatCharacterName, chatCharacterTraits, supportCharacterName, supportCharacterTraits,
+                    welcomeEnabled, welcomeChannel, welcomeMessage, chatEnabled, chatChannels, supportEnabled, supportChannel, supportKnowledgeChannels,
+                    botToBotChatEnabled, maxBotTurns, enabled, languageMode
+                ) SELECT 
+                    guildId, COALESCE(clientId, ''), openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey,
+                    aiProvider, welcomeProvider, chatProvider, supportProvider,
+                    characterName, characterTraits, welcomeCharacterName, welcomeCharacterTraits, chatCharacterName, chatCharacterTraits, supportCharacterName, supportCharacterTraits,
+                    welcomeEnabled, welcomeChannel, welcomeMessage, chatEnabled, chatChannels, supportEnabled, supportChannel, supportKnowledgeChannels,
+                    botToBotChatEnabled, maxBotTurns, enabled, languageMode
+                FROM temp_ai_agent_configs`);
+                await dbInstance.exec(`DROP TABLE temp_ai_agent_configs`);
+                console.log("[MIGRATION] ai_agent_configs successfully migrated to composite PRIMARY KEY");
+            }
+        } catch (e) {
+            console.error("[MIGRATION] Failed migrating ai_agent_configs table:", e.message);
+        }
         
         // Auto-migrate ranks
         try { await dbInstance.exec(`UPDATE mafia_members SET rank = 'Consigliere' WHERE rank = 'Underboss'`); } catch (e) {}

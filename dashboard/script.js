@@ -6,6 +6,7 @@ const API_URL = '/api';
 let activeGuild = null;
 let editingPanelId = null;
 let editingMessageId = null;
+let selectedAgentClientId = '';
 
 // ===== AUTO-DRAFT SYSTEM =====
 const DRAFT_KEY = 'zenith_dashboard_draft';
@@ -2444,79 +2445,111 @@ async function executeLevelImport(input) {
 // =============================================
 
 
-// ===== CUSTOM BOT MANAGEMENT =====
+// ===== CUSTOM BOT MANAGEMENT (AI AGENTS LIST) =====
+function toggleAddBotForm() {
+    const form = document.getElementById('addBotFormContainer');
+    if (form) {
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function selectAgentClient(clientId) {
+    selectedAgentClientId = clientId;
+    fetchCustomBot(); // refresh list UI
+    fetchAIAgentConfig(); // fetch this specific bot's config
+}
+
 async function fetchCustomBot() {
     if (!activeGuild) return;
     try {
         const res = await fetch(`${API_URL}/custom-bot/${activeGuild.id}`);
-        const bot = await res.json();
+        const bots = await res.json(); // Array of custom bots
         
-        const stateEl = document.getElementById('cbState');
-        const errEl = document.getElementById('cbError');
-        const tokenInput = document.getElementById('customBotToken');
+        const listEl = document.getElementById('customBotsList');
+        if (!listEl) return;
         
-        const inputGroup = tokenInput ? tokenInput.closest('.z-input-group') : null;
-        const connectBtn = document.querySelector('button[onclick="connectCustomBot()"]');
-        const disconnectBtn = document.querySelector('button[onclick="disconnectCustomBot()"]');
-        const statusIcon = document.querySelector('#customBotStatus i');
-        
-        if (bot && bot.status && bot.status !== 'none' && bot.status !== 'inactive') {
+        if (!bots || bots.length === 0) {
+            listEl.innerHTML = `
+                <div style="background:#2b2d31; border:1px dashed #4f545c; border-radius:var(--radius-md); padding:16px; text-align:center; color:var(--text-muted); font-size:0.85rem;">
+                    <i class="fas fa-robot" style="font-size:1.5rem; margin-bottom:8px; display:block; color:#4f545c;"></i>
+                    No active AI Agents found. Connect a bot client below to get started!
+                </div>
+            `;
+            selectedAgentClientId = '';
+            // Disable the configuration card below since no bots exist
+            const coreCard = document.querySelector('#page-aiagents .ticket-builder-grid');
+            if (coreCard) {
+                coreCard.style.opacity = '0.35';
+                coreCard.style.pointerEvents = 'none';
+            }
+            return;
+        }
+
+        // Enable config card
+        const coreCard = document.querySelector('#page-aiagents .ticket-builder-grid');
+        if (coreCard) {
+            coreCard.style.opacity = '';
+            coreCard.style.pointerEvents = '';
+        }
+
+        // If nothing selected or selection is invalid, select first bot by default
+        if (!selectedAgentClientId || !bots.some(b => b.clientId === selectedAgentClientId)) {
+            selectedAgentClientId = bots[0].clientId || '';
+            fetchAIAgentConfig(); // load its config
+        }
+
+        // Render custom bot clients
+        let hasStarting = false;
+        listEl.innerHTML = bots.map(bot => {
+            const isActive = bot.clientId === selectedAgentClientId;
+            let statusText = 'Offline';
+            let statusColor = '#95a5a6';
+            let statusIcon = '<i class="fas fa-power-off"></i>';
+            
             if (bot.status === 'starting') {
-                stateEl.textContent = 'Connecting...';
-                stateEl.style.color = '#f1c40f'; // Warning Yellow
-                errEl.textContent = 'Registering slash commands and establishing connection with Discord...';
-                if (statusIcon) {
-                    statusIcon.className = 'fas fa-spinner fa-spin';
-                    statusIcon.parentElement.style.color = '#f1c40f';
-                }
-                
-                // Poll status again in 3 seconds to see if connection completes
-                setTimeout(() => fetchCustomBot(), 3000);
+                statusText = 'Connecting...';
+                statusColor = '#f1c40f';
+                statusIcon = '<i class="fas fa-spinner fa-spin"></i>';
+                hasStarting = true;
             } else if (bot.status === 'active') {
-                stateEl.textContent = 'Online';
-                stateEl.style.color = '#2ecc71'; // Green
-                errEl.textContent = `Connected as Bot ID: ${bot.clientId}`;
-                if (statusIcon) {
-                    statusIcon.className = 'fas fa-check-circle';
-                    statusIcon.parentElement.style.color = '#2ecc71';
-                }
-            } else {
-                stateEl.textContent = 'Error';
-                stateEl.style.color = '#e74c3c'; // Red
-                errEl.textContent = bot.errorMessage || 'Failed to authenticate. Verify your bot token and intents.';
-                if (statusIcon) {
-                    statusIcon.className = 'fas fa-exclamation-circle';
-                    statusIcon.parentElement.style.color = '#e74c3c';
-                }
+                statusText = 'Online';
+                statusColor = '#2ecc71';
+                statusIcon = '<i class="fas fa-check-circle"></i>';
+            } else if (bot.status === 'error') {
+                statusText = 'Error';
+                statusColor = '#e74c3c';
+                statusIcon = '<i class="fas fa-exclamation-circle"></i>';
             }
-            
-            tokenInput.value = bot.botToken || '';
-            
-            if (bot.status === 'active' || bot.status === 'starting') {
-                if (inputGroup) inputGroup.style.display = 'none';
-                if (connectBtn) connectBtn.style.display = 'none';
-                if (disconnectBtn) disconnectBtn.style.display = '';
-            } else {
-                if (inputGroup) inputGroup.style.display = '';
-                if (connectBtn) connectBtn.style.display = '';
-                if (disconnectBtn) disconnectBtn.style.display = '';
-            }
-        } else {
-            stateEl.textContent = 'Disconnected';
-            stateEl.style.color = '#95a5a6'; // Gray
-            errEl.textContent = 'No custom bot is currently linked to this server.';
-            if (statusIcon) {
-                statusIcon.className = 'fas fa-power-off';
-                statusIcon.parentElement.style.color = '#95a5a6';
-            }
-            tokenInput.value = '';
-            
-            if (inputGroup) inputGroup.style.display = '';
-            if (connectBtn) connectBtn.style.display = '';
-            if (disconnectBtn) disconnectBtn.style.display = 'none';
+
+            return `
+                <div class="z-card-item" style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border:2px solid ${isActive ? 'var(--accent-purple)' : '#2f3136'}; background:${isActive ? 'rgba(155, 89, 182, 0.08)' : '#2b2d31'}; border-radius:var(--radius-md); cursor:pointer; margin-bottom: 8px;" onclick="selectAgentClient('${bot.clientId}')">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="font-size:1.5rem; color:${statusColor}; display:flex; align-items:center;">${statusIcon}</div>
+                        <div>
+                            <div style="font-weight:600; color:#fff; font-size:0.9rem;">
+                                ${bot.clientId ? 'AI Agent (ID: ' + bot.clientId.substring(0,8) + '...)' : 'New Agent (Starting)'}
+                            </div>
+                            <div style="font-size:0.75rem; color:${statusColor}; font-weight:600; display:flex; align-items:center; gap:6px;">
+                                <span style="display:inline-block; width:6px; height:6px; background:${statusColor}; border-radius:50%;"></span>
+                                ${statusText} ${bot.errorMessage ? '— ' + bot.errorMessage : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button class="z-btn" style="padding:6px 10px; font-size:0.75rem; background:rgba(231, 76, 60, 0.15); border: 1px solid #e74c3c; color:#e74c3c; cursor: pointer; border-radius: 4px;" onclick="event.stopPropagation(); deleteAgentClient('${bot.botToken}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (hasStarting) {
+            // Poll for connection transition
+            setTimeout(() => fetchCustomBot(), 3000);
         }
     } catch (e) {
-        console.error('Error fetching custom bot:', e);
+        console.error('Error fetching custom bots list:', e);
     }
 }
 
@@ -2535,34 +2568,37 @@ async function connectCustomBot() {
         const data = await res.json();
         if (data.success) {
             showToast('✅ Custom Bot Connected Successfully!');
+            const form = document.getElementById('addBotFormContainer');
+            if (form) form.style.display = 'none';
+            document.getElementById('customBotToken').value = '';
+            selectedAgentClientId = data.clientId || '';
             fetchCustomBot();
         } else {
             showToast(`❌ Error: ${data.error}`, true);
-            fetchCustomBot();
         }
     } catch (e) {
         showToast('❌ Server error connecting bot', true);
     }
 }
 
-async function disconnectCustomBot() {
-    if (!activeGuild) return;
-    if (!confirm('Are you sure you want to disconnect your custom bot? It will immediately go offline.')) return;
+async function deleteAgentClient(token) {
+    if (!confirm('Are you sure you want to disconnect and delete this AI Agent bot client?')) return;
     
-    showToast('Disconnecting bot...');
+    showToast('Deleting agent...');
     try {
-        const res = await fetch(`${API_URL}/custom-bot/${activeGuild.id}`, {
+        const res = await fetch(`${API_URL}/custom-bot/${activeGuild.id}?botToken=${encodeURIComponent(token)}`, {
             method: 'DELETE'
         });
         const data = await res.json();
         if (data.success) {
-            showToast('✅ Custom Bot Disconnected');
+            showToast('✅ AI Agent successfully deleted');
+            selectedAgentClientId = '';
             fetchCustomBot();
         } else {
-            showToast(`❌ Error disconnecting`, true);
+            showToast('❌ Error deleting agent', true);
         }
     } catch (e) {
-        showToast('❌ Server error disconnecting bot', true);
+        showToast('❌ Server error deleting agent', true);
     }
 }
 
@@ -3051,9 +3087,9 @@ const aiPresets = {
 };
 
 async function fetchAIAgentConfig() {
-    if (!activeGuild) return;
+    if (!activeGuild || !selectedAgentClientId) return;
     try {
-        const res = await apiFetch(`/ai-agent/${activeGuild.id}`);
+        const res = await apiFetch(`/ai-agent/${activeGuild.id}?clientId=${selectedAgentClientId}`);
         if (!res.ok) return;
         const config = await res.json();
 
@@ -3297,7 +3333,7 @@ async function runAIResearch() {
 }
 
 async function saveAIAgentConfig() {
-    if (!activeGuild) return;
+    if (!activeGuild || !selectedAgentClientId) return;
 
     // Read chat and support knowledge TomSelect multi values
     const chatSelect = tomSelects['aiChatChannels'];
@@ -3307,6 +3343,7 @@ async function saveAIAgentConfig() {
     const kbVal = kbSelect ? kbSelect.getValue() : [];
 
     const payload = {
+        clientId: selectedAgentClientId,
         aiProvider: getVal('aiProvider'),
         openaiApiKey: getVal('aiOpenaiApiKey'),
         welcomeProvider: getVal('welcomeProvider'),

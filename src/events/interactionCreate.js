@@ -552,71 +552,136 @@ module.exports = {
                     return interaction.reply({ content: '❌ You do not have permission to close this ticket.', ephemeral: true });
                 }
                 
-                await interaction.reply('Generating transcript and closing ticket in 5 seconds...');
+                // Show modal asking for close reason
+                const targetUser = interaction.customId.replace('close_ticket_', '');
+                const modal = new ModalBuilder()
+                    .setCustomId(`close_ticket_modal_${targetUser}`)
+                    .setTitle('Close Ticket');
+                
+                const reasonInput = new TextInputBuilder()
+                    .setCustomId('close_reason')
+                    .setLabel('Reason for closing (optional)')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(false)
+                    .setPlaceholder('e.g. Issue resolved, Inactive user, Duplicate...');
+                
+                modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+                await interaction.showModal(modal);
+
+            } else if (interaction.customId.startsWith('close_ticket_modal_')) {
+                // Modal submitted — generate markdown transcript and close
+                const targetUser = interaction.customId.replace('close_ticket_modal_', '');
+                const closeReason = interaction.fields.getTextInputValue('close_reason') || 'No reason provided';
+                
+                await interaction.reply(`🔒 Closing ticket — Reason: **${closeReason}**\nGenerating transcript...`);
                 
                 try {
-                    const discordTranscripts = require('discord-html-transcripts');
-                    
-                    // Capture application answers from the welcome embed before generating transcript
-                    try {
-                        const pinnedMessages = await interaction.channel.messages.fetch({ limit: 10 });
-                        const welcomeMsg = pinnedMessages.find(m => m.author.id === client.user.id && m.embeds.length > 0 && m.embeds[0].fields?.length > 0);
-                        if (welcomeMsg) {
-                            const answerFields = welcomeMsg.embeds[0].fields.filter(f => f.name.startsWith('Q'));
-                            if (answerFields.length > 0) {
-                                const { EmbedBuilder } = require('discord.js');
-                                const summaryEmbed = new EmbedBuilder()
-                                    .setTitle('📋 Application Responses')
-                                    .setColor('#ffd700')
-                                    .setDescription(answerFields.map(f => `**${f.name}**\n${f.value}`).join('\n\n'))
-                                    .setFooter({ text: 'Archived at ticket closure' })
-                                    .setTimestamp();
-                                await interaction.channel.send({ embeds: [summaryEmbed] });
-                            }
-                        }
-                    } catch (e) { /* silently continue if answer capture fails */ }
-                    
-                    const attachment = await discordTranscripts.createTranscript(interaction.channel, {
-                        limit: -1, 
-                        returnType: 'attachment',
-                        filename: `${interaction.channel.name}-transcript.html`,
-                        saveImages: true, 
-                        poweredBy: false
-                    });
-                    
-                    const htmlString = await discordTranscripts.createTranscript(interaction.channel, {
-                        limit: -1,
-                        returnType: 'string',
-                        saveImages: true,
-                        poweredBy: false
-                    });
-                    
-                    const encodedHTML = encodeURIComponent(htmlString);
                     const db = await getDb();
                     
-                    const targetUser = interaction.customId.split('_')[2];
+                    // Fetch ALL messages from the channel
+                    let allMessages = [];
+                    let lastId;
+                    while (true) {
+                        const options = { limit: 100 };
+                        if (lastId) options.before = lastId;
+                        const fetched = await interaction.channel.messages.fetch(options);
+                        if (fetched.size === 0) break;
+                        allMessages.push(...fetched.values());
+                        lastId = fetched.last().id;
+                        if (fetched.size < 100) break;
+                    }
+                    allMessages.reverse(); // chronological order
+                    
+                    // Build Markdown transcript
+                    let mdLines = [];
+                    mdLines.push(`# Transcript: ${interaction.channel.name}`);
+                    mdLines.push(`**Server:** ${interaction.guild.name}`);
+                    mdLines.push(`**Closed by:** ${interaction.user.tag}`);
+                    mdLines.push(`**Reason:** ${closeReason}`);
+                    mdLines.push(`**Date:** ${new Date().toLocaleString()}`);
+                    mdLines.push(`**Messages:** ${allMessages.length}`);
+                    mdLines.push('');
+                    mdLines.push('---');
+                    mdLines.push('');
+                    
+                    for (const msg of allMessages) {
+                        const ts = new Date(msg.createdTimestamp).toLocaleString();
+                        mdLines.push(`### ${msg.author.tag} — ${ts}`);
+                        if (msg.content) {
+                            mdLines.push(msg.content);
+                        }
+                        if (msg.embeds.length > 0) {
+                            for (const embed of msg.embeds) {
+                                if (embed.title) mdLines.push(`> **${embed.title}**`);
+                                if (embed.description) mdLines.push(`> ${embed.description.replace(/\n/g, '\n> ')}`);
+                                if (embed.fields?.length > 0) {
+                                    for (const f of embed.fields) {
+                                        mdLines.push(`> **${f.name}:** ${f.value}`);
+                                    }
+                                }
+                            }
+                        }
+                        if (msg.attachments.size > 0) {
+                            msg.attachments.forEach(att => {
+                                mdLines.push(`📎 [${att.name}](${att.url})`);
+                            });
+                        }
+                        mdLines.push('');
+                        mdLines.push('---');
+                        mdLines.push('');
+                    }
+                    
+                    const markdownString = mdLines.join('\n');
+                    const { AttachmentBuilder } = require('discord.js');
+                    const mdBuffer = Buffer.from(markdownString, 'utf-8');
+                    const attachment = new AttachmentBuilder(mdBuffer, { name: `${interaction.channel.name}-transcript.md` });
+                    
+                    // Save to DB (plain markdown, no encoding)
                     const ticketId = interaction.channel.name + '-' + Date.now().toString().slice(-4);
                     await db.run(
                         `INSERT INTO ticket_transcripts (ticketId, guildId, userId, logContent) VALUES (?, ?, ?, ?)`,
-                        [ticketId, interaction.guildId, targetUser || interaction.user.id, encodedHTML]
+                        [ticketId, interaction.guildId, targetUser || interaction.user.id, markdownString]
                     );
 
                     const moduleConfigs = await db.get(`SELECT ticketsTranscriptChannel FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
 
+                    // DM the user with reason + transcript
                     if (targetUser) {
                         try {
                             const dmMember = await interaction.guild.members.fetch(targetUser).catch(() => null);
                             if (dmMember) {
-                                await dmMember.send({ content: `✅ Your ticket \`${interaction.channel.name}\` has been closed. Here is your transcript:`, files: [attachment] });
+                                const dmEmbed = new EmbedBuilder()
+                                    .setTitle('🔒 Ticket Closed')
+                                    .setColor('#ed4245')
+                                    .addFields(
+                                        { name: 'Ticket', value: `\`${interaction.channel.name}\``, inline: true },
+                                        { name: 'Closed By', value: interaction.user.tag, inline: true },
+                                        { name: 'Reason', value: closeReason }
+                                    )
+                                    .setTimestamp();
+                                await dmMember.send({ embeds: [dmEmbed], files: [attachment] });
                             }
                         } catch(err) {
                             console.error('Could not DM user transcript.');
                         }
                     }
+                    // Send to transcript log channel
                     if (moduleConfigs && moduleConfigs.ticketsTranscriptChannel) {
                         const transcriptChannel = interaction.guild.channels.cache.get(moduleConfigs.ticketsTranscriptChannel);
                         if (transcriptChannel) {
-                            await transcriptChannel.send({ content: `📁 Transcript for ticket \`${interaction.channel.name}\``, files: [attachment] });
+                            const logEmbed = new EmbedBuilder()
+                                .setTitle('📁 Ticket Transcript')
+                                .setColor('#5865f2')
+                                .addFields(
+                                    { name: 'Ticket', value: `\`${interaction.channel.name}\``, inline: true },
+                                    { name: 'User', value: `<@${targetUser}>`, inline: true },
+                                    { name: 'Closed By', value: `<@${interaction.user.id}>`, inline: true },
+                                    { name: 'Reason', value: closeReason }
+                                )
+                                .setTimestamp();
+                            // Re-create attachment for log channel (buffer can only be consumed once)
+                            const logAttachment = new AttachmentBuilder(Buffer.from(markdownString, 'utf-8'), { name: `${interaction.channel.name}-transcript.md` });
+                            await transcriptChannel.send({ embeds: [logEmbed], files: [logAttachment] });
                         }
                     }
                 } catch(e) {

@@ -1501,7 +1501,7 @@ app.get('/api/transcripts/:guildId/:ticketId', authenticateToken, async (req, re
         const transcript = await db.get('SELECT logContent FROM ticket_transcripts WHERE guildId = ? AND ticketId = ?', [req.params.guildId, req.params.ticketId]);
         if (!transcript) return res.status(404).json({ error: 'Transcript not found' });
 
-        res.json({ content: decodeURIComponent(transcript.logContent) });
+        res.json({ content: transcript.logContent.startsWith('#') ? transcript.logContent : (() => { try { return decodeURIComponent(transcript.logContent); } catch(e) { return transcript.logContent; }})() });
     } catch (e) {
         console.error('Error fetching transcript content:', e);
         res.status(500).json({ error: 'Error fetching transcript content' });

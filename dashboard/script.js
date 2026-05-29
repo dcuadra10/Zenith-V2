@@ -2098,45 +2098,8 @@ async function deletePanel(id) {
     fetchPanels();
 }
 
-async function fetchTranscripts() {
-    if (!activeGuild) return;
-    try {
-        const res = await apiFetch(`/transcripts/${activeGuild.id}`);
-        const ts = await res.json();
 
-        // Tickets page
-        const c = document.getElementById('transcriptsList');
-        // Overview page
-        const ov = document.getElementById('overviewTranscripts');
 
-        if (ts.length === 0) {
-            const empty = '<div class="empty-state"><div class="empty-icon">📭</div><p>No recent transcripts.</p></div>';
-            if (c) c.innerHTML = empty;
-            if (ov) ov.innerHTML = empty;
-            return;
-        }
-
-        const html = ts.slice(0, 10).map(t => `
-            <div class="panel-item">
-                <div class="panel-item-info">
-                    <span class="panel-item-dot" style="background:var(--accent-green);box-shadow:0 0 8px var(--accent-green);"></span>
-                    <div>
-                        <strong>🎫 ${t.ticketId}</strong>
-                        <br><small style="color:var(--text-muted);">Author: ${t.userId} · ${new Date(t.closedAt).toLocaleString()}</small>
-                    </div>
-                </div>
-                <button class="z-btn z-btn-secondary" onclick="viewTranscript('${encodeURIComponent(t.logContent || '')}')">View</button>
-            </div>`).join('');
-
-        if (c) c.innerHTML = html;
-        if (ov) ov.innerHTML = html;
-    } catch (e) { console.error(e); }
-}
-
-function viewTranscript(encoded) {
-    document.getElementById('transcriptModal').classList.add('active');
-    document.getElementById('transcriptContent').textContent = decodeURIComponent(encoded) || 'This transcript is empty.';
-}
 
 // ===== SAVE BAR (Unsaved Changes Detection) =====
 let currentPage = 'overview';
@@ -2322,40 +2285,112 @@ function renderTranscript(rawContent) {
     const container = document.getElementById('discordChatContainer');
     container.innerHTML = '';
 
-    // Zenith transcript format: [Date, Time] Author: \n Content \n ------------------
-    const messages = rawContent.split('---------------------------');
-    
-    messages.forEach(msgBlock => {
-        if (!msgBlock.trim()) return;
+    if (!rawContent || rawContent.trim() === '') {
+        container.innerHTML = '<div style="color:var(--text-muted); text-align:center; margin-top:100px;">Empty transcript.</div>';
+        return;
+    }
 
-        // Extract metadata and body
-        // Format: [1/1/2026, 12:00:00 AM] Author: \n Content
-        const match = msgBlock.match(/\[(.*?)\] (.*?):\n([\s\S]*)/);
-        if (match) {
-            const [_, timestamp, author, content] = match;
+    // Check if this is the new Markdown format (starts with #)
+    if (rawContent.startsWith('#')) {
+        // Parse header metadata
+        const lines = rawContent.split('\n');
+        let headerHtml = '';
+        let i = 0;
+        
+        // Gather header lines until first ---
+        while (i < lines.length && lines[i].trim() !== '---') {
+            const line = lines[i].trim();
+            if (line.startsWith('# ')) {
+                headerHtml += `<div style="font-size:1.2rem; font-weight:700; color:var(--text-primary); margin-bottom:12px;">${line.replace('# ', '')}</div>`;
+            } else if (line.startsWith('**') && line.includes(':**')) {
+                headerHtml += `<div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px;">${line.replace(/\*\*/g, '<strong>').replace(/<strong>/g, '<strong>').replace(/<\/strong>/g, '</strong>')}</div>`;
+            }
+            i++;
+        }
+        
+        if (headerHtml) {
+            const headerEl = document.createElement('div');
+            headerEl.style.cssText = 'padding:16px 20px; margin-bottom:16px; border-bottom:1px solid var(--border-subtle); background:rgba(88,101,242,0.05); border-radius:8px;';
+            headerEl.innerHTML = headerHtml;
+            container.appendChild(headerEl);
+        }
+        
+        // Parse messages: split by ---
+        const messageBlocks = rawContent.substring(rawContent.indexOf('---') + 3).split('---');
+        
+        messageBlocks.forEach(block => {
+            block = block.trim();
+            if (!block) return;
+            
+            const blockLines = block.split('\n');
+            let author = '';
+            let timestamp = '';
+            let contentParts = [];
+            
+            for (const bLine of blockLines) {
+                const trimmed = bLine.trim();
+                if (!trimmed) continue;
+                
+                if (trimmed.startsWith('### ')) {
+                    // Author line: ### Author — Timestamp
+                    const parts = trimmed.replace('### ', '').split(' — ');
+                    author = parts[0] || 'Unknown';
+                    timestamp = parts[1] || '';
+                } else if (trimmed.startsWith('> ')) {
+                    contentParts.push(`<div style="border-left:3px solid var(--accent-purple); padding-left:10px; margin:4px 0; color:var(--text-secondary); font-size:0.85rem;">${trimmed.replace(/^> /, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>`);
+                } else if (trimmed.startsWith('📎')) {
+                    const linkMatch = trimmed.match(/\[(.*?)\]\((.*?)\)/);
+                    if (linkMatch) {
+                        contentParts.push(`<div style="margin:4px 0;"><a href="${linkMatch[2]}" target="_blank" style="color:var(--accent-cyan); text-decoration:none;">📎 ${linkMatch[1]}</a></div>`);
+                    }
+                } else {
+                    contentParts.push(`<div style="margin:2px 0; color:var(--text-primary); white-space:pre-wrap;">${trimmed}</div>`);
+                }
+            }
+            
+            if (!author && contentParts.length === 0) return;
+            
+            const colors = ['#5865f2', '#ed4245', '#57f287', '#fee75c', '#eb459e', '#3498db', '#e67e22'];
+            const colorIdx = author.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
             
             const msgEl = document.createElement('div');
             msgEl.className = 'discord-message';
             msgEl.innerHTML = `
-                <div class="discord-avatar">${author.charAt(0).toUpperCase()}</div>
+                <div class="discord-avatar" style="background:${colors[colorIdx]};">${(author.charAt(0) || '?').toUpperCase()}</div>
                 <div class="discord-content">
                     <div class="discord-author">
                         <span class="discord-author-name">${author}</span>
                         <span class="discord-timestamp">${timestamp}</span>
                     </div>
-                    <div class="discord-text">${content.trim()}</div>
+                    ${contentParts.join('')}
                 </div>
             `;
             container.appendChild(msgEl);
-        } else {
-            // Fallback for simpler lines
-            const simpleDiv = document.createElement('div');
-            simpleDiv.className = 'discord-text';
-            simpleDiv.style.padding = '5px 0';
-            simpleDiv.textContent = msgBlock;
-            container.appendChild(simpleDiv);
-        }
-    });
+        });
+    } else {
+        // Legacy format fallback
+        const messages = rawContent.split('---------------------------');
+        messages.forEach(msgBlock => {
+            if (!msgBlock.trim()) return;
+            const match = msgBlock.match(/\[(.*?)\] (.*?):\n([\s\S]*)/);
+            if (match) {
+                const [_, timestamp, author, content] = match;
+                const msgEl = document.createElement('div');
+                msgEl.className = 'discord-message';
+                msgEl.innerHTML = `
+                    <div class="discord-avatar">${author.charAt(0).toUpperCase()}</div>
+                    <div class="discord-content">
+                        <div class="discord-author">
+                            <span class="discord-author-name">${author}</span>
+                            <span class="discord-timestamp">${timestamp}</span>
+                        </div>
+                        <div class="discord-text">${content.trim()}</div>
+                    </div>
+                `;
+                container.appendChild(msgEl);
+            }
+        });
+    }
 }
 
 function closeTranscript() {

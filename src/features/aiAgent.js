@@ -156,7 +156,10 @@ ${charTraits}
 Instrucciones:
 ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
 
-            const provider = config.welcomeProvider || config.aiProvider || 'openai';
+            let provider = config.welcomeProvider || config.aiProvider || 'openai';
+            if (welcomeKey.startsWith('sk-ant-')) provider = 'claude';
+            else if (welcomeKey.startsWith('sk-proj-') || welcomeKey.startsWith('sk-svc-')) provider = 'openai';
+
             const welcomeMessage = await askAI(provider, welcomeKey, systemPrompt, [
                 { role: 'user', content: `Dale la bienvenida a <@${member.user.id}>` }
             ]);
@@ -260,7 +263,10 @@ ${chatCharTraits}
 Instrucciones:
 Explica de manera divertida y totalmente metido en tu personaje que has estado hablando demasiado seguido y que te vas a tomar un breve descanso (de exactamente 5 minutos) para tomar aire.${getLanguageInstruction(config.languageMode)}`;
 
-                    const chatProvider = config.chatProvider || config.aiProvider || 'openai';
+                    let chatProvider = config.chatProvider || config.aiProvider || 'openai';
+                    if (chatKey.startsWith('sk-ant-')) chatProvider = 'claude';
+                    else if (chatKey.startsWith('sk-proj-') || chatKey.startsWith('sk-svc-')) chatProvider = 'openai';
+
                     const cooldownText = await askAI(chatProvider, chatKey, systemPrompt, [
                         { role: 'user', content: 'Di que te vas a tomar un descanso de 5 minutos.' }
                     ]);
@@ -336,9 +342,16 @@ Si la información oficial no responde la duda, explica de forma educada (en tu 
             // Introduce a small typing delay for realism (1.5s - 3s)
             await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1500));
 
-            const activeProvider = isSupportChannel 
+            let activeProvider = isSupportChannel 
                 ? (config.supportProvider || config.aiProvider || 'openai')
                 : (config.chatProvider || config.aiProvider || 'openai');
+            
+            // Auto-detect provider based on key prefix to prevent mismatch errors
+            if (activeKey.startsWith('sk-ant-')) {
+                activeProvider = 'claude';
+            } else if (activeKey.startsWith('sk-proj-') || activeKey.startsWith('sk-svc-')) {
+                activeProvider = 'openai';
+            }
             
             // Diagnostic logging
             console.log(`[AI Agent Debug] Guild: ${message.guild.id}, Channel: ${message.channel.id}, Provider: ${activeProvider}, KeyPrefix: ${activeKey ? activeKey.substring(0, 8) + '...' : 'NULL'}, isChatChannel: ${isChatChannel}, isSupportChannel: ${isSupportChannel}, isMentioned: ${isMentioned}`);

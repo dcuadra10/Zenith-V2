@@ -79,7 +79,7 @@ async function askClaude(apiKey, systemPrompt, messageHistory) {
         const response = await axios.post(
             'https://api.anthropic.com/v1/messages',
             {
-                model: 'claude-sonnet-4-20250514',
+                model: 'claude-3-5-sonnet-latest',
                 max_tokens: 300,
                 system: systemPrompt,
                 messages: mergedMessages
@@ -110,7 +110,7 @@ async function askAI(provider, apiKey, systemPrompt, messageHistory) {
 module.exports = function setupAIAgent(client) {
     // 1. WELCOME GATE EVENT
     client.on('guildMemberAdd', async member => {
-        if (!client.isCustomBot || member.guild.id !== client.customGuildId) return;
+        if (client.isCustomBot && member.guild.id !== client.customGuildId) return;
 
         try {
             const db = await getDb();
@@ -177,7 +177,8 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
     // 2. MESSAGE CREATE EVENT (CHAT & RAG SUPPORT & BOT-TO-BOT)
     client.on('messageCreate', async message => {
         // Enforce custom bot scope and self exclusion
-        if (!client.isCustomBot || !message.guild || message.guild.id !== client.customGuildId) return;
+        if (client.isCustomBot && message.guild.id !== client.customGuildId) return;
+        if (!message.guild) return;
         if (message.author.id === client.user.id) return;
 
         try {

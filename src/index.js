@@ -1415,6 +1415,7 @@ require('./features/logging')(client);
 require('./features/serverStats')(client);
 require('./features/giveaways')(client);
 require('./features/r4Tracker')(client);
+require('./features/aiAgent')(client);
 
 // Iniciar bots personalizados
 const customBotManager = require('./managers/CustomBotManager');

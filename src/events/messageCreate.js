@@ -59,6 +59,10 @@ module.exports = {
         if (message.author.id === client.user.id) return;
 
         if (true) {
+            // Custom bots should NOT run server management features (auto-mod, leveling, swear jar, etc.)
+            // They only handle AI agent responses via aiAgent.js
+            if (client.isCustomBot) return;
+
             // --- 1. AUTO-MODERATION ---
             if (conf.automodenabled) {
                 let shouldDelete = false;
@@ -304,6 +308,18 @@ module.exports = {
                         const foundWord = words.find(w => content.length > 0 && w.length > 0 && content.includes(w));
 
                         if (foundWord) {
+                            // Increment swear count in database
+                            await db.run(
+                                `INSERT INTO swear_jar_counts (userId, guildId, count) VALUES (?, ?, 1)
+                                 ON CONFLICT(userId, guildId) DO UPDATE SET count = swear_jar_counts.count + 1`,
+                                [message.author.id, message.guild.id]
+                            );
+                            const countRow = await db.get(
+                                `SELECT count FROM swear_jar_counts WHERE userId = ? AND guildId = ?`,
+                                [message.author.id, message.guild.id]
+                            );
+                            const swearCount = countRow ? countRow.count : 1;
+
                             let sjChannel = message.guild.channels.cache.get(conf.swearjarchannel);
                             if (!sjChannel) {
                                 try {
@@ -316,15 +332,17 @@ module.exports = {
                                 let title = conf.swearjartitle || '🏺 Swear Jar Contribution!';
                                 let desc = conf.swearjarmessage || `${ping} just added a coin to the jar for using prohibited dialect: \`${foundWord}\``;
 
-                                const pTitle = title.replace('{user}', ping).replace('{word}', foundWord);
-                                const pDesc = desc.replace('{user}', ping).replace('{word}', foundWord);
+                                const pTitle = title.replace('{user}', ping).replace('{word}', foundWord).replace('{count}', swearCount);
+                                const pDesc = desc.replace('{user}', ping).replace('{word}', foundWord).replace('{count}', swearCount);
 
-                                const payload = buildMessage(true, {
-                                    title: pTitle,
-                                    description: pDesc,
-                                    color: conf.swearjarcolor || '#FFD700'
-                                });
-                                sjChannel.send(payload).catch(() => {});
+                                const embed = new EmbedBuilder()
+                                    .setTitle(pTitle)
+                                    .setDescription(pDesc)
+                                    .setColor(conf.swearjarcolor || '#FFD700')
+                                    .setFooter({ text: `🪙 ${message.author.username}'s total contributions: ${swearCount}` })
+                                    .setTimestamp();
+
+                                sjChannel.send({ embeds: [embed] }).catch(() => {});
                             }
                         }
                     }

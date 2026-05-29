@@ -361,15 +361,38 @@ app.post('/api/custom-bot/:guildId', authenticateToken, async (req, res) => {
 app.post('/api/custom-bot/:guildId/reconnect', authenticateToken, async (req, res) => {
     try {
         const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
-        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+        if (!hasAdmin) return res.status(403).json({ error: 'Forbidden' });
 
         const { agentId } = req.body;
-        if (!agentId) return res.status(400).json({ error: 'Falta el ID del Agente' });
+        if (!agentId) return res.status(400).json({ error: 'Missing Agent ID' });
 
         const db = await getDb();
-        const agent = await db.get('SELECT botToken FROM ai_agent_configs WHERE guildId = ? AND agentId = ?', [req.params.guildId, agentId]);
+        const guildId = req.params.guildId;
+        
+        // Strategy 1: Look up by agentId
+        let agent = await db.get('SELECT botToken, agentId, clientId FROM ai_agent_configs WHERE guildId = ? AND agentId = ?', [guildId, agentId]);
+        
+        // Strategy 2: Try by clientId (agentId might be the clientId)
         if (!agent || !agent.botToken) {
-            return res.status(404).json({ error: 'Agente o Token no encontrado' });
+            agent = await db.get('SELECT botToken, agentId, clientId FROM ai_agent_configs WHERE guildId = ? AND clientId = ?', [guildId, agentId]);
+        }
+        
+        // Strategy 3: Check custom_bots table directly
+        if (!agent || !agent.botToken) {
+            const customBot = await db.get('SELECT botToken FROM custom_bots WHERE guildId = ?', [guildId]);
+            if (customBot && customBot.botToken) {
+                agent = { botToken: customBot.botToken, agentId: agentId };
+            }
+        }
+        
+        // Strategy 4: Any agent in this guild that has a token
+        if (!agent || !agent.botToken) {
+            agent = await db.get('SELECT botToken, agentId, clientId FROM ai_agent_configs WHERE guildId = ? AND botToken IS NOT NULL AND botToken != \'\'', [guildId]);
+        }
+
+        if (!agent || !agent.botToken) {
+            console.error(`[Reconnect] No token found. guildId=${guildId}, agentId=${agentId}`);
+            return res.status(404).json({ error: 'Agent or Token not found. Please re-enter the bot token in the dashboard and Deploy.' });
         }
 
         const botToken = agent.botToken;
@@ -378,30 +401,31 @@ app.post('/api/custom-bot/:guildId/reconnect', authenticateToken, async (req, re
         if (!existing) {
             await db.run(
                 "INSERT INTO custom_bots (guildId, botToken, status) VALUES (?, ?, 'starting')",
-                [req.params.guildId, botToken]
+                [guildId, botToken]
             );
         } else {
             await db.run(
                 "UPDATE custom_bots SET guildId = ?, status = 'starting', errorMessage = NULL WHERE botToken = ?",
-                [req.params.guildId, botToken]
+                [guildId, botToken]
             );
         }
 
+        // Update status in ai_agent_configs — try by agentId first, then by botToken
         await db.run(
-            "UPDATE ai_agent_configs SET status = 'starting', errorMessage = NULL WHERE guildId = ? AND agentId = ?",
-            [req.params.guildId, agentId]
+            "UPDATE ai_agent_configs SET status = 'starting', errorMessage = NULL WHERE guildId = ? AND (agentId = ? OR botToken = ?)",
+            [guildId, agentId, botToken]
         );
 
         // Trigger restart in background
         const customBotManager = require('./managers/CustomBotManager');
-        customBotManager.restartBot(req.params.guildId, botToken).catch(err => {
+        customBotManager.restartBot(guildId, botToken).catch(err => {
             console.error('[AI Agent Reconnect async error]:', err);
         });
 
         res.json({ success: true });
     } catch (e) {
         console.error('Error reconnecting custom bot:', e);
-        res.status(500).json({ error: 'Error al reconectar el bot personalizado' });
+        res.status(500).json({ error: 'Server error reconnecting bot' });
     }
 });
 

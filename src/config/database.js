@@ -599,6 +599,13 @@ async function createDbInstance() {
                 supportProvider TEXT DEFAULT 'openai',
                 PRIMARY KEY (guildId, clientId)
             );
+
+            CREATE TABLE IF NOT EXISTS swear_jar_counts (
+                userId TEXT,
+                guildId TEXT,
+                count INTEGER DEFAULT 0,
+                PRIMARY KEY (userId, guildId)
+            );
         `);
 
         // Migrate enabled column if table already existed
@@ -1062,6 +1069,13 @@ async function initializeSchema() {
             status TEXT DEFAULT 'pending',
             channelId TEXT,
             createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS swear_jar_counts (
+            userId TEXT,
+            guildId TEXT,
+            count INTEGER DEFAULT 0,
+            PRIMARY KEY (userId, guildId)
         );
     `);
 

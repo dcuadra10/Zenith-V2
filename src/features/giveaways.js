@@ -63,7 +63,7 @@ async function checkGiveaways(client) {
                         const { addBalance } = require('../utils/economyHandler');
                         const amount = conf.ecoCoinsPerGiveaway || 200;
                         for (const winner of winners) {
-                            await addBalance(winner.id, amount);
+                            await addBalance(winner.id, amount, ga.guildId);
                         }
                     }
                 } else {

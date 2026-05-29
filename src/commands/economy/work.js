@@ -8,6 +8,7 @@ module.exports = {
         .setName('work')
         .setDescription('Work your shift to earn coins'),
     async execute(interaction) {
+        await interaction.deferReply();
         const db = await getDb();
         const user = await db.get(`SELECT jobId, workplaceId, lastWork FROM users WHERE userId = ?`, [interaction.user.id]);
 
@@ -104,7 +105,12 @@ module.exports = {
             
             // Bonus to owner if private
             if (workplace) {
-                await db.run(`UPDATE economy_operations SET lastCollect = lastCollect - interval '30 minutes' WHERE id = ?`, [workplace.id]); 
+                const dbType = process.env.DB_TYPE || 'sqlite';
+                if (dbType === 'sqlite') {
+                    await db.run(`UPDATE economy_operations SET lastCollect = datetime(lastCollect, '-30 minutes') WHERE id = ?`, [workplace.id]);
+                } else {
+                    await db.run(`UPDATE economy_operations SET lastCollect = lastCollect - interval '30 minutes' WHERE id = ?`, [workplace.id]);
+                }
             }
         }
 

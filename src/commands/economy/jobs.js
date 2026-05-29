@@ -66,6 +66,7 @@ module.exports = {
         }
     },
     async execute(interaction) {
+        await interaction.deferReply();
         const sub = interaction.options.getSubcommand();
         const db = await getDb();
 
@@ -83,7 +84,7 @@ module.exports = {
                 });
             });
 
-            return await interaction.reply({ embeds: [embed] });
+            return await interaction.editReply({ embeds: [embed] });
         }
 
         if (sub === 'join') {
@@ -91,7 +92,7 @@ module.exports = {
             const job = jobs[jobId];
 
             if (!job) {
-                return await interaction.reply({ content: '❌ Job not found. Check the list using `/jobs list`.', ephemeral: true });
+                return await interaction.editReply({ content: '❌ Job not found. Check the list using `/jobs list`.' });
             }
 
             await db.run(
@@ -106,7 +107,7 @@ module.exports = {
                 .setColor('#10b981')
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed] });
         }
 
         if (sub === 'vacancies') {

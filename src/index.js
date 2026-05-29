@@ -1400,7 +1400,12 @@ setInterval(async () => {
                     await db.run(`UPDATE economy_operations SET marketShare = ? WHERE id = ?`, [share, b.id]);
                     // Bot purchases boost pending profits (add time to lastCollect)
                     const boostMinutes = purchases * 2; 
-                    await db.run(`UPDATE economy_operations SET lastCollect = lastCollect - interval '${boostMinutes} minutes' WHERE id = ?`, [b.id]);
+                    const dbType = process.env.DB_TYPE || 'sqlite';
+                    if (dbType === 'sqlite') {
+                        await db.run(`UPDATE economy_operations SET lastCollect = datetime(lastCollect, '-${boostMinutes} minutes') WHERE id = ?`, [b.id]);
+                    } else {
+                        await db.run(`UPDATE economy_operations SET lastCollect = lastCollect - interval '${boostMinutes} minutes' WHERE id = ?`, [b.id]);
+                    }
                 } else {
                     await db.run(`UPDATE mafia_businesses SET marketShare = ? WHERE mafiaId = ? AND type = ?`, [share, b.mafiaId, b.type]);
                     // Bot purchases consume stock and give money to vault

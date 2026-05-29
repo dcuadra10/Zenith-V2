@@ -33,6 +33,7 @@ module.exports = {
                 .setDescription('Manage your private bank and buy upgrades')),
 
     async execute(interaction) {
+        await interaction.deferReply({ ephemeral: true });
         const sub = interaction.options.getSubcommand();
         const db = await getDb();
         const user = await db.get(`SELECT balance, bank, bankCapacity, bankId, level FROM users WHERE userId = ?`, [interaction.user.id]);

@@ -3153,15 +3153,41 @@ async function fetchAIAgentConfig() {
         const config = await res.json();
 
         setCheck('aiEnabled', config.enabled !== undefined ? config.enabled : true);
-        setVal('customBotToken', config.botToken || '');
+        // Don't load masked tokens/keys into inputs — leave empty with placeholder
+        if (config.botToken && config.botToken.includes('••••')) {
+            setVal('customBotToken', '');
+            document.getElementById('customBotToken').placeholder = '••• Token saved — enter new to change •••';
+        } else {
+            setVal('customBotToken', config.botToken || '');
+        }
         setVal('aiProvider', config.aiProvider || 'openai');
-        setVal('aiOpenaiApiKey', config.openaiApiKey || '');
+        if (config.openaiApiKey && config.openaiApiKey.includes('••••')) {
+            setVal('aiOpenaiApiKey', '');
+            document.getElementById('aiOpenaiApiKey').placeholder = '••• Key saved — enter new to change •••';
+        } else {
+            setVal('aiOpenaiApiKey', config.openaiApiKey || '');
+        }
         setVal('welcomeProvider', config.welcomeProvider || 'openai');
-        setVal('aiWelcomeOpenaiApiKey', config.welcomeOpenaiApiKey || '');
+        if (config.welcomeOpenaiApiKey && config.welcomeOpenaiApiKey.includes('••••')) {
+            setVal('aiWelcomeOpenaiApiKey', '');
+            document.getElementById('aiWelcomeOpenaiApiKey').placeholder = '••• Key saved — enter new to change •••';
+        } else {
+            setVal('aiWelcomeOpenaiApiKey', config.welcomeOpenaiApiKey || '');
+        }
         setVal('chatProvider', config.chatProvider || 'openai');
-        setVal('aiChatOpenaiApiKey', config.chatOpenaiApiKey || '');
+        if (config.chatOpenaiApiKey && config.chatOpenaiApiKey.includes('••••')) {
+            setVal('aiChatOpenaiApiKey', '');
+            document.getElementById('aiChatOpenaiApiKey').placeholder = '••• Key saved — enter new to change •••';
+        } else {
+            setVal('aiChatOpenaiApiKey', config.chatOpenaiApiKey || '');
+        }
         setVal('supportProvider', config.supportProvider || 'openai');
-        setVal('aiSupportOpenaiApiKey', config.supportOpenaiApiKey || '');
+        if (config.supportOpenaiApiKey && config.supportOpenaiApiKey.includes('••••')) {
+            setVal('aiSupportOpenaiApiKey', '');
+            document.getElementById('aiSupportOpenaiApiKey').placeholder = '••• Key saved — enter new to change •••';
+        } else {
+            setVal('aiSupportOpenaiApiKey', config.supportOpenaiApiKey || '');
+        }
         setVal('aiCharacterName', config.characterName || '');
         setVal('aiCharacterTraits', config.characterTraits || '');
         setVal('aiLanguageMode', config.languageMode || 'en');

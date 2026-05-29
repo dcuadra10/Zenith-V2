@@ -18,6 +18,11 @@ module.exports = (client) => {
             const filePath = path.join(folderPath, file);
             const command = require(filePath);
             if ('data' in command && 'execute' in command) {
+                // If it's a custom bot, only load ai-agent command
+                if (client.isCustomBot && command.data.name !== 'ai-agent') {
+                    continue;
+                }
+                
                 client.commands.set(command.data.name, command);
                 console.log(`[LOADER] Command loaded: ${command.data.name}`);
             } else {

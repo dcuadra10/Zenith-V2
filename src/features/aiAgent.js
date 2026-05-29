@@ -218,10 +218,16 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
             // If not in a support channel, not in a chat channel, and not explicitly mentioned, ignore
             if (!isChatChannel && !isSupportChannel && !isMentioned) return;
 
-            const chatKey = config.chatOpenaiApiKey || config.openaiApiKey;
-            const supportKey = config.supportOpenaiApiKey || config.openaiApiKey;
+            let chatKey = config.chatOpenaiApiKey || config.openaiApiKey;
+            let supportKey = config.supportOpenaiApiKey || config.openaiApiKey;
+            
+            // Prevent using corrupted masked keys
+            if (chatKey && chatKey.includes('••••')) chatKey = config.openaiApiKey;
+            if (supportKey && supportKey.includes('••••')) supportKey = config.openaiApiKey;
+            if (config.openaiApiKey && config.openaiApiKey.includes('••••')) return; // Main key is corrupted
+
             const activeKey = isSupportChannel ? supportKey : chatKey;
-            if (!activeKey) return;
+            if (!activeKey || activeKey.includes('••••')) return;
 
             // Handle Cooldown Protection for bot-to-bot chat in chat channels
             if (message.author.bot) {

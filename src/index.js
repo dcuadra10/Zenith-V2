@@ -798,6 +798,13 @@ app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         if (config.supportOpenaiApiKey) {
             config.supportOpenaiApiKey = '••••••••••••';
         }
+        
+        // If any keys are corrupted with '••••', clear them out
+        if (config.openaiApiKey && config.openaiApiKey.includes('••••')) config.openaiApiKey = '';
+        if (config.welcomeOpenaiApiKey && config.welcomeOpenaiApiKey.includes('••••')) config.welcomeOpenaiApiKey = '';
+        if (config.chatOpenaiApiKey && config.chatOpenaiApiKey.includes('••••')) config.chatOpenaiApiKey = '';
+        if (config.supportOpenaiApiKey && config.supportOpenaiApiKey.includes('••••')) config.supportOpenaiApiKey = '';
+
         if (config.botToken) {
             config.botToken = config.botToken.substring(0, 15) + '••••••••';
         }
@@ -863,21 +870,25 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         if (!openaiApiKey || openaiApiKey.includes('••••')) {
             keyToSave = existing ? existing.openaiApiKey : '';
         }
+        if (keyToSave && keyToSave.includes('••••')) keyToSave = '';
 
         let welcomeKeyToSave = welcomeOpenaiApiKey;
         if (!welcomeOpenaiApiKey || welcomeOpenaiApiKey.includes('••••')) {
             welcomeKeyToSave = existing ? existing.welcomeOpenaiApiKey : '';
         }
+        if (welcomeKeyToSave && welcomeKeyToSave.includes('••••')) welcomeKeyToSave = '';
 
         let chatKeyToSave = chatOpenaiApiKey;
         if (!chatOpenaiApiKey || chatOpenaiApiKey.includes('••••')) {
             chatKeyToSave = existing ? existing.chatOpenaiApiKey : '';
         }
+        if (chatKeyToSave && chatKeyToSave.includes('••••')) chatKeyToSave = '';
 
         let supportKeyToSave = supportOpenaiApiKey;
         if (!supportOpenaiApiKey || supportOpenaiApiKey.includes('••••')) {
             supportKeyToSave = existing ? existing.supportOpenaiApiKey : '';
         }
+        if (supportKeyToSave && supportKeyToSave.includes('••••')) supportKeyToSave = '';
 
         await db.run(
             `INSERT INTO ai_agent_configs (

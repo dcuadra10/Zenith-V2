@@ -18,7 +18,10 @@ async function deployCommands(token, clientId) {
         for (const file of commandFiles) {
             const command = require(path.join(folderPath, file));
             if ('data' in command && 'execute' in command) {
-                commands.push(command.data.toJSON());
+                // Custom bots only get the ai-agent command
+                if (command.data.name === 'ai-agent') {
+                    commands.push(command.data.toJSON());
+                }
             }
         }
     }

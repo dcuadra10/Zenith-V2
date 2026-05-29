@@ -100,59 +100,65 @@ async function processAdsSubmission(interaction, amount) {
         }
 
         // --- UPDATE LEADERBOARD IF TRIGGERED FROM PANEL ---
-        if (interaction.isModalSubmit() && interaction.message) {
-            try {
-                const msgToUpdate = await interaction.channel.messages.fetch(interaction.message.id);
-                if (msgToUpdate && msgToUpdate.embeds.length >= 2) {
-                    const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id]);
-                    const modConf2 = await db.get(`SELECT leaderboardImageEnabled FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
-                    const useImage = modConf2?.leaderboardImageEnabled ? true : false;
-                    
-                    const leaderboardEmbed = new EmbedBuilder()
-                      .setTitle('🏆 Top Ad Publishers')
-                      .setColor('#FFD700');
+        try {
+            // Find the panel message in the channel (look for our bot's message with the leaderboard + panel embeds)
+            const recentMessages = await interaction.channel.messages.fetch({ limit: 30 });
+            const panelMsg = recentMessages.find(m => 
+                m.author.id === interaction.client.user.id && 
+                m.embeds.length >= 2 && 
+                m.embeds[0]?.title?.includes('Top Ad Publishers') &&
+                m.components.length > 0
+            );
+            
+            if (panelMsg) {
+                const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id]);
+                const modConf2 = await db.get(`SELECT leaderboardImageEnabled FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
+                const useImage = modConf2?.leaderboardImageEnabled ? true : false;
+                
+                const leaderboardEmbed = new EmbedBuilder()
+                  .setTitle('🏆 Top Ad Publishers')
+                  .setColor('#FFD700');
 
-                    const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
-                    const files = [];
+                const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
+                const files = [];
 
-                    if (useImage) {
-                        const { generateLeaderboardImage } = require('../../utils/imageGenerator');
-                        const entries = [];
-                        for (const u of topUsers) {
-                            let name = `User ${u.userId.slice(-4)}`;
-                            try {
-                                const member = await interaction.guild.members.fetch(u.userId).catch(() => null);
-                                if (member) name = member.displayName || member.user.username;
-                            } catch (e) {}
-                            entries.push({ name, value: `${u.totalAds} ads` });
-                        }
-                        const buffer = await generateLeaderboardImage('🏆  Leaderboard of the Week', entries, imagePath);
-                        const imgAttachment = new AttachmentBuilder(buffer, { name: 'leaderboard.png' });
-                        files.push(imgAttachment);
-                        leaderboardEmbed.setImage('attachment://leaderboard.png');
-                    } else {
-                        if (!topUsers || topUsers.length === 0) {
-                            leaderboardEmbed.setDescription('🏆 **Leaderboard of the Week**\n\n*The board is currently vacant. Be the first to register an ad and secure the top spot!*');
-                        } else {
-                            let desc = '🏆 **Leaderboard of the Week**\n\n';
-                            topUsers.forEach((u, i) => {
-                                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅';
-                                desc += `${medal} <@${u.userId}> ── **${u.totalAds}** ads\n`;
-                            });
-                            leaderboardEmbed.setDescription(desc);
-                        }
-                        const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });
-                        files.push(attachment);
-                        leaderboardEmbed.setThumbnail('attachment://zenith_bg.png');
+                if (useImage) {
+                    const { generateLeaderboardImage } = require('../../utils/imageGenerator');
+                    const entries = [];
+                    for (const u of topUsers) {
+                        let name = `User ${u.userId.slice(-4)}`;
+                        try {
+                            const member = await interaction.guild.members.fetch(u.userId).catch(() => null);
+                            if (member) name = member.displayName || member.user.username;
+                        } catch (e) {}
+                        entries.push({ name, value: `${u.totalAds} ads` });
                     }
-
-                    // Keep the second embed (the panel instructions) as is
-                    const panelEmbed = msgToUpdate.embeds[1];
-                    await msgToUpdate.edit({ embeds: [leaderboardEmbed, panelEmbed], files });
+                    const buffer = await generateLeaderboardImage('🏆  Leaderboard of the Week', entries, imagePath);
+                    const imgAttachment = new AttachmentBuilder(buffer, { name: 'leaderboard.png' });
+                    files.push(imgAttachment);
+                    leaderboardEmbed.setImage('attachment://leaderboard.png');
+                } else {
+                    if (!topUsers || topUsers.length === 0) {
+                        leaderboardEmbed.setDescription('🏆 **Leaderboard of the Week**\n\n*The board is currently vacant. Be the first to register an ad and secure the top spot!*');
+                    } else {
+                        let desc = '🏆 **Leaderboard of the Week**\n\n';
+                        topUsers.forEach((u, i) => {
+                            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅';
+                            desc += `${medal} <@${u.userId}> ── **${u.totalAds}** ads\n`;
+                        });
+                        leaderboardEmbed.setDescription(desc);
+                    }
+                    const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });
+                    files.push(attachment);
+                    leaderboardEmbed.setThumbnail('attachment://zenith_bg.png');
                 }
-            } catch (err) {
-                console.error('Failed to update leaderboard panel:', err);
+
+                // Keep the second embed (the panel instructions) as is
+                const panelEmbed = panelMsg.embeds[1];
+                await panelMsg.edit({ embeds: [leaderboardEmbed, EmbedBuilder.from(panelEmbed)], files });
             }
+        } catch (err) {
+            console.error('Failed to update leaderboard panel:', err);
         }
 
     } catch (error) {

@@ -93,6 +93,19 @@ module.exports = {
       );
 
     const payload = { embeds: [leaderboardEmbed, embed], components: [row], files };
+    
+    // Delete any existing panel in this channel to prevent duplicates
+    try {
+        const existing = await interaction.channel.messages.fetch({ limit: 30 });
+        const oldPanel = existing.find(m => 
+            m.author.id === interaction.client.user.id && 
+            m.embeds.length >= 2 && 
+            m.embeds[0]?.title?.includes('Top Ad Publishers') &&
+            m.components.length > 0
+        );
+        if (oldPanel) await oldPanel.delete().catch(() => {});
+    } catch (e) {}
+    
     await interaction.channel.send(payload);
     await interaction.reply({ content: 'Panel deployed successfully.', ephemeral: true });
   }

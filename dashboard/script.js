@@ -133,7 +133,7 @@ async function apiFetch(endpoint, options = {}) {
     if (options.body && !(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
     }
-    const res = await apiFetch('${endpoint}', { ...options, headers });
+    const res = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
     if (res.status === 401) {
         localStorage.removeItem('discord_token');
         document.cookie = 'discord_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
@@ -234,7 +234,7 @@ async function fetchGuilds() {
     console.log('[Dashboard] Fetching guilds...');
     const list = document.getElementById('guildList');
     try {
-        const res = await apiFetch('/guilds');
+        const res = await apiFetch(`/guilds`);
         const guilds = await res.json();
         console.log('[Dashboard] Loaded guilds:', guilds.length);
 
@@ -435,8 +435,8 @@ async function loadDashboardData() {
     // Fetch channels and roles
     try {
         const [chanRes, roleRes] = await Promise.all([
-            apiFetch('/guild/${gid}/channels'),
-            apiFetch('/guild/${gid}/roles')
+            apiFetch(`/guild/${gid}/channels`),
+            apiFetch(`/guild/${gid}/roles`)
         ]);
         if (chanRes.ok) currentGuildChannels = await chanRes.json();
         if (roleRes.ok) currentGuildRoles = await roleRes.json();
@@ -447,7 +447,7 @@ async function loadDashboardData() {
 
     // Stats
     try {
-        const res = await apiFetch('/guild/${gid}/stats');
+        const res = await apiFetch(`/guild/${gid}/stats`);
         if (res.ok) {
             const data = await res.json();
             animateValue('statHumans', 0, data.citizens || 0, 800);
@@ -459,7 +459,7 @@ async function loadDashboardData() {
 
     // Config
     try {
-        const res = await apiFetch('/config/${gid}');
+        const res = await apiFetch(`/config/${gid}`);
         const cfg = await res.json();
         setVal('cfgWelcomeChannel', cfg.welcomeChannelId);
         setVal('cfgLogChannel', cfg.logChannelId);
@@ -470,7 +470,7 @@ async function loadDashboardData() {
 
     // Module configs
     try {
-        const res = await apiFetch('/modules/${gid}');
+        const res = await apiFetch(`/modules/${gid}`);
         const mods = await res.json();
         loadModuleToggles(mods);
         
@@ -812,7 +812,7 @@ async function saveGeneralConfig() {
     btn.disabled = true;
 
     try {
-        await apiFetch('/config/${activeGuild.id}', {
+        await apiFetch(`/config/${activeGuild.id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -957,14 +957,14 @@ async function saveModuleConfig(moduleName) {
 
     try {
         // Save Module Config
-        await apiFetch('/modules/${activeGuild.id}', {
+        await apiFetch(`/modules/${activeGuild.id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
         // Also Save Core Config (Redistributed fields)
-        await apiFetch('/config/${activeGuild.id}', {
+        await apiFetch(`/config/${activeGuild.id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1990,7 +1990,7 @@ async function savePanel() {
     if (!channelId) return showToast('Destination Channel ID is required', true);
 
     try {
-        const res = await apiFetch('/panels/${activeGuild.id}', {
+        const res = await apiFetch(`/panels/${activeGuild.id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2041,7 +2041,7 @@ async function savePanel() {
 async function fetchPanels() {
     if (!activeGuild) return;
     try {
-        const res = await apiFetch('/panels/${activeGuild.id}');
+        const res = await apiFetch(`/panels/${activeGuild.id}`);
         const panels = await res.json();
         const c = document.getElementById('panelsList');
 
@@ -2077,14 +2077,14 @@ async function fetchPanels() {
 
 async function deletePanel(id) {
     if (!confirm('Delete this panel permanently?')) return;
-    await apiFetch('/panels/${id}', { method: 'DELETE' });
+    await apiFetch(`/panels/${id}`, { method: 'DELETE' });
     fetchPanels();
 }
 
 async function fetchTranscripts() {
     if (!activeGuild) return;
     try {
-        const res = await apiFetch('/transcripts/${activeGuild.id}');
+        const res = await apiFetch(`/transcripts/${activeGuild.id}`);
         const ts = await res.json();
 
         // Tickets page
@@ -2193,7 +2193,7 @@ async function startGiveaway() {
     }
 
     try {
-        const res = await apiFetch('/giveaways/${activeGuild.id}', {
+        const res = await apiFetch(`/giveaways/${activeGuild.id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2217,7 +2217,7 @@ async function startGiveaway() {
 async function fetchGiveaways() {
     if (!activeGuild) return;
     try {
-        const res = await apiFetch('/giveaways/${activeGuild.id}');
+        const res = await apiFetch(`/giveaways/${activeGuild.id}`);
         const giveaways = await res.json();
         const c = document.getElementById('giveawaysList');
 
@@ -2254,7 +2254,7 @@ async function fetchTranscripts() {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 40px; color:var(--text-muted);">Retrieving transmission logs...</td></tr>';
     
     try {
-        const res = await apiFetch('/transcripts/${activeGuild.id}');
+        const res = await apiFetch(`/transcripts/${activeGuild.id}`);
         const logs = await res.json();
         
         if (logs.length === 0) {
@@ -2292,7 +2292,7 @@ async function viewTranscript(ticketId) {
     overlay.style.display = 'flex';
 
     try {
-        const res = await apiFetch('/transcripts/${activeGuild.id}/${ticketId}');
+        const res = await apiFetch(`/transcripts/${activeGuild.id}/${ticketId}`);
         const data = await res.json();
         
         renderTranscript(data.content);
@@ -2347,7 +2347,7 @@ function closeTranscript() {
 
 async function editPanel(id) {
     try {
-        const res = await apiFetch('/panels/${activeGuild.id}');
+        const res = await apiFetch(`/panels/${activeGuild.id}`);
         const panels = await res.json();
         const p = panels.find(x => x.id === id);
         if (!p) return;
@@ -2413,7 +2413,7 @@ async function executeLevelImport(input) {
 
             statusDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Uploading ${data.levels.length} entries to server...`;
             
-            const res = await apiFetch('/levels/import/${activeGuild.id}', {
+            const res = await apiFetch(`/levels/import/${activeGuild.id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ levels: data.levels })
@@ -2726,7 +2726,7 @@ async function fetchShopItems() {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Retrieving treasury inventory...</td></tr>';
     
     try {
-        const res = await apiFetch('/economy/shop/${activeGuild.id}');
+        const res = await apiFetch(`/economy/shop/${activeGuild.id}`);
         const items = await res.json();
         
         if (items.length === 0) {
@@ -2766,7 +2766,7 @@ function openShopAddModal() {
     // Populate roles if select is empty
     const roleSelect = document.getElementById('shopItemRole');
     if (roleSelect.options.length === 0) {
-        apiFetch('/guild/${activeGuild.id}/roles')
+        apiFetch(`/guild/${activeGuild.id}/roles`)
             .then(r => r.json())
             .then(roles => {
                 roleSelect.innerHTML = roles.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
@@ -2791,7 +2791,7 @@ async function saveShopItem() {
     if (!name || isNaN(price)) return showToast('Please fill item name and price.', true);
 
     try {
-        const res = await apiFetch('/economy/shop/${activeGuild.id}', {
+        const res = await apiFetch(`/economy/shop/${activeGuild.id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, description, price, type, roleId })
@@ -2811,7 +2811,7 @@ async function saveShopItem() {
 async function deleteShopItem(id) {
     if (!confirm('Decommission this item?')) return;
     try {
-        const res = await apiFetch('/economy/shop/${id}', { method: 'DELETE' });
+        const res = await apiFetch(`/economy/shop/${id}`, { method: 'DELETE' });
         if (res.ok) {
             showToast('✅ Item decommissioned.');
             fetchShopItems();

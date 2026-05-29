@@ -61,7 +61,45 @@ class CustomBotManager {
         try {
             await client.login(token);
             
+            // Handle post-login errors (e.g. "Used disallowed intents" closes the websocket AFTER login resolves)
+            const errorHandler = async (error) => {
+                console.error(`[CustomBotManager] ❌ Post-login error for guild ${guildId}:`, error.message || error);
+                client.destroy();
+                const db = await getDb();
+                const errMsg = error.message || String(error);
+                await db.run(
+                    `UPDATE custom_bots SET status = 'error', errorMessage = ? WHERE botToken = ?`,
+                    [errMsg, token]
+                );
+                await db.run(
+                    `UPDATE ai_agent_configs SET status = 'error', errorMessage = ? WHERE botToken = ?`,
+                    [errMsg, token]
+                );
+            };
+
+            client.on('error', errorHandler);
+            client.on('shardError', errorHandler);
+            client.once('disconnect', () => errorHandler(new Error('Disconnected from Discord')));
+
+            // Timeout: if 'ready' doesn't fire within 30 seconds, mark as error
+            const readyTimeout = setTimeout(async () => {
+                if (!client.isReady()) {
+                    console.error(`[CustomBotManager] ⏰ Ready timeout for guild ${guildId} — bot never became ready.`);
+                    client.destroy();
+                    const db = await getDb();
+                    await db.run(
+                        `UPDATE custom_bots SET status = 'error', errorMessage = 'Connection timed out' WHERE botToken = ?`,
+                        [token]
+                    );
+                    await db.run(
+                        `UPDATE ai_agent_configs SET status = 'error', errorMessage = 'Connection timed out' WHERE botToken = ?`,
+                        [token]
+                    );
+                }
+            }, 30000);
+
             client.once('ready', async () => {
+                clearTimeout(readyTimeout);
                 console.log(`[CustomBotManager] ✅ Custom bot for guild ${guildId} logged in as ${client.user.tag}`);
                 
                 this.activeBots.set(client.user.id, client);

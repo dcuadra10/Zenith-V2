@@ -61,7 +61,7 @@ module.exports = {
 
         const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });
         files.push(attachment);
-        leaderboardEmbed.setImage('attachment://zenith_bg.png');
+        leaderboardEmbed.setThumbnail('attachment://zenith_bg.png');
     }
 
     const currentWeekId = getISOWeekString();

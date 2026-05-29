@@ -8,20 +8,18 @@ async function processAdsSubmission(interaction, amount) {
     try {
         const db = await getDb();
         const config = await db.get(`SELECT * FROM guild_configs WHERE guildId = ?`, [interaction.guild.id]);
-        if (!config || !config.spreadsheetId) {
-            return interaction.editReply({ content: '❌ The server administrator has not configured the Google Sheets ID in the Web Dashboard yet.' });
-        }
-
-        try {
-            await addAdTrackingRecord(
-                config.spreadsheetId,
-                interaction.user.id, 
-                interaction.user.username, 
-                amount, 
-                new Date().toISOString()
-            );
-        } catch (err) {
-            console.warn('Google Sheets config is not connected or failed:', err.message);
+        if (config && config.spreadsheetId) {
+            try {
+                await addAdTrackingRecord(
+                    config.spreadsheetId,
+                    interaction.user.id, 
+                    interaction.user.username, 
+                    amount, 
+                    new Date().toISOString()
+                );
+            } catch (err) {
+                console.warn('Google Sheets config is not connected or failed:', err.message);
+            }
         }
 
         await db.run(
@@ -145,7 +143,7 @@ async function processAdsSubmission(interaction, amount) {
                         }
                         const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });
                         files.push(attachment);
-                        leaderboardEmbed.setImage('attachment://zenith_bg.png');
+                        leaderboardEmbed.setThumbnail('attachment://zenith_bg.png');
                     }
 
                     // Keep the second embed (the panel instructions) as is

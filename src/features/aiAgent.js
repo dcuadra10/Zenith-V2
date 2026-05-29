@@ -108,6 +108,8 @@ async function askAI(provider, apiKey, systemPrompt, messageHistory) {
 }
 
 module.exports = function setupAIAgent(client) {
+    if (!client.isCustomBot) return;
+
     // 1. WELCOME GATE EVENT
     client.on('guildMemberAdd', async member => {
         if (client.isCustomBot && member.guild.id !== client.customGuildId) return;

@@ -56,8 +56,25 @@ module.exports = {
             .addFields(
                 { name: '📊 Ads Logged', value: `${ads} / ${adQuota} \`(${Math.round(adPct)}%)\``, inline: true },
                 { name: '💬 Messages Sent', value: `${msgs} / ${msgQuota} \`(${Math.round(msgPct)}%)\``, inline: true }
-            )
-            .setFooter({ text: 'Quotas are combined. You can compensate one with the other.' });
+            );
+
+        // Fetch History
+        const history = await db.all(`SELECT weekId, ads, messages, excused FROM r4_tracking WHERE guildId = ? AND userId = ? AND weekId != ? ORDER BY weekId DESC LIMIT 4`, [interaction.guild.id, interaction.user.id, weekId]);
+        
+        if (history.length > 0) {
+            let historyText = history.map(h => {
+                const hAdPct = (h.ads / adQuota) * 100;
+                const hMsgPct = (h.messages / msgQuota) * 100;
+                const hTotal = Math.min(Math.round(hAdPct + hMsgPct), 200);
+                const hIcon = h.excused ? '🛡️' : (hTotal >= 100 ? '✅' : (hTotal >= 75 ? '⚠️' : '❌'));
+                return `**${h.weekId}**: ${hIcon} Ads: ${h.ads} | Msgs: ${h.messages} (${hTotal}%)`;
+            }).join('\n');
+            embed.addFields({ name: '📜 Past Performance History', value: historyText, inline: false });
+        } else {
+            embed.addFields({ name: '📜 Past Performance History', value: '*No previous week data found.*', inline: false });
+        }
+
+        embed.setFooter({ text: 'Quotas are combined. You can compensate one with the other.' });
 
         const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
         const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });

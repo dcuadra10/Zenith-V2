@@ -696,11 +696,12 @@ module.exports = {
             const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
             const participants = [interaction.user.id];
             const baseSuccess = 0.3 - (targetBank.security * 0.2);
+            const upgrades = JSON.parse(mafia.upgrades || '[]');
 
             const getSuccessDisplay = (participantsCount) => {
                 let rate = baseSuccess + Math.min(participantsCount * 0.05, 0.40);
-                if (mafia.upgrades.includes('vests')) rate += 0.10;
-                if (mafia.upgrades.includes('scanner')) rate += 0.05;
+                if (upgrades.includes('vests')) rate += 0.10;
+                if (upgrades.includes('scanner')) rate += 0.05;
                 if (mafia.specialization === 'Enforcers') rate += 0.10;
                 if (mafia.level >= 10) rate += 0.05;
                 const percent = Math.min(Math.floor(rate * 100), 99);
@@ -766,8 +767,8 @@ module.exports = {
                 successRate += Math.min(participants.length * 0.05, 0.40);
 
                 // Other Bonuses
-                if (mafia.upgrades.includes('vests')) successRate += 0.10;
-                if (mafia.upgrades.includes('scanner')) successRate += 0.05;
+                if (upgrades.includes('vests')) successRate += 0.10;
+                if (upgrades.includes('scanner')) successRate += 0.05;
                 if (mafia.specialization === 'Enforcers') successRate += 0.10;
                 if (mafia.level >= 10) successRate += 0.05;
 

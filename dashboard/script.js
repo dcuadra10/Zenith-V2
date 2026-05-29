@@ -2538,7 +2538,7 @@ async function fetchCustomBot() {
             `;
             selectedAgentClientId = '';
             // Disable the configuration card below since no bots exist
-            const coreCard = document.querySelector('#page-aiagents .ticket-builder-grid');
+            const coreCard = document.getElementById('aiAgentConfigFields');
             if (coreCard) {
                 coreCard.style.opacity = '0.35';
                 coreCard.style.pointerEvents = 'none';
@@ -2547,7 +2547,7 @@ async function fetchCustomBot() {
         }
 
         // Enable config card
-        const coreCard = document.querySelector('#page-aiagents .ticket-builder-grid');
+        const coreCard = document.getElementById('aiAgentConfigFields');
         if (coreCard) {
             coreCard.style.opacity = '';
             coreCard.style.pointerEvents = '';

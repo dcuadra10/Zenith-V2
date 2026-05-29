@@ -306,14 +306,14 @@ app.get('/api/custom-bot/:guildId', authenticateToken, async (req, res) => {
         if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
 
         const db = await getDb();
-        const bots = await db.all('SELECT botToken, clientId, status, errorMessage FROM custom_bots WHERE guildId = ?', [req.params.guildId]);
-        for (const bot of bots) {
-            if (bot.botToken) {
+        const agents = await db.all('SELECT agentId, botToken, clientId, status, errorMessage, characterName FROM ai_agent_configs WHERE guildId = ?', [req.params.guildId]);
+        for (const agent of agents) {
+            if (agent.botToken) {
                 // Partially mask the token for safety
-                bot.botToken = bot.botToken.substring(0, 15) + '••••••••';
+                agent.botToken = agent.botToken.substring(0, 15) + '••••••••';
             }
         }
-        res.json(bots);
+        res.json(agents);
     } catch (e) {
         console.error('Error fetching custom bots:', e);
         res.status(500).json({ error: 'Error fetching custom bots' });
@@ -363,18 +363,19 @@ app.delete('/api/custom-bot/:guildId', authenticateToken, async (req, res) => {
         const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
         if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
 
-        const botToken = req.query.botToken || req.body.botToken;
-        if (!botToken) return res.status(400).json({ error: 'Falta el Token del Bot' });
+        const agentId = req.query.agentId || req.body.agentId;
+        if (!agentId) return res.status(400).json({ error: 'Falta el ID del Agente' });
 
         const db = await getDb();
-        const customBotManager = require('./managers/CustomBotManager');
-        await customBotManager.stopBotByToken(req.params.guildId, botToken);
-
-        const bot = await db.get('SELECT clientId FROM custom_bots WHERE botToken = ?', [botToken]);
-        if (bot && bot.clientId) {
-            await db.run('DELETE FROM ai_agent_configs WHERE guildId = ? AND clientId = ?', [req.params.guildId, bot.clientId]);
+        const agent = await db.get('SELECT botToken, clientId FROM ai_agent_configs WHERE guildId = ? AND agentId = ?', [req.params.guildId, agentId]);
+        if (agent) {
+            const customBotManager = require('./managers/CustomBotManager');
+            if (agent.botToken) {
+                await customBotManager.stopBotByToken(req.params.guildId, agent.botToken);
+                await db.run('DELETE FROM custom_bots WHERE botToken = ?', [agent.botToken]);
+            }
+            await db.run('DELETE FROM ai_agent_configs WHERE guildId = ? AND agentId = ?', [req.params.guildId, agentId]);
         }
-        await db.run('DELETE FROM custom_bots WHERE botToken = ?', [botToken]);
 
         res.json({ success: true });
     } catch (e) {
@@ -670,13 +671,15 @@ app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
         if (!hasAdmin) return res.status(403).json({ error: 'Forbidden' });
 
-        const clientId = req.query.clientId || '';
+        const agentId = req.query.agentId || '';
         const db = await getDb();
-        const config = await db.get('SELECT * FROM ai_agent_configs WHERE guildId = ? AND clientId = ?', [req.params.guildId, clientId]);
+        const config = await db.get('SELECT * FROM ai_agent_configs WHERE guildId = ? AND agentId = ?', [req.params.guildId, agentId]);
         if (!config) {
             return res.json({
                 guildId: req.params.guildId,
-                clientId: clientId,
+                agentId: agentId,
+                botToken: '',
+                clientId: '',
                 openaiApiKey: '',
                 welcomeOpenaiApiKey: '',
                 chatOpenaiApiKey: '',
@@ -704,7 +707,9 @@ app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 botToBotChatEnabled: 0,
                 maxBotTurns: 5,
                 enabled: 1,
-                languageMode: 'en'
+                languageMode: 'en',
+                status: 'inactive',
+                errorMessage: ''
             });
         }
         
@@ -720,6 +725,9 @@ app.get('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         }
         if (config.supportOpenaiApiKey) {
             config.supportOpenaiApiKey = '••••••••••••';
+        }
+        if (config.botToken) {
+            config.botToken = config.botToken.substring(0, 15) + '••••••••';
         }
         
         res.json(config);
@@ -737,7 +745,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         const db = await getDb();
         const guildId = req.params.guildId;
         const {
-            clientId,
+            agentId,
+            botToken,
             openaiApiKey,
             welcomeOpenaiApiKey,
             chatOpenaiApiKey,
@@ -768,11 +777,16 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
             languageMode
         } = req.body;
         
-        const activeClientId = clientId || '';
+        const activeAgentId = agentId || '';
         
         // Fetch existing config to see if key needs update or preservation
-        const existing = await db.get('SELECT openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey FROM ai_agent_configs WHERE guildId = ? AND clientId = ?', [guildId, activeClientId]);
+        const existing = await db.get('SELECT botToken, clientId, openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey FROM ai_agent_configs WHERE guildId = ? AND agentId = ?', [guildId, activeAgentId]);
         
+        let tokenToSave = botToken;
+        if (botToken && (botToken.includes('••••') || !botToken)) {
+            tokenToSave = existing ? existing.botToken : '';
+        }
+
         let keyToSave = openaiApiKey;
         if (openaiApiKey === '••••••••••••' || !openaiApiKey) {
             keyToSave = existing ? existing.openaiApiKey : '';
@@ -795,15 +809,16 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
 
         await db.run(
             `INSERT INTO ai_agent_configs (
-                guildId, clientId, openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey,
+                guildId, agentId, botToken, clientId, openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey,
                 aiProvider, welcomeProvider, chatProvider, supportProvider,
                 characterName, characterTraits, welcomeEnabled, welcomeChannel, welcomeMessage, 
                 chatEnabled, chatChannels, supportEnabled, supportChannel, supportKnowledgeChannels,
                 botToBotChatEnabled, maxBotTurns, enabled, languageMode,
                 welcomeCharacterName, welcomeCharacterTraits, chatCharacterName, chatCharacterTraits,
                 supportCharacterName, supportCharacterTraits
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(guildId, clientId) DO UPDATE SET
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(guildId, agentId) DO UPDATE SET
+             botToken = excluded.botToken,
              openaiApiKey = excluded.openaiApiKey,
              welcomeOpenaiApiKey = excluded.welcomeOpenaiApiKey,
              chatOpenaiApiKey = excluded.chatOpenaiApiKey,
@@ -834,7 +849,9 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
              supportCharacterTraits = excluded.supportCharacterTraits`,
             [
                 guildId,
-                activeClientId,
+                activeAgentId,
+                tokenToSave,
+                existing ? existing.clientId : '',
                 keyToSave,
                 welcomeKeyToSave,
                 chatKeyToSave,
@@ -865,6 +882,33 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 supportCharacterTraits || ''
             ]
         );
+
+        if (tokenToSave && tokenToSave.trim() !== '') {
+            // Register or update custom_bots
+            const customBotsExisting = await db.get('SELECT * FROM custom_bots WHERE botToken = ?', [tokenToSave]);
+            if (!customBotsExisting) {
+                await db.run(
+                    "INSERT INTO custom_bots (guildId, botToken, status) VALUES (?, ?, 'starting')",
+                    [guildId, tokenToSave]
+                );
+            } else {
+                await db.run(
+                    "UPDATE custom_bots SET guildId = ?, status = 'starting' WHERE botToken = ?",
+                    [guildId, tokenToSave]
+                );
+            }
+
+            // Start or restart in background immediately
+            const customBotManager = require('./managers/CustomBotManager');
+            if (!existing || existing.botToken !== tokenToSave) {
+                customBotManager.restartBot(guildId, tokenToSave).catch(err => {
+                    console.error('[AI Agent POST start bot err]:', err);
+                });
+                
+                // Update config status to starting
+                await db.run(`UPDATE ai_agent_configs SET status = 'starting', errorMessage = NULL WHERE botToken = ?`, [tokenToSave]);
+            }
+        }
 
         res.json({ success: true });
     } catch (e) {

@@ -72,6 +72,10 @@ class CustomBotManager {
                     `UPDATE custom_bots SET clientId = ?, status = 'active', errorMessage = NULL WHERE botToken = ?`,
                     [client.user.id, token]
                 );
+                await db.run(
+                    `UPDATE ai_agent_configs SET clientId = ?, status = 'active', errorMessage = NULL WHERE botToken = ?`,
+                    [client.user.id, token]
+                );
 
                 // Deploy Slash Commands
                 await deployCommands(token, client.user.id);
@@ -84,6 +88,10 @@ class CustomBotManager {
             const db = await getDb();
             await db.run(
                 `UPDATE custom_bots SET status = 'error', errorMessage = ? WHERE botToken = ?`,
+                [error.message, token]
+            );
+            await db.run(
+                `UPDATE ai_agent_configs SET status = 'error', errorMessage = ? WHERE botToken = ?`,
                 [error.message, token]
             );
             return { success: false, error: error.message };
@@ -99,6 +107,7 @@ class CustomBotManager {
             
             const db = await getDb();
             await db.run(`UPDATE custom_bots SET status = 'inactive' WHERE guildId = ? AND clientId = ?`, [guildId, clientId]);
+            await db.run(`UPDATE ai_agent_configs SET status = 'inactive' WHERE guildId = ? AND clientId = ?`, [guildId, clientId]);
             return true;
         }
         return false;
@@ -117,6 +126,7 @@ class CustomBotManager {
         } else {
             const db = await getDb();
             await db.run(`UPDATE custom_bots SET status = 'inactive' WHERE guildId = ? AND botToken = ?`, [guildId, token]);
+            await db.run(`UPDATE ai_agent_configs SET status = 'inactive' WHERE guildId = ? AND botToken = ?`, [guildId, token]);
             return true;
         }
     }

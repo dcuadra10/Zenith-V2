@@ -1520,39 +1520,31 @@
                                 <!-- Dynamically populated list of bots -->
                             </div>
 
-                            <!-- BUTTON TO SHOW/HIDE ADD BOT FORM -->
-                            <button class="z-btn z-btn-secondary" style="width:100%; margin-bottom:16px;" onclick="toggleAddBotForm()"><i class="fas fa-plus"></i> Add New AI Agent...</button>
-
-                            <!-- ADD BOT CLIENT FORM (HIDDEN BY DEFAULT) -->
-                            <div id="addBotFormContainer" style="display:none; background:#232428; border: 1px solid #1e1f22; border-radius:var(--radius-md); padding:16px; margin-bottom:16px;">
-                                <h4 style="color:#fff; margin-top:0; margin-bottom:8px; font-size:0.85rem;"><i class="fas fa-plug" style="color:var(--accent-purple);"></i> Connect New Bot Client</h4>
-                                <div class="z-input-group">
-                                    <label>Discord Bot Token</label>
-                                    <input class="z-input" type="password" id="customBotToken" placeholder="Paste your bot token here" style="margin-bottom:8px;">
-                                    <small style="color:var(--text-muted); font-size:0.72rem; display:block; margin-bottom:12px;">Get this from the <a href="https://discord.com/developers/applications" target="_blank" style="color:var(--accent-purple);">Discord Developer Portal</a>.</small>
-                                </div>
-                                <div style="display:flex; gap:12px;">
-                                    <button class="z-btn z-btn-primary" style="flex:1;" onclick="connectCustomBot()"><i class="fas fa-check"></i> Connect Bot</button>
-                                    <button class="z-btn z-btn-secondary" style="flex:1;" onclick="toggleAddBotForm()"><i class="fas fa-times"></i> Cancel</button>
-                                </div>
-                            </div>
+                            <!-- BUTTON TO ADD NEW AGENT -->
+                            <button class="z-btn z-btn-secondary" style="width:100%; margin-bottom:16px;" onclick="addNewAIAgent()"><i class="fas fa-plus"></i> Add New AI Agent...</button>
                         </div>
 
                         <!-- Core AI Configurations -->
                         <div class="z-card">
+                            <div class="z-input-group">
+                                <label>Discord Bot Token</label>
+                                <input class="z-input" type="password" id="customBotToken" placeholder="Paste your bot token here" style="margin-bottom:8px;">
+                                <small style="color:var(--text-muted); font-size:0.72rem; display:block;">Get this from the <a href="https://discord.com/developers/applications" target="_blank" style="color:var(--accent-purple);">Discord Developer Portal</a>.</small>
+                            </div>
+
                             <div class="grid-2">
-                            <div class="z-input-group">
-                                <label>AI Provider</label>
-                                <select class="z-input" id="aiProvider">
-                                    <option value="openai">OpenAI (GPT-4o mini)</option>
-                                    <option value="claude">Claude (Sonnet 3.5)</option>
-                                </select>
+                                <div class="z-input-group">
+                                    <label>AI Provider</label>
+                                    <select class="z-input" id="aiProvider">
+                                        <option value="openai">OpenAI (GPT-4o mini)</option>
+                                        <option value="claude">Claude (Sonnet 3.5)</option>
+                                    </select>
+                                </div>
+                                <div class="z-input-group">
+                                    <label>API Key (OpenAI / Claude)</label>
+                                    <input class="z-input" type="password" id="aiOpenaiApiKey" placeholder="e.g. sk-proj-... or sk-ant-...">
+                                </div>
                             </div>
-                            <div class="z-input-group">
-                                <label>API Key (OpenAI / Claude)</label>
-                                <input class="z-input" type="password" id="aiOpenaiApiKey" placeholder="e.g. sk-proj-... or sk-ant-...">
-                            </div>
-                        </div>
                         <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block; margin-bottom:12px;">Your key is encrypted and securely stored. We only use it to power this server's custom bot interactions.</small>
 
                         <div class="z-card-header" style="margin-top:24px;">

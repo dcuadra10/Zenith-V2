@@ -2446,33 +2446,94 @@ async function executeLevelImport(input) {
 
 
 // ===== CUSTOM BOT MANAGEMENT (AI AGENTS LIST) =====
-function toggleAddBotForm() {
-    const form = document.getElementById('addBotFormContainer');
-    if (form) {
-        form.style.display = form.style.display === 'none' ? 'block' : 'none';
-    }
-}
-
-function selectAgentClient(clientId) {
-    selectedAgentClientId = clientId;
+// ===== CUSTOM BOT MANAGEMENT (AI AGENTS LIST) =====
+function selectAgentClient(agentId) {
+    selectedAgentClientId = agentId;
     fetchCustomBot(); // refresh list UI
     fetchAIAgentConfig(); // fetch this specific bot's config
+}
+
+function addNewAIAgent() {
+    const newAgentId = `agent_${Date.now()}`;
+    selectedAgentClientId = newAgentId;
+    
+    // Clear all fields for a fresh config
+    setCheck('aiEnabled', true);
+    setVal('customBotToken', '');
+    setVal('aiProvider', 'openai');
+    setVal('aiOpenaiApiKey', '');
+    setVal('welcomeProvider', 'openai');
+    setVal('aiWelcomeOpenaiApiKey', '');
+    setVal('chatProvider', 'openai');
+    setVal('aiChatOpenaiApiKey', '');
+    setVal('supportProvider', 'openai');
+    setVal('aiSupportOpenaiApiKey', '');
+    setVal('aiCharacterName', '');
+    setVal('aiCharacterTraits', '');
+    setVal('aiLanguageMode', 'en');
+    setVal('aiWelcomeCharacterName', '');
+    setVal('aiWelcomeCharacterTraits', '');
+    setVal('aiChatCharacterName', '');
+    setVal('aiChatCharacterTraits', '');
+    setVal('aiSupportCharacterName', '');
+    setVal('aiSupportCharacterTraits', '');
+    
+    setCheck('aiWelcomeEnabled', false);
+    setVal('aiWelcomeChannel', '');
+    setVal('aiWelcomeMessage', '');
+    
+    setCheck('aiChatEnabled', false);
+    const chatSelect = tomSelects['aiChatChannels'];
+    if (chatSelect) chatSelect.clear();
+    
+    setCheck('aiSupportEnabled', false);
+    setVal('aiSupportChannel', '');
+    const kbSelect = tomSelects['aiSupportKnowledgeChannels'];
+    if (kbSelect) kbSelect.clear();
+    
+    setCheck('aiBotToBotChatEnabled', false);
+    document.getElementById('aiMaxBotTurns').value = 5;
+    updateAITurnsLabel(5);
+    
+    setVal('aiPresetSelect', 'custom');
+    const customContainer = document.getElementById('aiCustomCharacterContainer');
+    if (customContainer) customContainer.style.display = 'block';
+    
+    toggleAISubsections();
+    updateAISimulator();
+    
+    // Refresh bots list so it includes this new agent
+    fetchCustomBot();
+    
+    showToast('✨ New AI Agent initialized! Enter your Bot Token and details, then click Deploy.');
 }
 
 async function fetchCustomBot() {
     if (!activeGuild) return;
     try {
-        const res = await apiFetch('/custom-bot/${activeGuild.id}');
-        const bots = await res.json(); // Array of custom bots
+        const res = await apiFetch(`/custom-bot/${activeGuild.id}`);
+        const bots = await res.json(); // Array of custom bots (agents)
         
         const listEl = document.getElementById('customBotsList');
         if (!listEl) return;
+        
+        // If we are currently configuring a new agent that hasn't been saved yet, add it to the list
+        if (selectedAgentClientId && selectedAgentClientId.startsWith('agent_') && !bots.some(b => b.agentId === selectedAgentClientId)) {
+            bots.push({
+                agentId: selectedAgentClientId,
+                botToken: '',
+                clientId: '',
+                status: 'inactive',
+                errorMessage: '',
+                characterName: 'New Unsaved Agent'
+            });
+        }
         
         if (!bots || bots.length === 0) {
             listEl.innerHTML = `
                 <div style="background:#2b2d31; border:1px dashed #4f545c; border-radius:var(--radius-md); padding:16px; text-align:center; color:var(--text-muted); font-size:0.85rem;">
                     <i class="fas fa-robot" style="font-size:1.5rem; margin-bottom:8px; display:block; color:#4f545c;"></i>
-                    No active AI Agents found. Connect a bot client below to get started!
+                    No active AI Agents found. Click "+ Add New AI Agent" to configure one!
                 </div>
             `;
             selectedAgentClientId = '';
@@ -2493,15 +2554,15 @@ async function fetchCustomBot() {
         }
 
         // If nothing selected or selection is invalid, select first bot by default
-        if (!selectedAgentClientId || !bots.some(b => b.clientId === selectedAgentClientId)) {
-            selectedAgentClientId = bots[0].clientId || '';
+        if (!selectedAgentClientId || !bots.some(b => b.agentId === selectedAgentClientId)) {
+            selectedAgentClientId = bots[0].agentId || '';
             fetchAIAgentConfig(); // load its config
         }
 
         // Render custom bot clients
         let hasStarting = false;
         listEl.innerHTML = bots.map(bot => {
-            const isActive = bot.clientId === selectedAgentClientId;
+            const isActive = bot.agentId === selectedAgentClientId;
             let statusText = 'Offline';
             let statusColor = '#95a5a6';
             let statusIcon = '<i class="fas fa-power-off"></i>';
@@ -2521,13 +2582,15 @@ async function fetchCustomBot() {
                 statusIcon = '<i class="fas fa-exclamation-circle"></i>';
             }
 
+            const displayName = bot.characterName || (bot.agentId.startsWith('agent_') && !bot.clientId ? 'New Unsaved Agent' : `AI Agent (${bot.agentId.substring(0,8)}...)`);
+
             return `
-                <div class="z-card-item" style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border:2px solid ${isActive ? 'var(--accent-purple)' : '#2f3136'}; background:${isActive ? 'rgba(155, 89, 182, 0.08)' : '#2b2d31'}; border-radius:var(--radius-md); cursor:pointer; margin-bottom: 8px;" onclick="selectAgentClient('${bot.clientId}')">
+                <div class="z-card-item" style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border:2px solid ${isActive ? 'var(--accent-purple)' : '#2f3136'}; background:${isActive ? 'rgba(155, 89, 182, 0.08)' : '#2b2d31'}; border-radius:var(--radius-md); cursor:pointer; margin-bottom: 8px;" onclick="selectAgentClient('${bot.agentId}')">
                     <div style="display:flex; align-items:center; gap:12px;">
                         <div style="font-size:1.5rem; color:${statusColor}; display:flex; align-items:center;">${statusIcon}</div>
                         <div>
                             <div style="font-weight:600; color:#fff; font-size:0.9rem;">
-                                ${bot.clientId ? 'AI Agent (ID: ' + bot.clientId.substring(0,8) + '...)' : 'New Agent (Starting)'}
+                                ${escapeHtml(displayName)}
                             </div>
                             <div style="font-size:0.75rem; color:${statusColor}; font-weight:600; display:flex; align-items:center; gap:6px;">
                                 <span style="display:inline-block; width:6px; height:6px; background:${statusColor}; border-radius:50%;"></span>
@@ -2536,7 +2599,7 @@ async function fetchCustomBot() {
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <button class="z-btn" style="padding:6px 10px; font-size:0.75rem; background:rgba(231, 76, 60, 0.15); border: 1px solid #e74c3c; color:#e74c3c; cursor: pointer; border-radius: 4px;" onclick="event.stopPropagation(); deleteAgentClient('${bot.botToken}')">
+                        <button class="z-btn" style="padding:6px 10px; font-size:0.75rem; background:rgba(231, 76, 60, 0.15); border: 1px solid #e74c3c; color:#e74c3c; cursor: pointer; border-radius: 4px;" onclick="event.stopPropagation(); deleteAgentClient('${bot.agentId}')">
                             <i class="fas fa-trash"></i> Delete
                         </button>
                     </div>
@@ -2553,40 +2616,12 @@ async function fetchCustomBot() {
     }
 }
 
-async function connectCustomBot() {
-    if (!activeGuild) return;
-    const token = getVal('customBotToken');
-    if (!token) return showToast('Please enter a Bot Token.', true);
-    
-    showToast('Connecting Custom Bot...');
-    try {
-        const res = await apiFetch('/custom-bot/${activeGuild.id}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ botToken: token })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showToast('✅ Custom Bot Connected Successfully!');
-            const form = document.getElementById('addBotFormContainer');
-            if (form) form.style.display = 'none';
-            document.getElementById('customBotToken').value = '';
-            selectedAgentClientId = data.clientId || '';
-            fetchCustomBot();
-        } else {
-            showToast(`❌ Error: ${data.error}`, true);
-        }
-    } catch (e) {
-        showToast('❌ Server error connecting bot', true);
-    }
-}
-
-async function deleteAgentClient(token) {
-    if (!confirm('Are you sure you want to disconnect and delete this AI Agent bot client?')) return;
+async function deleteAgentClient(agentId) {
+    if (!confirm('Are you sure you want to delete this AI Agent and stop its bot client?')) return;
     
     showToast('Deleting agent...');
     try {
-        const res = await apiFetch('/custom-bot/${activeGuild.id}?botToken=${encodeURIComponent(token)}', {
+        const res = await apiFetch(`/custom-bot/${activeGuild.id}?agentId=${encodeURIComponent(agentId)}`, {
             method: 'DELETE'
         });
         const data = await res.json();
@@ -3089,11 +3124,12 @@ const aiPresets = {
 async function fetchAIAgentConfig() {
     if (!activeGuild || !selectedAgentClientId) return;
     try {
-        const res = await apiFetch(`/ai-agent/${activeGuild.id}?clientId=${selectedAgentClientId}`);
+        const res = await apiFetch(`/ai-agent/${activeGuild.id}?agentId=${selectedAgentClientId}`);
         if (!res.ok) return;
         const config = await res.json();
 
         setCheck('aiEnabled', config.enabled !== undefined ? config.enabled : true);
+        setVal('customBotToken', config.botToken || '');
         setVal('aiProvider', config.aiProvider || 'openai');
         setVal('aiOpenaiApiKey', config.openaiApiKey || '');
         setVal('welcomeProvider', config.welcomeProvider || 'openai');
@@ -3343,7 +3379,8 @@ async function saveAIAgentConfig() {
     const kbVal = kbSelect ? kbSelect.getValue() : [];
 
     const payload = {
-        clientId: selectedAgentClientId,
+        agentId: selectedAgentClientId,
+        botToken: getVal('customBotToken'),
         aiProvider: getVal('aiProvider'),
         openaiApiKey: getVal('aiOpenaiApiKey'),
         welcomeProvider: getVal('welcomeProvider'),
@@ -3372,7 +3409,6 @@ async function saveAIAgentConfig() {
         maxBotTurns: parseInt(document.getElementById('aiMaxBotTurns').value) || 5,
         enabled: getCheck('aiEnabled'),
         languageMode: getVal('aiLanguageMode')
-
     };
 
     try {
@@ -3384,7 +3420,8 @@ async function saveAIAgentConfig() {
         if (res.ok) {
             showToast('✅ AI Agent successfully deployed!');
             clearDraft();
-            fetchAIAgentConfig(); // refresh to mask apiKey
+            fetchCustomBot(); // refresh list to show newly saved agent/status
+            fetchAIAgentConfig(); // refresh to mask apiKey/token
         } else {
             const err = await res.json();
             showToast('❌ Error: ' + (err.error || 'Failed to save configuration'), true);

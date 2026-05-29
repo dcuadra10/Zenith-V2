@@ -644,12 +644,15 @@ async function createDbInstance() {
 
         try {
             const tableInfo = await dbInstance.all("PRAGMA table_info(ai_agent_configs)");
-            const isGuildIdPk = tableInfo.some(col => col.name === 'guildId' && col.pk === 1);
-            if (isGuildIdPk) {
+            const hasAgentId = tableInfo.some(col => col.name === 'agentId');
+            if (!hasAgentId) {
+                console.log("[MIGRATION] Migration triggered: Migrating ai_agent_configs to agentId Primary Key");
                 await dbInstance.exec(`ALTER TABLE ai_agent_configs RENAME TO temp_ai_agent_configs`);
                 await dbInstance.exec(`
                     CREATE TABLE ai_agent_configs (
                         guildId TEXT,
+                        agentId TEXT,
+                        botToken TEXT,
                         clientId TEXT,
                         openaiApiKey TEXT,
                         welcomeOpenaiApiKey TEXT,
@@ -679,24 +682,40 @@ async function createDbInstance() {
                         maxBotTurns INTEGER DEFAULT 5,
                         enabled INTEGER DEFAULT 1,
                         languageMode TEXT DEFAULT 'en',
-                        PRIMARY KEY (guildId, clientId)
+                        status TEXT DEFAULT 'inactive',
+                        errorMessage TEXT,
+                        PRIMARY KEY (guildId, agentId)
                     )
                 `);
-                await dbInstance.exec(`INSERT OR IGNORE INTO ai_agent_configs (
-                    guildId, clientId, openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey,
-                    aiProvider, welcomeProvider, chatProvider, supportProvider,
-                    characterName, characterTraits, welcomeCharacterName, welcomeCharacterTraits, chatCharacterName, chatCharacterTraits, supportCharacterName, supportCharacterTraits,
-                    welcomeEnabled, welcomeChannel, welcomeMessage, chatEnabled, chatChannels, supportEnabled, supportChannel, supportKnowledgeChannels,
-                    botToBotChatEnabled, maxBotTurns, enabled, languageMode
-                ) SELECT 
-                    guildId, COALESCE(clientId, ''), openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey,
-                    aiProvider, welcomeProvider, chatProvider, supportProvider,
-                    characterName, characterTraits, welcomeCharacterName, welcomeCharacterTraits, chatCharacterName, chatCharacterTraits, supportCharacterName, supportCharacterTraits,
-                    welcomeEnabled, welcomeChannel, welcomeMessage, chatEnabled, chatChannels, supportEnabled, supportChannel, supportKnowledgeChannels,
-                    botToBotChatEnabled, maxBotTurns, enabled, languageMode
-                FROM temp_ai_agent_configs`);
+                
+                await dbInstance.exec(`
+                    INSERT INTO ai_agent_configs (
+                        guildId, agentId, botToken, clientId, status, errorMessage,
+                        openaiApiKey, welcomeOpenaiApiKey, chatOpenaiApiKey, supportOpenaiApiKey,
+                        aiProvider, welcomeProvider, chatProvider, supportProvider,
+                        characterName, characterTraits, welcomeCharacterName, welcomeCharacterTraits,
+                        chatCharacterName, chatCharacterTraits, supportCharacterName, supportCharacterTraits,
+                        welcomeEnabled, welcomeChannel, welcomeMessage, chatEnabled, chatChannels,
+                        supportEnabled, supportChannel, supportKnowledgeChannels,
+                        botToBotChatEnabled, maxBotTurns, enabled, languageMode
+                    ) SELECT 
+                        t.guildId,
+                        'agent_' || COALESCE(t.clientId, 'old_' || RANDOM()),
+                        (SELECT cb.botToken FROM custom_bots cb WHERE cb.clientId = t.clientId LIMIT 1),
+                        COALESCE(t.clientId, ''),
+                        COALESCE((SELECT cb.status FROM custom_bots cb WHERE cb.clientId = t.clientId LIMIT 1), 'inactive'),
+                        (SELECT cb.errorMessage FROM custom_bots cb WHERE cb.clientId = t.clientId LIMIT 1),
+                        t.openaiApiKey, t.welcomeOpenaiApiKey, t.chatOpenaiApiKey, t.supportOpenaiApiKey,
+                        t.aiProvider, t.welcomeProvider, t.chatProvider, t.supportProvider,
+                        t.characterName, t.characterTraits, t.welcomeCharacterName, t.welcomeCharacterTraits,
+                        t.chatCharacterName, t.chatCharacterTraits, t.supportCharacterName, t.supportCharacterTraits,
+                        t.welcomeEnabled, t.welcomeChannel, t.welcomeMessage, t.chatEnabled, t.chatChannels,
+                        t.supportEnabled, t.supportChannel, t.supportKnowledgeChannels,
+                        t.botToBotChatEnabled, t.maxBotTurns, t.enabled, t.languageMode
+                    FROM temp_ai_agent_configs t
+                `);
                 await dbInstance.exec(`DROP TABLE temp_ai_agent_configs`);
-                console.log("[MIGRATION] ai_agent_configs successfully migrated to composite PRIMARY KEY");
+                console.log("[MIGRATION] ai_agent_configs successfully migrated to agentId PRIMARY KEY");
             }
         } catch (e) {
             console.error("[MIGRATION] Failed migrating ai_agent_configs table:", e.message);
@@ -1100,6 +1119,7 @@ async function initializeSchema() {
             'pendingTaxGold BIGINT DEFAULT 0'
         ],
         ai_agent_configs: [
+            'agentId TEXT', 'botToken TEXT', 'status TEXT DEFAULT \'inactive\'', 'errorMessage TEXT',
             'openaiApiKey TEXT', 'characterName TEXT', 'characterTraits TEXT',
             'welcomeEnabled INTEGER DEFAULT 0', 'welcomeChannel TEXT', 'welcomeMessage TEXT',
             'chatEnabled INTEGER DEFAULT 0', 'chatChannels TEXT',

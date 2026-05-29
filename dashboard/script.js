@@ -2455,16 +2455,65 @@ async function fetchCustomBot() {
         const errEl = document.getElementById('cbError');
         const tokenInput = document.getElementById('customBotToken');
         
+        const inputGroup = tokenInput ? tokenInput.closest('.z-input-group') : null;
+        const connectBtn = document.querySelector('button[onclick="connectCustomBot()"]');
+        const disconnectBtn = document.querySelector('button[onclick="disconnectCustomBot()"]');
+        const statusIcon = document.querySelector('#customBotStatus i');
+        
         if (bot && bot.status && bot.status !== 'none' && bot.status !== 'inactive') {
-            stateEl.textContent = bot.status === 'active' ? 'Online' : 'Error';
-            stateEl.style.color = bot.status === 'active' ? 'var(--accent-green)' : 'var(--accent-red)';
-            errEl.textContent = bot.status === 'active' ? `Connected as Bot ID: ${bot.clientId}` : (bot.errorMessage || 'Unknown error');
+            if (bot.status === 'starting') {
+                stateEl.textContent = 'Connecting...';
+                stateEl.style.color = '#f1c40f'; // Warning Yellow
+                errEl.textContent = 'Registering slash commands and establishing connection with Discord...';
+                if (statusIcon) {
+                    statusIcon.className = 'fas fa-spinner fa-spin';
+                    statusIcon.parentElement.style.color = '#f1c40f';
+                }
+                
+                // Poll status again in 3 seconds to see if connection completes
+                setTimeout(() => fetchCustomBot(), 3000);
+            } else if (bot.status === 'active') {
+                stateEl.textContent = 'Online';
+                stateEl.style.color = '#2ecc71'; // Green
+                errEl.textContent = `Connected as Bot ID: ${bot.clientId}`;
+                if (statusIcon) {
+                    statusIcon.className = 'fas fa-check-circle';
+                    statusIcon.parentElement.style.color = '#2ecc71';
+                }
+            } else {
+                stateEl.textContent = 'Error';
+                stateEl.style.color = '#e74c3c'; // Red
+                errEl.textContent = bot.errorMessage || 'Failed to authenticate. Verify your bot token and intents.';
+                if (statusIcon) {
+                    statusIcon.className = 'fas fa-exclamation-circle';
+                    statusIcon.parentElement.style.color = '#e74c3c';
+                }
+            }
+            
             tokenInput.value = bot.botToken || '';
+            
+            if (bot.status === 'active' || bot.status === 'starting') {
+                if (inputGroup) inputGroup.style.display = 'none';
+                if (connectBtn) connectBtn.style.display = 'none';
+                if (disconnectBtn) disconnectBtn.style.display = '';
+            } else {
+                if (inputGroup) inputGroup.style.display = '';
+                if (connectBtn) connectBtn.style.display = '';
+                if (disconnectBtn) disconnectBtn.style.display = '';
+            }
         } else {
             stateEl.textContent = 'Disconnected';
-            stateEl.style.color = 'var(--text-muted)';
+            stateEl.style.color = '#95a5a6'; // Gray
             errEl.textContent = 'No custom bot is currently linked to this server.';
+            if (statusIcon) {
+                statusIcon.className = 'fas fa-power-off';
+                statusIcon.parentElement.style.color = '#95a5a6';
+            }
             tokenInput.value = '';
+            
+            if (inputGroup) inputGroup.style.display = '';
+            if (connectBtn) connectBtn.style.display = '';
+            if (disconnectBtn) disconnectBtn.style.display = 'none';
         }
     } catch (e) {
         console.error('Error fetching custom bot:', e);

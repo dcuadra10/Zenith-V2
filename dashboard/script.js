@@ -1148,7 +1148,7 @@ function updatePanelPreview() {
     const imageUrl = getVal('panelImageUrl');
     const embedWrap = cb.parentElement; // the flex wrapper
 
-    if (useEmbed) {
+    if (!useEmbed) {
         // Components V2 / Container — rounded card with thin sidebar color, everything inside
         cb.style.display = 'block';
         cb.style.background = color;
@@ -1284,7 +1284,7 @@ function updatePanelPreview() {
 
     // V2: menus go INSIDE the container card. Classic: menus stay outside
     const discordPreview = document.getElementById('discordPreview');
-    if (useEmbed) {
+    if (!useEmbed) {
         // Move menus inside contentBlock (after image)
         content.appendChild(menusContainer);
         menusContainer.style.marginTop = '12px';

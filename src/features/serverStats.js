@@ -24,7 +24,14 @@ module.exports = function setupServerStats(client) {
 
                 const botCount = members.filter(m => m.user.bot).size;
                 const onlineCount = members.filter(m => m.presence && m.presence.status !== 'offline').size;
-                const totalChannels = guild.channels.cache.size;
+                const validTypes = [
+                    ChannelType.GuildText,
+                    ChannelType.GuildVoice,
+                    ChannelType.GuildAnnouncement,
+                    ChannelType.GuildStageVoice,
+                    ChannelType.GuildForum
+                ];
+                const totalChannels = guild.channels.cache.filter(c => validTypes.includes(c.type)).size;
 
                 // Function to create or update stat vc
                 const updateStatChannel = async (label, value, isEnabled) => {

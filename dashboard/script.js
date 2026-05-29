@@ -1053,10 +1053,8 @@ function renderMilestones() {
         return;
     }
     list.innerHTML = levelMilestones.map((m, i) => `
-        <div style="display:grid; grid-template-columns: 80px 120px 1fr 1fr 40px; gap:10px; align-items:center; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
+        <div style="display:grid; grid-template-columns: 80px 1fr 40px; gap:10px; align-items:center; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
             <input class="z-input" type="number" value="${m.level}" placeholder="10" min="1" onchange="updateMilestone(${i},'level',this.value)" style="padding:8px; text-align:center; font-weight:700;">
-            <input class="z-input" type="text" value="${m.emoji}" placeholder="✨ or <:id>" onchange="updateMilestone(${i},'emoji',this.value)" style="padding:8px; font-size:0.8rem;">
-            <input class="z-input" type="text" value="${m.title}" placeholder="Bronze Age" onchange="updateMilestone(${i},'title',this.value)" style="padding:8px;">
             <select class="z-input" onchange="updateMilestone(${i},'roleId',this.value)" style="padding:8px; font-size:0.8rem;">
                 <option value="">Select a Role...</option>
                 ${(typeof currentGuildRoles !== 'undefined' ? currentGuildRoles : []).map(r => `<option value="${r.id}" ${m.roleId === r.id ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}

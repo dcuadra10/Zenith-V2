@@ -292,7 +292,12 @@ module.exports = {
                 try {
                     const customWords = conf.swearjarwords ? conf.swearjarwords.split(',').map(w => w.trim().toLowerCase()) : [];
                     const autoWords = conf.automodwordlist ? conf.automodwordlist.split(',').map(w => w.trim().toLowerCase()) : [];
-                    const words = customWords.length > 0 ? customWords : autoWords;
+                    let words = customWords.length > 0 ? customWords : autoWords;
+                    
+                    // Fallback to default words list if none configured
+                    if (words.length === 0 || (words.length === 1 && words[0] === '')) {
+                        words = ['fuck', 'shit', 'bitch', 'asshole', 'dick', 'cunt', 'pussy', 'motherfucker', 'puta', 'mierda', 'pendejo', 'cabron'];
+                    }
                     
                     if (words.length > 0) {
                         const content = message.content.toLowerCase();

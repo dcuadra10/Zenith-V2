@@ -299,7 +299,12 @@ module.exports = {
                         const foundWord = words.find(w => content.length > 0 && w.length > 0 && content.includes(w));
 
                         if (foundWord) {
-                            const sjChannel = message.guild.channels.cache.get(conf.swearjarchannel);
+                            let sjChannel = message.guild.channels.cache.get(conf.swearjarchannel);
+                            if (!sjChannel) {
+                                try {
+                                    sjChannel = await message.guild.channels.fetch(conf.swearjarchannel);
+                                } catch (e) {}
+                            }
                             if (sjChannel) {
                                 const ping = conf.swearjarping ? `<@${message.author.id}>` : `**${message.author.username}**`;
                                 

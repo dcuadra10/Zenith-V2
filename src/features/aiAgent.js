@@ -333,6 +333,9 @@ Si la información oficial no responde la duda, explica de forma educada (en tu 
             const activeProvider = isSupportChannel 
                 ? (config.supportProvider || config.aiProvider || 'openai')
                 : (config.chatProvider || config.aiProvider || 'openai');
+            
+            // Diagnostic logging
+            console.log(`[AI Agent Debug] Guild: ${message.guild.id}, Channel: ${message.channel.id}, Provider: ${activeProvider}, KeyPrefix: ${activeKey ? activeKey.substring(0, 8) + '...' : 'NULL'}, isChatChannel: ${isChatChannel}, isSupportChannel: ${isSupportChannel}, isMentioned: ${isMentioned}`);
             const responseText = await askAI(activeProvider, activeKey, systemPrompt, history);
             if (responseText) {
                 await message.reply(responseText).catch(err => {

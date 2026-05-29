@@ -836,22 +836,22 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
         }
 
         let keyToSave = openaiApiKey;
-        if (openaiApiKey === '••••••••••••' || !openaiApiKey) {
+        if (!openaiApiKey || openaiApiKey.includes('••••')) {
             keyToSave = existing ? existing.openaiApiKey : '';
         }
 
         let welcomeKeyToSave = welcomeOpenaiApiKey;
-        if (welcomeOpenaiApiKey === '••••••••••••' || !welcomeOpenaiApiKey) {
+        if (!welcomeOpenaiApiKey || welcomeOpenaiApiKey.includes('••••')) {
             welcomeKeyToSave = existing ? existing.welcomeOpenaiApiKey : '';
         }
 
         let chatKeyToSave = chatOpenaiApiKey;
-        if (chatKeyToSave === '••••••••••••' || !chatOpenaiApiKey) {
+        if (!chatOpenaiApiKey || chatOpenaiApiKey.includes('••••')) {
             chatKeyToSave = existing ? existing.chatOpenaiApiKey : '';
         }
 
         let supportKeyToSave = supportOpenaiApiKey;
-        if (supportOpenaiApiKey === '••••••••••••' || !supportOpenaiApiKey) {
+        if (!supportOpenaiApiKey || supportOpenaiApiKey.includes('••••')) {
             supportKeyToSave = existing ? existing.supportOpenaiApiKey : '';
         }
 

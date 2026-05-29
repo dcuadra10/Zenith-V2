@@ -1057,7 +1057,10 @@ function renderMilestones() {
             <input class="z-input" type="number" value="${m.level}" placeholder="10" min="1" onchange="updateMilestone(${i},'level',this.value)" style="padding:8px; text-align:center; font-weight:700;">
             <input class="z-input" type="text" value="${m.emoji}" placeholder="✨ or <:id>" onchange="updateMilestone(${i},'emoji',this.value)" style="padding:8px; font-size:0.8rem;">
             <input class="z-input" type="text" value="${m.title}" placeholder="Bronze Age" onchange="updateMilestone(${i},'title',this.value)" style="padding:8px;">
-            <input class="z-input" type="text" value="${m.roleId}" placeholder="@ · >> Role Name" onchange="updateMilestone(${i},'roleId',this.value)" style="padding:8px; font-size:0.8rem;">
+            <select class="z-input" onchange="updateMilestone(${i},'roleId',this.value)" style="padding:8px; font-size:0.8rem;">
+                <option value="">Select a Role...</option>
+                ${(typeof currentGuildRoles !== 'undefined' ? currentGuildRoles : []).map(r => `<option value="${r.id}" ${m.roleId === r.id ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
+            </select>
             <button class="z-btn z-btn-danger" style="padding:6px; font-size:0.7rem; width:32px; height:32px; display:flex; align-items:center; justify-content:center;" onclick="removeMilestone(${i})">✕</button>
         </div>
     `).join('');
@@ -1078,6 +1081,7 @@ function removeVipMultiplier(i) {
 
 function updateVipMultiplier(i, field, val) {
     vipMultipliers[i][field] = val;
+    if (field === 'type') renderVipMultipliers();
 }
 
 function renderVipMultipliers() {
@@ -1092,7 +1096,14 @@ function renderVipMultipliers() {
                 <option value="ROLE" ${m.type==='ROLE'?'selected':''}>ROLE</option>
                 <option value="USER" ${m.type==='USER'?'selected':''}>USER</option>
             </select>
-            <input class="z-input" type="text" value="${m.value}" placeholder="Role or User ID" onchange="updateVipMultiplier(${i},'value',this.value)" style="padding:8px;">
+            ${m.type === 'ROLE' ? `
+            <select class="z-input" onchange="updateVipMultiplier(${i},'value',this.value)" style="padding:8px; font-size:0.8rem;">
+                <option value="">Select a Role...</option>
+                ${(typeof currentGuildRoles !== 'undefined' ? currentGuildRoles : []).map(r => `<option value="${r.id}" ${m.value === r.id ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
+            </select>
+            ` : `
+            <input class="z-input" type="text" value="${m.value}" placeholder="User ID" onchange="updateVipMultiplier(${i},'value',this.value)" style="padding:8px;">
+            `}
             <input class="z-input" type="text" value="${m.multiplier}" placeholder="1.5" onchange="updateVipMultiplier(${i},'multiplier',this.value)" style="padding:8px; text-align:center; font-weight:700;">
             <button class="z-btn z-btn-danger" style="padding:6px; font-size:0.7rem; width:32px; height:32px; display:flex; align-items:center; justify-content:center;" onclick="removeVipMultiplier(${i})">✕</button>
         </div>

@@ -900,8 +900,7 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 welcomeCharacterName, welcomeCharacterTraits, chatCharacterName, chatCharacterTraits,
                 supportCharacterName, supportCharacterTraits
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(agentId) DO UPDATE SET
-             guildId = excluded.guildId,
+             ON CONFLICT(guildId, agentId) DO UPDATE SET
              botToken = excluded.botToken,
              openaiApiKey = excluded.openaiApiKey,
              welcomeOpenaiApiKey = excluded.welcomeOpenaiApiKey,

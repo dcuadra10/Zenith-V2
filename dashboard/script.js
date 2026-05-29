@@ -3347,7 +3347,12 @@ async function runAIResearch() {
     try {
         const res = await apiFetch(`/ai-agent/${activeGuild.id}/research`, {
             method: 'POST',
-            body: JSON.stringify({ characterName: charName, language: lang, clientId: selectedAgentClientId })
+            body: JSON.stringify({ 
+                characterName: charName, 
+                language: lang, 
+                clientId: selectedAgentClientId,
+                openaiApiKey: getVal('aiOpenaiApiKey')
+            })
         });
         
         if (res.ok) {

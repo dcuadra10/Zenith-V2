@@ -925,21 +925,28 @@ app.post('/api/ai-agent/:guildId/research', authenticateToken, async (req, res) 
 
         const db = await getDb();
         const guildId = req.params.guildId;
-        const { characterName, language, clientId } = req.body;
+        const { characterName, language, clientId, openaiApiKey } = req.body;
 
         if (!characterName) {
             return res.status(400).json({ error: 'Character name is required' });
         }
 
-        // Get saved OpenAI API key for this server and client with fallback
-        let config = null;
-        if (clientId) {
-            config = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [guildId, clientId]);
+        let apiKey = openaiApiKey || null;
+        if (apiKey === '••••••••••••' || !apiKey) {
+            apiKey = null;
         }
-        if (!config || !config.openaiApiKey) {
-            config = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ? AND openaiApiKey IS NOT NULL AND openaiApiKey != '' LIMIT 1`, [guildId]);
+
+        if (!apiKey) {
+            // Get saved OpenAI API key for this server and client (where clientId in request represents the agentId) with fallback
+            let config = null;
+            if (clientId) {
+                config = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ? AND agentId = ?`, [guildId, clientId]);
+            }
+            if (!config || !config.openaiApiKey) {
+                config = await db.get(`SELECT openaiApiKey FROM ai_agent_configs WHERE guildId = ? AND openaiApiKey IS NOT NULL AND openaiApiKey != '' LIMIT 1`, [guildId]);
+            }
+            apiKey = config ? config.openaiApiKey : null;
         }
-        const apiKey = config ? config.openaiApiKey : null;
 
         if (!apiKey) {
             return res.status(400).json({ error: 'Please configure your OpenAI API Key first before using AI Research.' });

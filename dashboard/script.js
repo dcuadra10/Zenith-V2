@@ -8,6 +8,21 @@ let editingPanelId = null;
 let editingMessageId = null;
 let selectedAgentClientId = '';
 
+// ===== TOAST SYSTEM =====
+window.showToast = function(title, message = '', type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `z-toast toast-${type}`;
+    let icon = type === 'success' ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-circle"></i>';
+    toast.innerHTML = `${icon} <div><strong>${title}</strong><br><span style="font-size:0.85rem;opacity:0.8;">${message}</span></div>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 400);
+    }, 3000);
+};
+
 // ===== AUTO-DRAFT SYSTEM =====
 const DRAFT_KEY = 'zenith_dashboard_draft';
 let _draftSaveTimer = null;
@@ -813,10 +828,6 @@ function getVal(id) {
 // ===== SAVE GENERAL CONFIG =====
 async function saveGeneralConfig() {
     if (!activeGuild) return;
-    const btn = document.getElementById('btnSaveGeneral');
-    btn.textContent = 'Saving...';
-    btn.disabled = true;
-
     try {
         await apiFetch(`/config/${activeGuild.id}`, {
             method: 'POST',
@@ -829,17 +840,10 @@ async function saveGeneralConfig() {
                 spreadsheetId: getVal('cfgSpreadsheetId')
             })
         });
-        btn.textContent = '✅ Saved';
-        btn.style.background = 'var(--accent-green)';
+        window.showToast('General Settings Saved', 'Core settings updated successfully.', 'success');
     } catch (e) {
-        btn.textContent = '❌ Error';
-        btn.style.background = 'var(--accent-red)';
+        window.showToast('Error Saving', e.message || 'Could not save core settings.', 'error');
     }
-    setTimeout(() => {
-        btn.textContent = '💾 Save Settings';
-        btn.style.background = '';
-        btn.disabled = false;
-    }, 2000);
 }
 
 // ===== SAVE MODULE CONFIGS =====
@@ -984,28 +988,12 @@ async function saveModuleConfig(moduleName) {
         });
 
         clearDraft(); // Clear draft on successful save
-        const btn = event.target.closest('button');
-        if (btn) {
-            const oldText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-check"></i> DEPLOYED';
-            btn.classList.add('z-btn-success');
-            setTimeout(() => {
-                btn.innerHTML = oldText;
-                btn.classList.remove('z-btn-success');
-            }, 2000);
-        }
+        window.showToast('Configuration Deployed', `${moduleName.toUpperCase()} settings are now live.`, 'success');
     } catch (e) {
+        window.showToast('Deployment Failed', e.message || 'An error occurred.', 'error');
     }
 }
 
-// ===== TOAST NOTIFICATIONS =====
-function showToast(msg, isError = false) {
-    const toast = document.createElement('div');
-    toast.style.cssText = `position:fixed;bottom:24px;right:24px;background:${isError ? 'var(--accent-red)' : 'var(--accent-green)'};color:white;padding:12px 24px;border-radius:var(--radius-md);font-weight:600;font-size:0.9rem;z-index:999;animation:fadeIn 0.3s ease;box-shadow:0 4px 20px rgba(0,0,0,0.3);`;
-    toast.textContent = msg;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-}
 
 // ===== AUTO-ROLE =====
 let autoRoles = [];

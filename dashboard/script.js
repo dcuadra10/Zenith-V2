@@ -377,14 +377,14 @@ function populateAllDropdowns() {
         'loggingChannel', 'countingChannel', 'swearJarChannel',
         'levelUpChannel', 'ticketsTranscriptChannel', 'ticketsApprovalChannel', 'marketOwnerChannel',
         'newKingdomTargetChannel', 'ecoWelcomeNotifyChannel', 'rssDeployChannel',
-        'aiWelcomeChannel', 'aiSupportChannel'
+        'aiWelcomeChannel', 'aiSupportChannel', 'giveawaysLogChannel'
     ];
 
     // Selects that need a category
     const categorySelects = ['cfgTicketCategory', 'statsCategoryId', 'modalCategoryId', 'rssCategory'];
     
     // Selects that need a role
-    const roleSelects = ['marketMiddlemanRole', 'r4TrackingRole', 'autoRoleInput', 'newKingdomPingRole', 'rssSellerRole'];
+    const roleSelects = ['marketMiddlemanRole', 'r4TrackingRole', 'autoRoleInput', 'newKingdomPingRole', 'rssSellerRole', 'giveawaysManagerRole'];
     
     channelSelects.forEach(id => populateDropdown(id, textChannels, 'Select a Channel'));
     categorySelects.forEach(id => populateDropdown(id, categories, 'Select a Category'));

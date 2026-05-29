@@ -694,11 +694,17 @@ function loadModuleToggles(mods) {
     setVal('xpMax', mods.xpmax ?? 15);
     setVal('xpCooldown', mods.xpcooldown ?? 60);
     setVal('levelUpChannel', mods.levelupchannel);
+    setVal('levelUpTitle', mods.leveluptitle);
+    setVal('levelUpMessage', mods.levelupmessage);
+    setVal('levelUpColor', mods.levelupcolor);
+    setCheck('levelUpUseEmbed', mods.levelupuseembed === undefined || mods.levelupuseembed === null ? true : !!mods.levelupuseembed);
+    setVal('levelingBackground', mods.levelingbackground);
+    setCheck('leaderboardImageEnabled', mods.leaderboardimageenabled);
     // Tickets
     setCheck('toggleTickets', mods.ticketsenabled);
     if(mods.ticketsmaxactive) setVal('ticketsMaxActive', mods.ticketsmaxactive ?? 2);
     setVal('ticketsTranscriptChannel', mods.ticketstranscriptchannel);
-    setVal('ticketCategoryId', mods.ticketcategoryid);
+    setVal('cfgTicketCategory', mods.ticketcategoryid);
     setVal('ticketsApprovalChannel', mods.ticketsapprovalchannel);
     // Automod
     setCheck('toggleAutomod', mods.automodenabled);
@@ -860,6 +866,7 @@ async function saveModuleConfig(moduleName) {
         levelUpColor: getVal('levelUpColor'),
         levelUpUseEmbed: getCheck('levelUpUseEmbed'),
         levelingBackground: getVal('levelingBackground'),
+        leaderboardImageEnabled: getCheck('leaderboardImageEnabled'),
         // Tickets
         ticketsEnabled: getCheck('toggleTickets'),
         ticketsMaxActive: parseInt(getVal('ticketsMaxActive'), 10) || 2,

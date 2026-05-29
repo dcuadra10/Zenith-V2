@@ -308,6 +308,14 @@ app.get('/api/custom-bot/:guildId', authenticateToken, async (req, res) => {
         const db = await getDb();
         const agents = await db.all('SELECT agentId, botToken, clientId, status, errorMessage, characterName FROM ai_agent_configs WHERE guildId = ?', [req.params.guildId]);
         for (const agent of agents) {
+            if (!agent.agentId) {
+                // Auto-generate agentId and update database row safely
+                agent.agentId = agent.clientId ? `agent_${agent.clientId}` : `agent_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                await db.run(
+                    'UPDATE ai_agent_configs SET agentId = ? WHERE guildId = ? AND (clientId = ? OR clientId IS NULL OR clientId = \'\')', 
+                    [agent.agentId, req.params.guildId, agent.clientId || '']
+                );
+            }
             if (agent.botToken) {
                 // Partially mask the token for safety
                 agent.botToken = agent.botToken.substring(0, 15) + '••••••••';

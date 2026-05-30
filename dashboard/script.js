@@ -224,8 +224,8 @@ window.addEventListener('DOMContentLoaded', () => {
             if (page === 'economy') {
                 fetchShopItems();
             }
-            if (page === 'rss') {
-                fetchRssCollectiveStock();
+            if (page === 'giveaways') {
+                fetchGiveaways();
             }
             markDirty(); // track page change for draft
         });

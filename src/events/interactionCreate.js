@@ -158,7 +158,9 @@ module.exports = {
                 const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder } = require('discord.js');
                 const selectMenu = new StringSelectMenuBuilder()
                     .setCustomId('rss_buy_payment_select')
-                    .setPlaceholder('Select your preferred payment method...')
+                    .setPlaceholder('Select preferred payment method(s) (choose up to 2)...')
+                    .setMinValues(1)
+                    .setMaxValues(2)
                     .addOptions(
                         new StringSelectMenuOptionBuilder().setLabel('PayPal').setValue('paypal').setEmoji({ name: '💳' }).setDescription('Pay securely via PayPal'),
                         new StringSelectMenuOptionBuilder().setLabel('Cash App').setValue('cashapp').setEmoji({ name: '💵' }).setDescription('Pay via Cash App transfer'),
@@ -173,7 +175,7 @@ module.exports = {
                 const row = new ActionRowBuilder().addComponents(selectMenu);
 
                 return safeReply({
-                    content: '✨ **Welcome to RSS Buying!** Please select your preferred payment method from the options below:',
+                    content: '✨ **Welcome to RSS Buying!** Please select your preferred payment method(s) from the options below (you can choose multiple):',
                     components: [row],
                     ephemeral: true
                 });
@@ -731,7 +733,7 @@ module.exports = {
         }
         else if (interaction.isStringSelectMenu()) {
             if (interaction.customId === 'rss_buy_payment_select') {
-                const paymentMethod = interaction.values[0];
+                const paymentMethods = interaction.values;
                 const db = await getDb();
                 const config = await db.get(`SELECT rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
                 const roleNameOrId = config?.rssSellerRole || 'RSS Seller';
@@ -759,23 +761,34 @@ module.exports = {
 
                 const sellerIds = sellers.map(seller => seller.user.id);
                 const stockRows = sellerIds.length > 0
-                    ? await db.all(`SELECT sellerId, food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId IN (${sellerIds.map(() => '?').join(',')})`, sellerIds)
+                    ? await db.all(`SELECT sellerId, food, wood, stone, gold, paymentMethods FROM rss_seller_stocks WHERE sellerId IN (${sellerIds.map(() => '?').join(',')})`, sellerIds)
                     : [];
 
                 const stockedSellers = sellers.filter(seller => {
                     const stock = stockRows.find(r => r.sellerId === seller.user.id);
-                    return stock && ((stock.food || 0) + (stock.wood || 0) + (stock.stone || 0) + (stock.gold || 0)) > 0;
+                    if (!stock) return false;
+                    
+                    const stockTotal = (stock.food || 0) + (stock.wood || 0) + (stock.stone || 0) + (stock.gold || 0);
+                    if (stockTotal <= 0) return false;
+
+                    const sellerPayments = (stock.paymentMethods || 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay')
+                        .toLowerCase()
+                        .split(/[,\s]+/)
+                        .map(p => p.trim())
+                        .filter(Boolean);
+
+                    return paymentMethods.some(pm => sellerPayments.includes(pm));
                 });
 
                 if (stockedSellers.length === 0) {
                     return interaction.reply({
-                        content: '❌ No RSS Sellers currently have stock available. Please try again later or ask a seller to restock.',
+                        content: '❌ No RSS Sellers matching your selected payment method(s) currently have stock available. Please try again later or select other payment methods.',
                         ephemeral: true
                     });
                 }
 
                 const selectMenu = new (require('discord.js').StringSelectMenuBuilder)()
-                    .setCustomId(`rss_buy_seller_select_${paymentMethod}`)
+                    .setCustomId(`rss_buy_seller_select_${paymentMethods.join(',')}`)
                     .setPlaceholder('Select your favorite RSS Seller...');
 
                 stockedSellers.slice(0, 24).forEach(seller => {
@@ -804,10 +817,10 @@ module.exports = {
                     bank: '🏛️ Bank Transfer',
                     applepay: '🍎 Apple Pay / Google Pay'
                 };
-                const readablePayment = paymentLabels[paymentMethod] || paymentMethod.toUpperCase();
+                const readablePayments = paymentMethods.map(pm => paymentLabels[pm] || pm.toUpperCase()).join(', ');
 
                 return interaction.update({
-                    content: `✨ Excellent! You selected **${readablePayment}** as payment.\n\nNow, select your favorite RSS Seller from the dropdown below to coordinate delivery:`,
+                    content: `✨ Excellent! You selected **${readablePayments}** as preferred payment method(s).\n\nNow, select your favorite RSS Seller from the dropdown below to coordinate delivery:`,
                     components: [row]
                 });
             } else if (interaction.customId.startsWith('rss_buy_seller_select')) {
@@ -1034,7 +1047,7 @@ module.exports = {
                 const salesRows = await db.all(`SELECT * FROM rss_seller_sales WHERE sellerId IN (${activeSellerIds.map(() => '?').join(',')})`, activeSellerIds);
 
                 const sellerData = activeSellerIds.map(sid => {
-                    const st = stockRows.find(r => r.sellerId === sid) || { food: 0, wood: 0, stone: 0, gold: 0 };
+                    const st = stockRows.find(r => r.sellerId === sid) || { food: 0, wood: 0, stone: 0, gold: 0, paymentMethods: 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay' };
                     const sa = salesRows.find(r => r.sellerId === sid) || { totalSoldFood: 0, totalSoldWood: 0, totalSoldStone: 0, totalSoldGold: 0, totalTransactions: 0 };
                     return {
                         sellerId: sid,
@@ -1043,12 +1056,23 @@ module.exports = {
                     };
                 });
 
+                // Parse and filter sellers by matching payment methods
+                const chosenPayments = paymentMethod.split(',').map(p => p.trim().toLowerCase()).filter(Boolean);
+                const matchingSellers = sellerData.filter(s => {
+                    const sellerPayments = (s.stock.paymentMethods || 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay')
+                        .toLowerCase()
+                        .split(/[,\s]+/)
+                        .map(p => p.trim())
+                        .filter(Boolean);
+                    return chosenPayments.some(cp => sellerPayments.includes(cp));
+                });
+
                 let seller1 = null;
                 let seller2 = null;
                 let splitOrder = false;
 
-                // Sort sellers by totalTransactions ascending, then total sales sum ascending to keep them balanced
-                const sortedSellers = [...sellerData].sort((a, b) => {
+                // Sort matching sellers by totalTransactions ascending, then total sales sum ascending to keep them balanced
+                const sortedSellers = [...matchingSellers].sort((a, b) => {
                     if (a.sales.totalTransactions !== b.sales.totalTransactions) {
                         return a.sales.totalTransactions - b.sales.totalTransactions;
                     }
@@ -1246,14 +1270,16 @@ module.exports = {
                     applepay: '🍎 Apple Pay / Google Pay',
                     unspecified: '❔ Unspecified'
                 };
-                const readablePayment = paymentLabels[paymentMethod] || paymentMethod.toUpperCase();
+                const readablePayment = chosenPayments.length > 0 
+                    ? chosenPayments.map(p => paymentLabels[p] || p.toUpperCase()).join(', ') 
+                    : '❔ Unspecified';
 
                 const summaryEmbed = new EmbedBuilder()
                     .setTitle('🌾 RSS Purchase Order Summary')
                     .setDescription(`Welcome to your private RSS trade channel! An order has been placed successfully.\n\n**Order ID:** \`${txId}\``)
                     .addFields(
                         { name: '👤 Buyer', value: `<@${interaction.user.id}>`, inline: true },
-                        { name: '💳 Payment Method', value: readablePayment, inline: true }
+                        { name: '💳 Payment Method(s)', value: readablePayment, inline: true }
                     )
                     .setColor('#10b981')
                     .setTimestamp();

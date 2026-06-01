@@ -68,6 +68,10 @@ module.exports = {
         .addStringOption(option =>
             option.setName('gold')
                 .setDescription('Amount of Gold (e.g. 10M, 50k)')
+                .setRequired(false))
+        .addStringOption(option =>
+            option.setName('payments')
+                .setDescription('Accepted payments (comma-separated, e.g. paypal,zelle,crypto)')
                 .setRequired(false)),
 
     async execute(interaction) {
@@ -92,10 +96,10 @@ module.exports = {
         const sellerId = interaction.user.id;
 
         // Fetch current stock
-        let stock = await db.get(`SELECT food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId = ?`, [sellerId]);
+        let stock = await db.get(`SELECT food, wood, stone, gold, paymentMethods FROM rss_seller_stocks WHERE sellerId = ?`, [sellerId]);
         if (!stock) {
-            await db.run(`INSERT INTO rss_seller_stocks (sellerId, food, wood, stone, gold) VALUES (?, 0, 0, 0, 0)`, [sellerId]);
-            stock = { food: 0, wood: 0, stone: 0, gold: 0 };
+            await db.run(`INSERT INTO rss_seller_stocks (sellerId, food, wood, stone, gold, paymentMethods) VALUES (?, 0, 0, 0, 0, ?)`, [sellerId, 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay']);
+            stock = { food: 0, wood: 0, stone: 0, gold: 0, paymentMethods: 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay' };
         }
 
         const action = interaction.options.getString('action');
@@ -103,6 +107,24 @@ module.exports = {
         const rawWood = interaction.options.getString('wood');
         const rawStone = interaction.options.getString('stone');
         const rawGold = interaction.options.getString('gold');
+        const rawPayments = interaction.options.getString('payments');
+
+        // Handle payment method update
+        if (rawPayments !== null) {
+            const validMethods = ['paypal', 'cashapp', 'venmo', 'zelle', 'revolut', 'crypto', 'bank', 'applepay'];
+            const inputs = rawPayments.toLowerCase().split(/[,\s]+/).map(p => p.trim()).filter(Boolean);
+            const normalized = inputs.filter(p => validMethods.includes(p));
+            
+            if (normalized.length === 0) {
+                return interaction.reply({
+                    content: '❌ Invalid payment methods! Supported methods: `paypal`, `cashapp`, `venmo`, `zelle`, `revolut`, `crypto`, `bank`, `applepay`.',
+                    ephemeral: true
+                });
+            }
+            const joinedPayments = normalized.join(',');
+            await db.run(`UPDATE rss_seller_stocks SET paymentMethods = ? WHERE sellerId = ?`, [joinedPayments, sellerId]);
+            stock.paymentMethods = joinedPayments;
+        }
 
         // Check if any stock update was requested
         if (action && (rawFood !== null || rawWood !== null || rawStone !== null || rawGold !== null)) {
@@ -152,13 +174,29 @@ module.exports = {
             );
 
             // Update current memory reference for output
-            stock = { food: newFood, wood: newWood, stone: newStone, gold: newGold };
+            stock.food = newFood;
+            stock.wood = newWood;
+            stock.stone = newStone;
+            stock.gold = newGold;
         } else if (!action && (rawFood !== null || rawWood !== null || rawStone !== null || rawGold !== null)) {
             return interaction.reply({
                 content: '❌ You must select an **Action** (➕ Add to Stock or ⚙️ Set Stock) when providing stock values.',
                 ephemeral: true
             });
         }
+
+        const paymentLabels = {
+            paypal: '💳 PayPal',
+            cashapp: '💵 Cash App',
+            venmo: '📱 Venmo',
+            zelle: '🏦 Zelle',
+            revolut: '🪙 Revolut',
+            crypto: '₿ Crypto',
+            bank: '🏛️ Bank Transfer',
+            applepay: '🍎 Apple Pay / Google Pay'
+        };
+        const pMethods = (stock.paymentMethods || 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay').split(',');
+        const pLabels = pMethods.map(p => paymentLabels[p] || p.toUpperCase()).join(', ');
 
         const embed = new EmbedBuilder()
             .setTitle(`🌾 RSS Stock Inventory: ${interaction.user.username}`)
@@ -167,7 +205,8 @@ module.exports = {
                 { name: '🌾 Food', value: `**${formatRssAmount(stock.food)}**`, inline: true },
                 { name: '🪵 Wood', value: `**${formatRssAmount(stock.wood)}**`, inline: true },
                 { name: '🪨 Stone', value: `**${formatRssAmount(stock.stone)}**`, inline: true },
-                { name: '🪙 Gold', value: `**${formatRssAmount(stock.gold)}**`, inline: true }
+                { name: '🪙 Gold', value: `**${formatRssAmount(stock.gold)}**`, inline: true },
+                { name: '💳 Accepted Payment Methods', value: pLabels, inline: false }
             )
             .setColor('#10b981')
             .setThumbnail(interaction.user.displayAvatarURL())

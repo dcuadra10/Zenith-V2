@@ -1152,6 +1152,7 @@ async function initializeSchema() {
             wood BIGINT DEFAULT 0,
             stone BIGINT DEFAULT 0,
             gold BIGINT DEFAULT 0,
+            paymentMethods TEXT DEFAULT 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay',
             updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -1237,6 +1238,9 @@ async function initializeSchema() {
         ],
         r4_tracking: [
             'excuseReason TEXT'
+        ],
+        rss_seller_stocks: [
+            'paymentMethods TEXT DEFAULT \'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay\''
         ],
         rss_seller_sales: [
             'pendingTaxFood BIGINT DEFAULT 0',

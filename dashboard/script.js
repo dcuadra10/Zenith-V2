@@ -1129,13 +1129,17 @@ function renderMilestones() {
     list.innerHTML = levelMilestones.map((m, i) => `
         <div style="display:grid; grid-template-columns: 80px 1fr 40px; gap:10px; align-items:center; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
             <input class="z-input" type="number" value="${m.level}" placeholder="10" min="1" onchange="updateMilestone(${i},'level',this.value)" style="padding:8px; text-align:center; font-weight:700;">
-            <select class="z-input" onchange="updateMilestone(${i},'roleId',this.value)" style="padding:8px; font-size:0.8rem;">
+            <select id="levelMilestoneRole_${i}" class="z-input" onchange="updateMilestone(${i},'roleId',this.value)" style="padding:8px; font-size:0.8rem;">
                 <option value="">Select a Role...</option>
                 ${(typeof currentGuildRoles !== 'undefined' ? currentGuildRoles : []).map(r => `<option value="${r.id}" ${m.roleId === r.id ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
             </select>
             <button class="z-btn z-btn-danger" style="padding:6px; font-size:0.7rem; width:32px; height:32px; display:flex; align-items:center; justify-content:center;" onclick="removeMilestone(${i})">✕</button>
         </div>
     `).join('');
+
+    levelMilestones.forEach((_, i) => {
+        initTomSelect(`levelMilestoneRole_${i}`, false, 'Select a Role...');
+    });
 }
 
 // ===== VIP MULTIPLIERS =====

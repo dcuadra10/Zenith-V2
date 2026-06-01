@@ -100,10 +100,14 @@ module.exports = {
                     const badWords = conf.automodwordlist.split(',').map(w => w.trim().toLowerCase());
                     const msgLower = message.content.toLowerCase();
                     for (const w of badWords) {
-                        if (w && msgLower.includes(w)) {
-                            shouldDelete = true;
-                            reason = 'Banned words';
-                            break;
+                        if (w) {
+                            const escapedW = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const regex = new RegExp(`(?<![\\p{L}\\p{N}_])${escapedW}(?![\\p{L}\\p{N}_])`, 'iu');
+                            if (regex.test(msgLower)) {
+                                shouldDelete = true;
+                                reason = 'Banned words';
+                                break;
+                            }
                         }
                     }
                 }
@@ -143,38 +147,52 @@ module.exports = {
                     if (match) num = parseInt(match[0], 10);
                 }
 
-                if (num !== null) {
-                    const isCorrectNum = (num === conf.countingcurrent + 1);
-                    const isSameUser = (message.author.id === conf.countinglastuser);
+                if (num === null) {
+                    // Chat messages are not allowed in the counting channel
+                    await message.delete().catch(() => {});
+                    const chatEmbed = new EmbedBuilder()
+                        .setDescription(`⚠️ <@${message.author.id}>, **this channel is only for counting!** Please use another channel for chatting.`)
+                        .setColor('Orange');
+                    const chatMsg = await message.channel.send({ embeds: [chatEmbed] });
+                    setTimeout(() => chatMsg.delete().catch(() => {}), 5000);
+                    return;
+                }
 
-                    if (isCorrectNum && !conf.countingsameuser && isSameUser) {
-                        // Right number, but counting twice in a row (Warning, no reset)
-                        await message.delete().catch(() => {});
-                        const warnEmbed = new EmbedBuilder()
-                            .setDescription(`⚠️ **<@${message.author.id}>, you cannot count twice in a row!** Wait for someone else to take a turn.`)
-                            .setColor('Orange');
-                        const warnMsg = await message.channel.send({ embeds: [warnEmbed] });
-                        setTimeout(() => warnMsg.delete().catch(() => {}), 5000);
-                    }
-                    else if (isCorrectNum) {
-                        // Right number, valid user (Proceed)
-                        await message.react('✅').catch(() => {});
-                        await db.run(`UPDATE module_configs SET countingcurrent = ?, countinglastuser = ? WHERE guildid = ?`, [num, message.author.id, message.guild.id]);
-                    } 
-                    else if (conf.countingreset) {
-                        // Wrong number triggers nuclear reset
-                        await message.react('❌').catch(() => {});
-                        const resetEmbed = new EmbedBuilder()
-                            .setTitle("💥 Sequence Detonated!")
-                            .setDescription(`**<@${message.author.id}>** ruined the sequence by putting \`${num}\`!\n\nThe stack has been reset to **0**. Start again from \`1\`.`)
-                            .setColor('Red');
-                        await message.channel.send({ embeds: [resetEmbed] });
-                        await db.run(`UPDATE module_configs SET countingcurrent = 0, countinglastuser = NULL WHERE guildid = ?`, [message.guild.id]);
-                    } 
-                    else {
-                        // Wrong number, but Reset disabled (just delete)
-                        await message.delete().catch(() => {});
-                    }
+                const isCorrectNum = (num === conf.countingcurrent + 1);
+                const isSameUser = (message.author.id === conf.countinglastuser);
+
+                if (isCorrectNum && !conf.countingsameuser && isSameUser) {
+                    // Right number, but counting twice in a row (Warning, no reset)
+                    await message.delete().catch(() => {});
+                    const warnEmbed = new EmbedBuilder()
+                        .setDescription(`⚠️ **<@${message.author.id}>, you cannot count twice in a row!** Wait for someone else to take a turn.`)
+                        .setColor('Orange');
+                    const warnMsg = await message.channel.send({ embeds: [warnEmbed] });
+                    setTimeout(() => warnMsg.delete().catch(() => {}), 5000);
+                }
+                else if (isCorrectNum) {
+                    // Right number, valid user (Proceed)
+                    await message.react('✅').catch(() => {});
+                    await db.run(`UPDATE module_configs SET countingcurrent = ?, countinglastuser = ? WHERE guildid = ?`, [num, message.author.id, message.guild.id]);
+                } 
+                else if (conf.countingreset) {
+                    // Wrong number triggers nuclear reset
+                    await message.react('❌').catch(() => {});
+                    const resetEmbed = new EmbedBuilder()
+                        .setTitle("💥 Sequence Detonated!")
+                        .setDescription(`**<@${message.author.id}>** ruined the sequence by putting \`${num}\`!\n\nThe stack has been reset to **0**. Start again from \`1\`.`)
+                        .setColor('Red');
+                    await message.channel.send({ embeds: [resetEmbed] });
+                    await db.run(`UPDATE module_configs SET countingcurrent = 0, countinglastuser = NULL WHERE guildid = ?`, [message.guild.id]);
+                } 
+                else {
+                    // Wrong number, but Reset disabled (delete and warn user)
+                    await message.delete().catch(() => {});
+                    const wrongEmbed = new EmbedBuilder()
+                        .setDescription(`⚠️ **<@${message.author.id}>, that is the wrong number!**\nThe current count is **${conf.countingcurrent}**, so the next number must be **${conf.countingcurrent + 1}**.`)
+                        .setColor('Orange');
+                    const wrongMsg = await message.channel.send({ embeds: [wrongEmbed] });
+                    setTimeout(() => wrongMsg.delete().catch(() => {}), 5000);
                 }
                 return; // Don't give XP for just counting
             }
@@ -313,20 +331,33 @@ module.exports = {
                     
                     if (words.length > 0) {
                         const content = message.content.toLowerCase();
-                        const foundWord = words.find(w => content.length > 0 && w.length > 0 && content.includes(w));
+                        const counts = {};
 
-                        if (foundWord) {
-                            // Increment swear count in database
+                        words.forEach(w => {
+                            if (!w) return;
+                            const escapedW = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const regex = new RegExp(`(?<![\\p{L}\\p{N}_])${escapedW}(?![\\p{L}\\p{N}_])`, 'giu');
+                            const matches = content.match(regex);
+                            if (matches) {
+                                counts[w] = matches.length;
+                            }
+                        });
+
+                        const totalCount = Object.values(counts).reduce((sum, value) => sum + value, 0);
+                        const foundWord = Object.keys(counts)[0];
+
+                        if (totalCount > 0) {
+                            // Increment swear count in database by the number of occurrences
                             await db.run(
-                                `INSERT INTO swear_jar_counts (userId, guildId, count) VALUES (?, ?, 1)
-                                 ON CONFLICT(userId, guildId) DO UPDATE SET count = swear_jar_counts.count + 1`,
-                                [message.author.id, message.guild.id]
+                                `INSERT INTO swear_jar_counts (userId, guildId, count) VALUES (?, ?, ?)
+                                 ON CONFLICT(userId, guildId) DO UPDATE SET count = swear_jar_counts.count + ?`,
+                                [message.author.id, message.guild.id, totalCount, totalCount]
                             );
                             const countRow = await db.get(
                                 `SELECT count FROM swear_jar_counts WHERE userId = ? AND guildId = ?`,
                                 [message.author.id, message.guild.id]
                             );
-                            const swearCount = countRow ? countRow.count : 1;
+                            const swearCount = countRow ? countRow.count : totalCount;
 
                             let sjChannel = message.guild.channels.cache.get(conf.swearjarchannel);
                             if (!sjChannel) {

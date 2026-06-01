@@ -33,7 +33,7 @@ module.exports = {
     const higherRankCount = Number(rankRow?.higherrank || 0);
     const rankPosition = higherRankCount + 1;
 
-    const imagePath = path.resolve(__dirname, '../../zenith_bg - Copy.png');
+    const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
     const hasBackground = fs.existsSync(imagePath);
 
     canvacord.Font.loadDefault();

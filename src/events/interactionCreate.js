@@ -531,7 +531,7 @@ module.exports = {
                     
                     const db = await getDb();
                     const panelRec = await db.get(`SELECT panelData FROM ticket_panels WHERE id = ?`, [panelId]);
-                    if (!panelRec) return interaction.reply({ content: 'Panel data not found.', ephemeral: true });
+                    if (!panelRec) return interaction.reply({ content: 'It looks like your ticket is already being processed. Please check your DMs or your open ticket channel.', ephemeral: true });
 
                     const data = JSON.parse(panelRec.panelData);
                     const opt = data.buttonRows[rIdx].options[oIdx];
@@ -867,7 +867,7 @@ module.exports = {
 
                 const db = await getDb();
                 const panelRec = await db.get(`SELECT panelData FROM ticket_panels WHERE id = ?`, [panelId]);
-                if (!panelRec) return interaction.reply({ content: 'Panel data not found.', ephemeral: true });
+                if (!panelRec) return interaction.reply({ content: 'It looks like your ticket is already being processed. Please check your DMs or your open ticket channel.', ephemeral: true });
 
                 const data = JSON.parse(panelRec.panelData);
                 const opt = data.dropdowns[dIdx].options[oIdx];
@@ -1492,7 +1492,7 @@ module.exports = {
 
                 const db = await getDb();
                 const panelRec = await db.get(`SELECT panelData FROM ticket_panels WHERE id = ?`, [panelId]);
-                if (!panelRec) return interaction.reply({ content: 'Panel data not found.', ephemeral: true });
+                if (!panelRec) return interaction.reply({ content: 'It looks like your ticket is already being processed. Please check your DMs or your open ticket channel.', ephemeral: true });
 
                 const data = JSON.parse(panelRec.panelData);
                 const opt = data.dropdowns[dIdx].options[oIdx];

@@ -1,6 +1,7 @@
 const { Pool } = require('pg');
 
 let dbInstance = null;
+let _initializingDbPromise = null;
 
 function convertSqliteToPg(query, params = []) {
     let i = 1;
@@ -12,7 +13,11 @@ function convertSqliteToPg(query, params = []) {
 // Convert SQLite schema specifically
 function convertSqliteSchemaToPg(query) {
     let pgQuery = query.replace(/DATETIME/gi, 'TIMESTAMP');
-    // keep INTEGER DEFAULT 0 etc
+    // Remove SQLite PRAGMA statements that are invalid in Postgres
+    pgQuery = pgQuery.replace(/PRAGMA[^;]*;?/gi, '');
+    // Replace SQLite's INSERT OR IGNORE with Postgres ON CONFLICT DO NOTHING
+    pgQuery = pgQuery.replace(/INSERT OR IGNORE INTO/gi, 'INSERT INTO');
+    pgQuery = pgQuery.replace(/ON CONFLICT\([^)]+\) DO UPDATE SET\s+([^;]+)/gi, (m) => m); // keep existing ON CONFLICT as-is
     return pgQuery;
 }
 
@@ -70,6 +75,10 @@ function restoreKeys(row) {
 }
 
 async function createDbInstance() {
+    if (dbInstance) return dbInstance;
+    if (_initializingDbPromise) return _initializingDbPromise;
+
+    _initializingDbPromise = (async () => {
     try {
         let useSqlite = process.env.DB_TYPE === 'sqlite';
         
@@ -107,12 +116,22 @@ async function createDbInstance() {
                         return restoreKeys(res.rows[0]);
                     },
                     all: async (query, params = []) => {
+                        // Handle SQLite PRAGMA calls gracefully in Postgres
+                        const trimmed = query.trim();
+                        const pragmaMatch = trimmed.match(/^PRAGMA\s+table_info\(([^)]+)\)/i);
+                        if (pragmaMatch) {
+                            const tableName = pragmaMatch[1].replace(/['"]+/g, '');
+                            const res = await pool.query(`SELECT column_name as name FROM information_schema.columns WHERE table_name = $1`, [tableName]);
+                            return res.rows.map(r => ({ name: r.name }));
+                        }
                         const { text, values } = convertSqliteToPg(query, params);
                         const res = await pool.query(text, values);
                         return res.rows.map(restoreKeys);
                     },
                     exec: async (query) => {
                         const pgQuery = convertSqliteSchemaToPg(query);
+                        // Skip empty queries after conversion
+                        if (!pgQuery.trim()) return;
                         return pool.query(pgQuery);
                     },
                     transaction: async (callback) => {
@@ -796,7 +815,12 @@ async function createDbInstance() {
     } catch (err) {
         console.error('Database Initialization Error:', err);
         throw err;
+    } finally {
+        _initializingDbPromise = null;
     }
+    })();
+
+    return _initializingDbPromise;
 }
 
 let migrationsDone = false;

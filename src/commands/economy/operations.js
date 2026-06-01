@@ -96,20 +96,38 @@ module.exports = {
         };
 
         if (sub === 'list') {
+            const ops = await db.all(`SELECT * FROM economy_operations WHERE guildId = ? ORDER BY level DESC`, [interaction.guild.id]);
+            
             const embed = new EmbedBuilder()
-                .setTitle('🏗️ Available Businesses & Jobs')
-                .setDescription('Invest in legal private enterprises to earn passive income, or work for the city.')
-                .setColor('#10b981');
+                .setTitle('🏢 Established City Businesses')
+                .setDescription('Directory of all active, player-owned legal businesses in the city. You can apply to work at hiring businesses using `/jobs apply <ID>`.')
+                .setColor('#10b981')
+                .setTimestamp();
 
-            // Add Municipal Cleaner at the top of the list
-            embed.addFields({ 
-                name: '🧹 Municipal Cleaner', 
-                value: `💰 **Cost:** Public (Free)\n📈 **Profit:** 60/cycle\n⭐ **Req:** 0 XP (Entry Job)`, 
-                inline: true 
-            });
+            const bizNames = {
+                car_wash: 'Car Wash',
+                gas_station: 'Gas Station',
+                nightclub: 'Nightclub',
+                restaurant: 'Restaurant',
+                law_firm: 'Law Firm',
+                tech_lab: 'Tech Lab',
+                casino: 'Private Casino',
+                bank_private: 'Private Bank'
+            };
 
-            for (const [id, data] of Object.entries(bizData)) {
-                embed.addFields({ name: data.name, value: `💰 **Cost:** ${data.cost}\n📈 **Profit:** ${data.income}/hr`, inline: true });
+            if (ops.length === 0) {
+                embed.setDescription('🏙️ **Zenith City has no private businesses yet!**\nUse `/businesses open` to establish the very first enterprise in the city and hire other citizens.');
+            } else {
+                for (const op of ops) {
+                    const baseName = bizNames[op.type] || op.type.toUpperCase();
+                    const displayName = op.customName ? `"${op.customName}" (${baseName})` : baseName;
+                    
+                    embed.addFields({
+                        name: `💼 ${displayName} (ID: \`${op.id}\`)`,
+                        value: `👑 **Owner:** <@${op.userId}>\n⭐ **Level:** ${op.level}\n👥 **Employees:** ${op.employeeCount}\n💰 **Salary:** ${op.salary.toLocaleString()} 🪙\n📢 **Status:** ${op.hiringEnabled ? '🟢 **Hiring**' : '🔴 **Closed**'}`,
+                        inline: true
+                    });
+                }
             }
             return await interaction.editReply({ embeds: [embed] });
         }

@@ -37,8 +37,13 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
         const db = await getDb();
         const user = await db.get(`SELECT balance, bank, bankCapacity, bankId, level FROM users WHERE userId = ?`, [interaction.user.id]);
-        
         if (!user) return await interaction.editReply({ content: '❌ Profile not found!' });
+
+        // Normalize BigInt/INTEGER values from DB to standard JS Numbers to prevent NaN math and string concat issues in PostgreSQL
+        user.balance = parseInt(user.balance) || 0;
+        user.bank = parseInt(user.bank) || 0;
+        user.bankCapacity = parseInt(user.bankCapacity) || 5000;
+        user.level = parseInt(user.level) || 1;
 
         if (sub === 'deposit') {
             const amountStr = interaction.options.getString('amount');

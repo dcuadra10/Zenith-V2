@@ -207,7 +207,7 @@ module.exports = {
         }
 
         if (subGroup === 'business') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.respond([]);
 
             const businesses = await db.all(`SELECT type, customName FROM mafia_businesses WHERE mafiaId = ?`, [user.mafiaId]);
@@ -238,7 +238,7 @@ module.exports = {
             const name = interaction.options.getString('name');
             const cost = 5000;
 
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (user && user.mafiaId) return await interaction.editReply({ content: '❌ You are already in a mafia!' });
 
             const success = await removeBalance(interaction.user.id, cost);
@@ -286,7 +286,7 @@ module.exports = {
         }
 
         if (sub === 'leave') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ You are not in a mafia!' });
 
             const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
@@ -326,7 +326,7 @@ module.exports = {
 
         if (sub === 'apply') {
             const mafiaId = interaction.options.getString('id').toUpperCase();
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (user && user.mafiaId) return await interaction.editReply({ content: '❌ You are already in a mafia!' });
 
             const mafia = await db.get(`SELECT name, leaderId FROM economy_mafias WHERE id = ?`, [mafiaId]);
@@ -350,7 +350,7 @@ module.exports = {
                 if (i.user.id !== mafia.leaderId) return i.reply({ content: '❌ Only the Don can accept applications!', ephemeral: true });
 
                 if (i.customId === 'apply_accept') {
-                    const current = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+                    const current = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
                     if (current && current.mafiaId) return i.update({ content: '❌ This user has already joined another mafia.', embeds: [], components: [] });
 
                     await db.run(`UPDATE users SET mafiaId = ? WHERE userId = ?`, [mafiaId, interaction.user.id]);
@@ -365,7 +365,7 @@ module.exports = {
         }
 
         if (sub === 'info') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await (interaction.isRepliable() ? interaction.editReply({ content: '❌ You are not in a mafia!' }) : null);
 
             const mafia = await db.get(`SELECT * FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
@@ -395,7 +395,7 @@ module.exports = {
 
         if (sub === 'tax') {
             const percent = interaction.options.getInteger('percent');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ Not in a mafia!' });
 
             const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
@@ -407,7 +407,7 @@ module.exports = {
 
         if (sub === 'rename') {
             const newName = interaction.options.getString('name');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await (interaction.isRepliable() ? interaction.editReply({ content: '❌ Not in a mafia!' }) : null);
 
             const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
@@ -418,7 +418,7 @@ module.exports = {
         }
 
         if (sub === 'tree') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await (interaction.isRepliable() ? interaction.editReply({ content: '❌ You are not in a mafia!' }) : null);
 
             const mafia = await db.get(`SELECT name FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
@@ -455,7 +455,7 @@ module.exports = {
 
         if (sub === 'specialize') {
             const path = interaction.options.getString('path');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await (interaction.isRepliable() ? interaction.editReply({ content: '❌ Not in a mafia!' }) : null);
 
             const mafia = await db.get(`SELECT level, leaderId FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
@@ -467,7 +467,7 @@ module.exports = {
         }
 
         if (sub === 'disband') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await (interaction.isRepliable() ? interaction.editReply({ content: '❌ You are not in a mafia!' }) : null);
 
             const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
@@ -522,7 +522,7 @@ module.exports = {
         }
 
         if (sub === 'vault') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ Not in a mafia!' });
 
             const mafia = await db.get(`SELECT vault, taxRate, name FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
@@ -535,7 +535,7 @@ module.exports = {
         }
 
         if (sub === 'turfs') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             const turfs = await db.all(`SELECT * FROM economy_turfs`);
             
             // Auto-init turfs if empty
@@ -583,14 +583,14 @@ module.exports = {
 
         if (sub === 'invite') {
             const target = interaction.options.getUser('user');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ You are not in a mafia!' });
 
             const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
             if (member.rank !== 'Don') return await interaction.editReply({ content: '❌ Only the Don can invite members!' });
 
-            const targetUser = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [target.id]);
+            const targetUser = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [target.id]);
             if (targetUser && targetUser.mafiaId) return await interaction.editReply({ content: `❌ ${target.username} is already in a mafia!` });
 
             const embed = new EmbedBuilder()
@@ -623,7 +623,7 @@ module.exports = {
 
         if (sub === 'armory') {
             const itemName = interaction.options.getString('item');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ Not in a mafia!' });
 
             const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
@@ -647,7 +647,7 @@ module.exports = {
         if (sub === 'clean') {
             let amount = interaction.options.getInteger('amount');
             const max = interaction.options.getBoolean('max');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ Not in a mafia!' });
 
             const mafia = await db.get(`SELECT specialization FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
@@ -675,7 +675,7 @@ module.exports = {
         }
 
         if (sub === 'mission') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ Not in a mafia!' });
 
             const mafia = await db.get(`SELECT level, specialization, upgrades FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
@@ -717,7 +717,7 @@ module.exports = {
 
         if (sub === 'donate') {
             const amount = interaction.options.getInteger('amount');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ You are not in a mafia!' });
 
             const removed = await removeBalance(interaction.user.id, amount);
@@ -728,7 +728,7 @@ module.exports = {
         }
 
         if (sub === 'upgrade') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ You are not in a mafia!' });
 
             const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
@@ -1062,7 +1062,7 @@ module.exports = {
         }
 
         if (subGroup === 'business') {
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ Need a mafia for this!' });
 
             const mafia = await db.get(`SELECT * FROM economy_mafias WHERE id = ?`, [user.mafiaId]);

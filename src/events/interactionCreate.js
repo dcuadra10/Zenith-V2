@@ -1529,8 +1529,13 @@ module.exports = {
                 // Only first 5 questions could be rendered in modal
                 const numQuestions = Math.min(opt.questions.length, 5);
                 for (let i = 0; i < numQuestions; i++) {
+                    const rawQuestion = opt.questions[i];
+                    const questionText = typeof rawQuestion === 'string'
+                        ? rawQuestion
+                        : (rawQuestion?.text || rawQuestion?.label || rawQuestion?.question || `Question ${i + 1}`);
+
                     answers.push({
-                        question: opt.questions[i],
+                        question: questionText,
                         answer: interaction.fields.getTextInputValue(`q_${i}`)
                     });
                 }

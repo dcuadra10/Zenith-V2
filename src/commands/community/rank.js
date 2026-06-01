@@ -1,5 +1,7 @@
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
 const canvacord = require('canvacord');
+const fs = require('fs');
+const path = require('path');
 const { getDb } = require('../../config/database');
 
 module.exports = {
@@ -20,31 +22,39 @@ module.exports = {
     const userProfile = await db.get(`SELECT * FROM users WHERE userId = ?`, [target.id]);
     if (!userProfile) return interaction.editReply(`${target.username} currently has no XP.`);
 
-    const requiredXP = 5 * (userProfile.level ** 2) + 50 * userProfile.level + 100;
+    const levelValue = Number(userProfile.level) || 0;
+    const xpValue = Number(userProfile.xp) || 0;
+    const requiredXP = 5 * (levelValue ** 2) + 50 * levelValue + 100;
 
     const rankRow = await db.get(
-        `SELECT COUNT(*) AS higherRank FROM users WHERE (level > ?) OR (level = ? AND xp > ?)`,
-        [userProfile.level, userProfile.level, userProfile.xp]
+        `SELECT COUNT(*) AS higherrank FROM users WHERE (level > ?) OR (level = ? AND xp > ?)`,
+        [levelValue, levelValue, xpValue]
     );
-    const rankPosition = (rankRow?.higherRank || 0) + 1;
+    const higherRankCount = Number(rankRow?.higherrank || 0);
+    const rankPosition = higherRankCount + 1;
 
-    const path = require('path');
-    const imagePath = path.join(__dirname, '../../zenith_bg - Copy.png');
+    const imagePath = path.resolve(__dirname, '../../zenith_bg - Copy.png');
+    const hasBackground = fs.existsSync(imagePath);
 
     canvacord.Font.loadDefault();
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
     const status = member?.presence?.status || 'offline';
 
     const rank = new canvacord.RankCardBuilder()
-        .setBackground(imagePath)
         .setAvatar(target.displayAvatarURL({ forceStatic: true, extension: 'png' }))
-        .setCurrentXP(userProfile.xp)
+        .setCurrentXP(xpValue)
         .setRequiredXP(requiredXP)
         .setStatus(status)
         .setUsername(target.username)
         .setDisplayName(target.globalName || target.username)
-        .setLevel(userProfile.level)
+        .setLevel(levelValue)
         .setRank(rankPosition);
+
+    if (hasBackground) {
+        rank.setBackground(imagePath);
+    } else {
+        rank.setBackground('#23272A');
+    }
 
     rank.build()
         .then(async data => {

@@ -162,32 +162,21 @@ async function handleApplicationMessage(message, client) {
         if (content === 'next') {
             const hasBuffer = appState.currentBuffer && appState.currentBuffer.trim() !== '';
             
-            // Check if required
             if (currentQ.required && !hasBuffer) {
                 return await message.author.send('⚠️ This question is **Required**. Please provide an answer (text or image) before typing `next`.');
             }
-
             if (!hasBuffer && qType !== 'choice' && qType !== 'image' && qType !== 'text_image') {
                 return await message.author.send('⚠️ You must provide an answer before typing `next`.');
             }
-            
-            const newAnswer = {
-                question: currentQ.text || currentQ,
-                answer: appState.currentBuffer.trim() || 'No answer provided',
-                type: qType
-            };
 
-            appState.answers[appState.currentQuestion] = newAnswer;
+            saveCurrentAnswer(appState);
 
-            appState.currentBuffer = '';
-            
             if (appState.status === 'editing') {
                 appState.status = 'review';
                 return await showReviewScreen(message, appState);
             }
 
             appState.currentQuestion++;
-
             if (appState.currentQuestion >= appState.opt.questions.length) {
                 appState.status = 'review';
                 await showReviewScreen(message, appState);
@@ -197,7 +186,6 @@ async function handleApplicationMessage(message, client) {
             return;
         }
 
-        // 3. Accumulate data if not a command
         if (appState.status === 'review') {
             return await message.author.send('⚠️ You are in the review phase. Please use the menu below to edit an answer or click **Finalize & Send**.');
         }
@@ -213,13 +201,34 @@ async function handleApplicationMessage(message, client) {
             if (message.attachments.size === 0 && content !== '' && content !== 'next') {
                 await message.author.send('📷 You can upload an image now, or type `next` to skip this optional step.');
             }
-        } else if (qType === 'choice') {
+            return;
+        }
+
+        if (qType === 'choice') {
             if (appState.currentBuffer === '') {
                 await message.author.send('⚠️ Please select an option using the buttons above.');
             }
-        } else {
-            if (message.content.trim() !== '') {
-                appState.currentBuffer += message.content + '\n';
+            return;
+        }
+
+        if (message.content.trim() !== '') {
+            appState.currentBuffer += message.content + '\n';
+
+            if (qType === 'text' || qType === 'text_image') {
+                saveCurrentAnswer(appState);
+
+                if (appState.status === 'editing') {
+                    appState.status = 'review';
+                    return await showReviewScreen(message, appState);
+                }
+
+                appState.currentQuestion++;
+                if (appState.currentQuestion >= appState.opt.questions.length) {
+                    appState.status = 'review';
+                    await showReviewScreen(message, appState);
+                } else {
+                    await askQuestion(message, appState);
+                }
             }
         }
     } catch (err) {
@@ -227,8 +236,17 @@ async function handleApplicationMessage(message, client) {
     }
 }
 
+function getQuestionText(question) {
+    if (!question) return '';
+    if (typeof question === 'string') return question;
+    if (typeof question === 'object') {
+        return question.text || question.label || question.question || '';
+    }
+    return String(question);
+}
+
 function formatQuestionLabel(index, questionText, prefix = '') {
-    const cleanText = questionText.trim();
+    const cleanText = getQuestionText(questionText).trim();
     // If it already starts with a number followed by a dot or parenthesis, don't add another number
     if (/^\d+[\.\)]/.test(cleanText)) {
         return prefix ? `${prefix}: ${cleanText}` : cleanText;
@@ -237,6 +255,22 @@ function formatQuestionLabel(index, questionText, prefix = '') {
     if (prefix === 'Q') return `Q${num}: ${cleanText}`;
     if (prefix) return `${prefix} ${num}: ${cleanText}`;
     return `Question ${num}: ${cleanText}`;
+}
+
+function saveCurrentAnswer(appState) {
+    const currentQ = getQuestion(appState);
+    const answerText = (appState.currentBuffer || '').trim() || 'No answer provided';
+    if (currentQ.required && !answerText) {
+        return false;
+    }
+
+    appState.answers[appState.currentQuestion] = {
+        question: getQuestionText(currentQ),
+        answer: answerText,
+        type: currentQ.type || 'text'
+    };
+    appState.currentBuffer = '';
+    return true;
 }
 
 async function showReviewScreen(messageOrInteraction, appState) {
@@ -291,7 +325,7 @@ async function showReviewScreen(messageOrInteraction, appState) {
             appState.answers.slice(0, 25).map((ans, i) => 
                 new StringSelectMenuOptionBuilder()
                     .setLabel(`Edit Question ${i + 1}`)
-                    .setDescription(ans.question.substring(0, 50))
+                    .setDescription(getQuestionText(ans.question).substring(0, 50))
                     .setValue(`${i}`)
             )
         );
@@ -379,18 +413,15 @@ async function submitApplication(interaction, appState) {
 
                 // Add ping for staff (prioritize option-specific ping roles, fallback to global)
                 let pingContent = '🔔 **New Application Received**';
-                if (appState.opt.pingRoles) {
-                    const guild = interaction.client.guilds.cache.get(appState.guildId);
-                    const optionPingRoles = appState.opt.pingRoles.split(',')
-                        .map(r => r.trim().replace(/[^0-9]/g, ''))
-                        .filter(r => r && guild && guild.roles.cache.has(r))
-                        .map(r => `<@&${r}>`)
-                        .join(' ');
-                    if (optionPingRoles) {
-                        pingContent = `🔔 ${optionPingRoles} **New Application Received**`;
-                    } else if (config.ticketsPingRole) {
-                        pingContent = `🔔 <@&${config.ticketsPingRole}> **New Application Received**`;
-                    }
+                const guild = interaction.client.guilds.cache.get(appState.guildId);
+                const optionPingRoles = appState.opt.pingRoles ? appState.opt.pingRoles.split(',')
+                    .map(r => r.trim().replace(/[^0-9]/g, ''))
+                    .filter(r => r)
+                    .map(r => `<@&${r}>`)
+                    .join(' ') : '';
+
+                if (optionPingRoles) {
+                    pingContent = `🔔 ${optionPingRoles} **New Application Received**`;
                 } else if (config.ticketsPingRole) {
                     pingContent = `🔔 <@&${config.ticketsPingRole}> **New Application Received**`;
                 }
@@ -585,9 +616,12 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
     const useEmbed = opt.useEmbed === undefined || opt.useEmbed === null ? true : !!opt.useEmbed;
 
     let pingText = `${user}`;
-    if (opt.pingRoles) {
-        const pingRolesStr = opt.pingRoles.split(',').map(r => `<@&${r.trim().replace(/[^0-9]/g, '')}>`).join(' ');
-        pingText += ` ${pingRolesStr}`;
+    const pingRoleSource = opt.pingRoles || moduleConfigs?.ticketsPingRole;
+    if (pingRoleSource) {
+        const pingRolesStr = pingRoleSource.split(',').map(r => `<@&${r.trim().replace(/[^0-9]/g, '')}>`).join(' ').trim();
+        if (pingRolesStr) {
+            pingText += ` ${pingRolesStr}`;
+        }
     }
 
     const closeRow = new ActionRowBuilder().addComponents(

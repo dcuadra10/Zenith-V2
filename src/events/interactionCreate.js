@@ -778,15 +778,32 @@ module.exports = {
                     });
                 }
 
+                const sellerIds = sellers.map(seller => seller.user.id);
+                const stockRows = sellerIds.length > 0
+                    ? await db.all(`SELECT sellerId, food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId IN (${sellerIds.map(() => '?').join(',')})`, sellerIds)
+                    : [];
+
+                const stockedSellers = sellers.filter(seller => {
+                    const stock = stockRows.find(r => r.sellerId === seller.user.id);
+                    return stock && ((stock.food || 0) + (stock.wood || 0) + (stock.stone || 0) + (stock.gold || 0)) > 0;
+                });
+
+                if (stockedSellers.length === 0) {
+                    return interaction.reply({
+                        content: '❌ No RSS Sellers currently have stock available. Please try again later or ask a seller to restock.',
+                        ephemeral: true
+                    });
+                }
+
                 const selectMenu = new (require('discord.js').StringSelectMenuBuilder)()
                     .setCustomId(`rss_buy_seller_select_${paymentMethod}`)
                     .setPlaceholder('Select your favorite RSS Seller...');
 
-                sellers.slice(0, 24).forEach(seller => {
+                stockedSellers.slice(0, 24).forEach(seller => {
                     selectMenu.addOptions({
                         label: seller.user.username,
                         value: seller.user.id,
-                        description: `Verified RSS Seller`
+                        description: `Verified RSS Seller with stock available`
                     });
                 });
 

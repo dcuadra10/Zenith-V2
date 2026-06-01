@@ -574,28 +574,9 @@ module.exports = {
                 if (!interaction.member.permissions.has('ManageChannels')) {
                     return interaction.reply({ content: '❌ You do not have permission to close this ticket.', ephemeral: true });
                 }
-                
-                // Show modal asking for close reason
-                const targetUser = interaction.customId.replace('close_ticket_', '');
-                const modal = new ModalBuilder()
-                    .setCustomId(`close_ticket_modal_${targetUser}`)
-                    .setTitle('Close Ticket');
-                
-                const reasonInput = new TextInputBuilder()
-                    .setCustomId('close_reason')
-                    .setLabel('Reason for closing (optional)')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setRequired(false)
-                    .setPlaceholder('e.g. Issue resolved, Inactive user, Duplicate...');
-                
-                const row = new ActionRowBuilder().addComponents(reasonInput);
-                modal.addComponents(row);
-                await interaction.showModal(modal);
 
-            } else if (interaction.customId.startsWith('close_ticket_modal_')) {
-                // Modal submitted — generate markdown transcript and close
-                const targetUser = interaction.customId.replace('close_ticket_modal_', '');
-                const closeReason = interaction.fields.getTextInputValue('close_reason') || 'No reason provided';
+                const targetUser = interaction.customId.replace('close_ticket_', '');
+                const closeReason = 'No reason provided';
                 
                 await interaction.deferReply({ ephemeral: true });
                 await interaction.editReply({ content: `🔒 Closing ticket — Reason: **${closeReason}**\nGenerating transcript...` });
@@ -658,8 +639,7 @@ module.exports = {
                     
                     const markdownString = mdLines.join('\n');
                     const { AttachmentBuilder } = require('discord.js');
-                    const mdBuffer = Buffer.from(markdownString, 'utf-8');
-                    const attachment = new AttachmentBuilder(mdBuffer, { name: `${interaction.channel.name}-transcript.md` });
+                    const attachment = new AttachmentBuilder(Buffer.from(markdownString, 'utf-8'), { name: `${interaction.channel.name}-transcript.md` });
                     
                     // Save to DB (plain markdown, no encoding)
                     const ticketId = interaction.channel.name + '-' + Date.now().toString().slice(-4);
@@ -706,7 +686,6 @@ module.exports = {
                                     { name: 'Reason', value: closeReason }
                                 )
                                 .setTimestamp();
-                            // Re-create attachment for log channel (buffer can only be consumed once)
                             const logAttachment = new AttachmentBuilder(Buffer.from(markdownString, 'utf-8'), { name: `${interaction.channel.name}-transcript.md` });
                             await transcriptChannel.send({ embeds: [logEmbed], files: [logAttachment] });
                         }

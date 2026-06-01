@@ -137,6 +137,13 @@ async function handleApplicationMessage(message, client) {
     try {
         const content = message.content.toLowerCase().trim();
         const currentQ = getQuestion(appState);
+        if (!currentQ) {
+            if (Array.isArray(appState.opt?.questions) && appState.currentQuestion >= appState.opt.questions.length) {
+                appState.status = 'review';
+                return await showReviewScreen(message, appState);
+            }
+            return await message.author.send('⚠️ No active question found. Please type `next` to continue or restart the application.');
+        }
         const qType = currentQ.type || 'text';
 
         // 1. Process attachments first for image questions
@@ -214,21 +221,10 @@ async function handleApplicationMessage(message, client) {
         if (message.content.trim() !== '') {
             appState.currentBuffer += message.content + '\n';
 
+            // For text and text_image questions, do not advance automatically.
+            // The user must explicitly type `next` to confirm and continue.
             if (qType === 'text' || qType === 'text_image') {
-                saveCurrentAnswer(appState);
-
-                if (appState.status === 'editing') {
-                    appState.status = 'review';
-                    return await showReviewScreen(message, appState);
-                }
-
-                appState.currentQuestion++;
-                if (appState.currentQuestion >= appState.opt.questions.length) {
-                    appState.status = 'review';
-                    await showReviewScreen(message, appState);
-                } else {
-                    await askQuestion(message, appState);
-                }
+                return;
             }
         }
     } catch (err) {
@@ -444,8 +440,12 @@ async function submitApplication(interaction, appState) {
 }
 
 function getQuestion(appState) {
-    const q = appState.opt.questions[appState.currentQuestion];
-    return typeof q === 'string' ? { text: q, type: 'text' } : q;
+    const questions = appState.opt?.questions;
+    if (!Array.isArray(questions) || appState.currentQuestion == null || appState.currentQuestion < 0 || appState.currentQuestion >= questions.length) {
+        return null;
+    }
+    const q = questions[appState.currentQuestion];
+    return typeof q === 'string' ? { text: q, type: 'text' } : q || null;
 }
 
 async function askQuestion(messageOrInteraction, appState) {

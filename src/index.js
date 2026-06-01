@@ -272,6 +272,32 @@ app.get('/api/guild/:id/roles', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/api/guild/:id/members', authenticateToken, async (req, res) => {
+    try {
+        const guildId = req.params.id;
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) return res.status(404).json({ error: 'Guild not found' });
+
+        // Ensure members are cached
+        try { await guild.members.fetch(); } catch(e) { /* ignore fetch errors */ }
+
+        const members = guild.members.cache.filter(m => !m.user.bot).map(m => ({
+            id: m.id,
+            name: m.user.username + (m.user.discriminator ? `#${m.user.discriminator}` : ''),
+            displayName: m.nickname || m.user.username,
+            avatar: m.user.displayAvatarURL ? m.user.displayAvatarURL({ size: 64 }) : null
+        }));
+
+        res.json(members);
+    } catch (e) {
+        console.error('Error fetching members:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // GET Settings for a specific Guild
 app.get('/api/config/:guildId', authenticateToken, async (req, res) => {
     try {

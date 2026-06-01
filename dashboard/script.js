@@ -336,6 +336,7 @@ function goBackToGuilds() {
 
 let currentGuildChannels = [];
 let currentGuildRoles = [];
+let currentGuildMembers = [];
 let tomSelects = {};
 
 function initTomSelect(id, isMulti, placeholder) {
@@ -356,6 +357,11 @@ function initTomSelect(id, isMulti, placeholder) {
             plugins: isMulti ? ['remove_button'] : [],
             render: {
                 option: function(data, escape) {
+                    // If option includes an avatar (member), show avatar image
+                    if (data.avatar) {
+                        const img = `<img src="${escape(data.avatar)}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:8px;vertical-align:middle;">`;
+                        return `<div>${img}${escape(data.text)}</div>`;
+                    }
                     let icon = '';
                     if (id.toLowerCase().includes('channel')) icon = '<i class="fas fa-hashtag" style="opacity:0.6; margin-right:8px;"></i>';
                     if (id.toLowerCase().includes('role')) icon = '<i class="fas fa-at" style="opacity:0.6; margin-right:8px;"></i>';
@@ -363,6 +369,10 @@ function initTomSelect(id, isMulti, placeholder) {
                     return `<div>${icon}${escape(data.text)}</div>`;
                 },
                 item: function(data, escape) {
+                    if (data.avatar) {
+                        const img = `<img src="${escape(data.avatar)}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;margin-right:8px;vertical-align:middle;">`;
+                        return `<div>${img}${escape(data.text)}</div>`;
+                    }
                     let icon = '';
                     if (id.toLowerCase().includes('channel')) icon = '<i class="fas fa-hashtag" style="opacity:0.6; margin-right:8px;"></i>';
                     if (id.toLowerCase().includes('role')) icon = '<i class="fas fa-at" style="opacity:0.6; margin-right:8px;"></i>';
@@ -410,6 +420,11 @@ function populateAllDropdowns() {
     // Multi-select for roles
     const multiRoleSelects = ['modalStaffRoles', 'modalPingRoles', 'autoroleIds'];
     multiRoleSelects.forEach(id => populateDropdown(id, currentGuildRoles, 'Select Roles', true));
+
+    // Multi-select for members (e.g., antinuke whitelist)
+    const multiMemberSelects = ['antinukeWhitelist'];
+    const memberItems = (currentGuildMembers || []).map(m => ({ id: m.id, name: m.displayName || m.name, avatar: m.avatar }));
+    multiMemberSelects.forEach(id => populateDropdown(id, memberItems, 'Select Members', true));
 }
 
 function populateDropdown(elementId, items, placeholder, isMulti = false) {
@@ -434,6 +449,7 @@ function populateDropdown(elementId, items, placeholder, isMulti = false) {
         const opt = document.createElement('option');
         opt.value = item.id;
         opt.textContent = item.name;
+        if (item.avatar) opt.setAttribute('data-avatar', item.avatar);
         el.appendChild(opt);
     });
     
@@ -462,14 +478,16 @@ async function loadDashboardData() {
 
     // Fetch channels and roles
     try {
-        const [chanRes, roleRes] = await Promise.all([
+        const [chanRes, roleRes, membersRes] = await Promise.all([
             apiFetch(`/guild/${gid}/channels`),
-            apiFetch(`/guild/${gid}/roles`)
+            apiFetch(`/guild/${gid}/roles`),
+            apiFetch(`/guild/${gid}/members`)
         ]);
         if (chanRes.ok) currentGuildChannels = await chanRes.json();
         if (roleRes.ok) currentGuildRoles = await roleRes.json();
+        if (membersRes.ok) currentGuildMembers = await membersRes.json();
         
-        // Populate all dropdowns (will add this function soon)
+        // Populate all dropdowns
         populateAllDropdowns();
     } catch (e) { console.error('Error fetching guild data:', e); }
 
@@ -680,10 +698,10 @@ function renderMmPaymentMethods() {
     }
     
     list.innerHTML = mmPaymentMethodsArr.map((m, i) => `
-        <div style="display:grid; grid-template-columns: 200px 1fr 40px; gap:10px; align-items:start; padding:10px; background:rgba(255,255,255,0.02); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+        <div style="display:grid; grid-template-columns: 220px 1fr 40px; gap:10px; align-items:start; padding:10px; background:rgba(255,255,255,0.02); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
             <div style="display:flex; flex-direction:column;">
-                <label style="font-size:0.65rem; color:var(--text-muted);">MIDDLEMAN USER ID</label>
-                <input class="z-input" style="font-size:0.8rem; padding:6px;" value="${m.userId}" onchange="updateMmPaymentMethod(${i}, 'userId', this.value)" placeholder="e.g. 123456789">
+                <label style="font-size:0.65rem; color:var(--text-muted);">MIDDLEMAN</label>
+                <select id="mmUserSelect_${i}" class="z-input" style="font-size:0.8rem; padding:6px;"></select>
             </div>
             <div style="display:flex; flex-direction:column;">
                 <label style="font-size:0.65rem; color:var(--text-muted);">PAYMENT DETAILS</label>
@@ -692,6 +710,20 @@ function renderMmPaymentMethods() {
             <button class="z-btn z-btn-danger" style="padding:6px; font-size:0.8rem; margin-top:14px;" onclick="removeMmPaymentMethod(${i})">✕</button>
         </div>
     `).join('');
+
+    // Populate member selects for middlemen
+    try {
+        mmPaymentMethodsArr.forEach((m, i) => {
+            const selId = `mmUserSelect_${i}`;
+            const sel = document.getElementById(selId);
+            if (!sel) return;
+            // Build member items as {id, name, avatar}
+            const members = (currentGuildMembers || []).map(mem => ({ id: mem.id, name: mem.displayName || mem.name, avatar: mem.avatar }));
+            populateDropdown(selId, members, 'Select a Member');
+            sel.value = m.userId || '';
+            sel.addEventListener('change', function() { updateMmPaymentMethod(i, 'userId', this.value); });
+        });
+    } catch (e) { console.warn('Could not populate middleman member selects:', e); }
 }
 
 function setVal(id, val) {
@@ -1138,12 +1170,28 @@ function renderVipMultipliers() {
                 ${(typeof currentGuildRoles !== 'undefined' ? currentGuildRoles : []).map(r => `<option value="${r.id}" ${m.value === r.id ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
             </select>
             ` : `
-            <input class="z-input" type="text" value="${m.value}" placeholder="User ID" onchange="updateVipMultiplier(${i},'value',this.value)" style="padding:8px;">
+            <select id="vipUserSelect_${i}" class="z-input" onchange="updateVipMultiplier(${i},'value',this.value)" style="padding:8px; font-size:0.8rem;">
+                <option value="">Select a Member...</option>
+            </select>
             `}
             <input class="z-input" type="text" value="${m.multiplier}" placeholder="1.5" onchange="updateVipMultiplier(${i},'multiplier',this.value)" style="padding:8px; text-align:center; font-weight:700;">
             <button class="z-btn z-btn-danger" style="padding:6px; font-size:0.7rem; width:32px; height:32px; display:flex; align-items:center; justify-content:center;" onclick="removeVipMultiplier(${i})">✕</button>
         </div>
     `).join('');
+
+    // Populate member selects for VIP USER entries
+    try {
+        vipMultipliers.forEach((m, i) => {
+            if (m.type !== 'USER') return;
+            const selId = `vipUserSelect_${i}`;
+            const sel = document.getElementById(selId);
+            if (!sel) return;
+            const members = (currentGuildMembers || []).map(mem => ({ id: mem.id, name: mem.displayName || mem.name, avatar: mem.avatar }));
+            populateDropdown(selId, members, 'Select a Member');
+            sel.value = m.value || '';
+            sel.addEventListener('change', function() { updateVipMultiplier(i, 'value', this.value); });
+        });
+    } catch (e) { console.warn('Could not populate VIP member selects:', e); }
 }
 
 // ===== DISCORD PREVIEW (for Ticket Panel) =====

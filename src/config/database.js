@@ -785,7 +785,8 @@ async function createDbInstance() {
             'levelingBackground TEXT', 'leaderboardImageEnabled INTEGER DEFAULT 0',
             'newKingdomEnabled INTEGER DEFAULT 0', 'newKingdomSourceChannel TEXT', 'newKingdomTargetChannel TEXT', 'newKingdomPingRole TEXT',
             'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
-            'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT'
+            'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT',
+            'giveawaysManagerRole TEXT', 'giveawaysLogChannel TEXT', 'giveawaysEcoReward INTEGER DEFAULT 0', 'giveawaysEcoCoins INTEGER DEFAULT 200'
         ];
         for (const col of ticketCols) {
             try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN ${col}`); } catch (e) {}
@@ -936,6 +937,7 @@ async function initializeSchema() {
 
         CREATE TABLE IF NOT EXISTS module_configs (
             guildId TEXT PRIMARY KEY,
+            -- Welcome
             welcomeEnabled INTEGER DEFAULT 0,
             welcomeChannel TEXT,
             welcomeEmbedTitle TEXT,
@@ -943,33 +945,89 @@ async function initializeSchema() {
             welcomeColor TEXT DEFAULT '#6366f1',
             welcomeImage TEXT,
             welcomeUseEmbed INTEGER DEFAULT 1,
+            -- Leveling
             levelingEnabled INTEGER DEFAULT 0,
             xpMin INTEGER DEFAULT 5,
             xpMax INTEGER DEFAULT 15,
             xpCooldown INTEGER DEFAULT 60,
             levelUpChannel TEXT,
             roleRewards TEXT DEFAULT '[]',
+            -- Tickets
             ticketsEnabled INTEGER DEFAULT 1,
             ticketsMaxActive INTEGER DEFAULT 2,
             ticketsTranscriptChannel TEXT,
             ticketCategoryId TEXT,
             ticketsApprovalChannel TEXT,
+            -- Automod
             automodEnabled INTEGER DEFAULT 0,
+            automodSpam INTEGER DEFAULT 0,
+            automodLinks INTEGER DEFAULT 0,
+            automodMentions INTEGER DEFAULT 0,
+            automodCaps INTEGER DEFAULT 0,
+            automodWords INTEGER DEFAULT 0,
+            automodWordList TEXT,
+            automodMaxMentions INTEGER DEFAULT 5,
             automodLogChannel TEXT,
+            -- Logging
             loggingEnabled INTEGER DEFAULT 0,
             loggingChannel TEXT,
             logEdits INTEGER DEFAULT 1,
             logDeletes INTEGER DEFAULT 1,
             logMembers INTEGER DEFAULT 1,
+            logRoles INTEGER DEFAULT 0,
+            logChannels INTEGER DEFAULT 0,
+            logBans INTEGER DEFAULT 1,
+            -- Auto-Role
             autoroleEnabled INTEGER DEFAULT 0,
             autoroleIds TEXT DEFAULT '[]',
+            -- Counting
             countingEnabled INTEGER DEFAULT 0,
             countingChannel TEXT,
             countingCurrent INTEGER DEFAULT 0,
+            countingSameUser INTEGER DEFAULT 0,
+            countingReset INTEGER DEFAULT 1,
+            countingMath INTEGER DEFAULT 0,
             countingLastUser TEXT,
+            -- Server Stats
             serverStatsEnabled INTEGER DEFAULT 0,
+            statsTotalMembers INTEGER DEFAULT 1,
+            statsOnline INTEGER DEFAULT 0,
+            statsBots INTEGER DEFAULT 0,
+            statsChannels INTEGER DEFAULT 0,
             statsCategoryId TEXT,
+            -- Anti-Nuke
             antinukeEnabled INTEGER DEFAULT 0,
+            antinukeBan INTEGER DEFAULT 1,
+            antinukeChannel INTEGER DEFAULT 1,
+            antinukeRole INTEGER DEFAULT 1,
+            antinukeWebhook INTEGER DEFAULT 0,
+            antinukeThreshold INTEGER DEFAULT 5,
+            antinukeWhitelist TEXT,
+            -- R4 Tracking
+            r4TrackingEnabled INTEGER DEFAULT 0,
+            r4TrackingRole TEXT,
+            r4TrackingAdQuota INTEGER DEFAULT 40,
+            r4TrackingMsgQuota INTEGER DEFAULT 245,
+            -- Swear Jar
+            swearJarEnabled INTEGER DEFAULT 0,
+            swearJarChannel TEXT,
+            swearJarWords TEXT,
+            swearJarPing INTEGER DEFAULT 1,
+            swearJarTitle TEXT,
+            swearJarMessage TEXT,
+            swearJarColor TEXT,
+            -- Logging Extras
+            logVoice INTEGER DEFAULT 1,
+            logServer INTEGER DEFAULT 1,
+            logInvites INTEGER DEFAULT 1,
+            -- Leveling Extras
+            levelUpTitle TEXT,
+            levelUpMessage TEXT,
+            levelUpColor TEXT,
+            levelUpUseEmbed INTEGER DEFAULT 1,
+            levelingBackground TEXT,
+            leaderboardImageEnabled INTEGER DEFAULT 0,
+            -- Economy Rewards
             ecoEnabled INTEGER DEFAULT 0,
             ecoCoinsPerMessage INTEGER DEFAULT 1,
             ecoCoinsPerAd INTEGER DEFAULT 10,
@@ -979,15 +1037,17 @@ async function initializeSchema() {
             ecoCoinsPerGiveaway INTEGER DEFAULT 200,
             ecoCoinsPerVCMinute INTEGER DEFAULT 1,
             ecoWelcomeKeywords TEXT DEFAULT 'welcome,bienvenido,bienvenida',
-            newKingdomEnabled INTEGER DEFAULT 0,
-            newKingdomSourceChannel TEXT,
-            newKingdomTargetChannel TEXT,
-            newKingdomPingRole TEXT,
+            ecoWelcomeNotifyChannel TEXT,
             -- RSS Buying System
             rssEnabled INTEGER DEFAULT 0,
             rssSellerRole TEXT DEFAULT 'RSS Seller',
             rssTaxRate REAL DEFAULT 10,
-            rssCategory TEXT
+            rssCategory TEXT,
+            -- Giveaways
+            giveawaysManagerRole TEXT,
+            giveawaysLogChannel TEXT,
+            giveawaysEcoReward INTEGER DEFAULT 0,
+            giveawaysEcoCoins INTEGER DEFAULT 200
         );
 
         CREATE TABLE IF NOT EXISTS economy_mafias (

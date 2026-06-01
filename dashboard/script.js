@@ -731,8 +731,12 @@ function setVal(id, val) {
     if (!el) return;
 
     if (tomSelects[id]) {
-        const values = (val || '').split(',').map(v => v.trim()).filter(v => v);
-        tomSelects[id].setValue(values);
+        if (el.tagName === 'SELECT' && el.multiple) {
+            const values = (val || '').split(',').map(v => v.trim()).filter(v => v);
+            tomSelects[id].setValue(values);
+        } else {
+            tomSelects[id].setValue(val || '');
+        }
         return;
     }
 

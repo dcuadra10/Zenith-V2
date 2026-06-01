@@ -525,6 +525,8 @@ textarea.z-input { resize: vertical; min-height: 100px; line-height: 1.6; }
 
 /* TomSelect Custom Overrides */
 .ts-control {
+    width: 100% !important;
+    min-height: 56px !important;
     background: rgba(0, 0, 0, 0.3) !important;
     border: 1px solid var(--border-medium) !important;
     border-radius: var(--radius-md) !important;
@@ -535,6 +537,7 @@ textarea.z-input { resize: vertical; min-height: 100px; line-height: 1.6; }
     transition: var(--transition) !important;
 }
 .ts-wrapper.z-input {
+    width: 100%;
     padding: 0 !important;
     border: none !important;
     background: transparent !important;

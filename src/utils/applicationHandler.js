@@ -478,7 +478,9 @@ async function handleApplicationStartButton(interaction) {
 
     if (interaction.customId === 'start_app_yes') {
         appState.status = 'in_progress';
-        await interaction.update({ content: 'Application process initiated.', embeds: [], components: [] });
+        if (!interaction.replied && !interaction.deferred && !interaction.acknowledged) {
+            await interaction.update({ content: 'Application process initiated.', embeds: [], components: [] }).catch(() => {});
+        }
         await askQuestion(interaction, appState);
     } else if (interaction.customId.startsWith('app_choice_')) {
         const q = getQuestion(appState);

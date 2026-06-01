@@ -158,9 +158,9 @@ module.exports = {
                 const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder } = require('discord.js');
                 const selectMenu = new StringSelectMenuBuilder()
                     .setCustomId('rss_buy_payment_select')
-                    .setPlaceholder('Select preferred payment method(s) (choose up to 2)...')
+                    .setPlaceholder('Select preferred payment method(s) (choose multiple)...')
                     .setMinValues(1)
-                    .setMaxValues(2)
+                    .setMaxValues(8)
                     .addOptions(
                         new StringSelectMenuOptionBuilder().setLabel('PayPal').setValue('paypal').setEmoji({ name: '💳' }).setDescription('Pay securely via PayPal'),
                         new StringSelectMenuOptionBuilder().setLabel('Cash App').setValue('cashapp').setEmoji({ name: '💵' }).setDescription('Pay via Cash App transfer'),

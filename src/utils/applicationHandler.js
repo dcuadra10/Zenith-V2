@@ -18,7 +18,17 @@ async function handleTicketSelection(interaction, opt, guildConfigs, moduleConfi
     }
     
     if (openCount >= limit) {
-        return interaction.reply({ content: `❌ You have reached the maximum open limit of ${limit} active tickets. Please close them before opening a new one.`, ephemeral: true });
+        // Reset the select menu back to its placeholder in Discord UI if it's a select menu
+        if (interaction.isStringSelectMenu() && !interaction.replied && !interaction.deferred) {
+            await interaction.update({ components: interaction.message.components }).catch(() => {});
+        }
+        
+        const limitMsg = `❌ You have reached the maximum open limit of ${limit} active tickets. Please close them before opening a new one.`;
+        if (interaction.replied || interaction.deferred) {
+            return await interaction.followUp({ content: limitMsg, ephemeral: true }).catch(() => {});
+        } else {
+            return await interaction.reply({ content: limitMsg, ephemeral: true }).catch(() => {});
+        }
     }
 
     const hasQuestions = opt.questions && opt.questions.length > 0;
@@ -70,7 +80,18 @@ async function startApplication(interaction, opt, guildConfigs, moduleConfigs) {
 
     try {
         const dmMsg = await interaction.user.send({ embeds: [embed], components: [row] });
-        await interaction.reply({ content: `✅ I have sent you a DM to begin your application! Please open your DMs to proceed.`, ephemeral: true });
+
+        // Reset the select menu back to its placeholder in Discord UI if it's a select menu
+        if (interaction.isStringSelectMenu() && !interaction.replied && !interaction.deferred) {
+            await interaction.update({ components: interaction.message.components }).catch(() => {});
+        }
+        
+        const successMsg = `✅ I have sent you a DM to begin your application! Please open your DMs to proceed.`;
+        if (interaction.replied || interaction.deferred) {
+            await interaction.followUp({ content: successMsg, ephemeral: true }).catch(() => {});
+        } else {
+            await interaction.reply({ content: successMsg, ephemeral: true }).catch(() => {});
+        }
 
         // Register active application
         interaction.client.activeApplications.set(interaction.user.id, {
@@ -86,7 +107,17 @@ async function startApplication(interaction, opt, guildConfigs, moduleConfigs) {
             status: 'waiting_to_start'
         });
     } catch(e) {
-        await interaction.reply({ content: `❌ I couldn't DM you! Please ensure your DMs are open and try again.`, ephemeral: true });
+        // Reset select menu in case of DM failure too
+        if (interaction.isStringSelectMenu() && !interaction.replied && !interaction.deferred) {
+            await interaction.update({ components: interaction.message.components }).catch(() => {});
+        }
+
+        const errorMsg = `❌ I couldn't DM you! Please ensure your DMs are open and try again.`;
+        if (interaction.replied || interaction.deferred) {
+            await interaction.followUp({ content: errorMsg, ephemeral: true }).catch(() => {});
+        } else {
+            await interaction.reply({ content: errorMsg, ephemeral: true }).catch(() => {});
+        }
     }
 }
 
@@ -134,17 +165,13 @@ async function handleApplicationMessage(message, client) {
                 return await message.author.send('⚠️ You must provide an answer before typing `next`.');
             }
             
-            const existingAnswerIdx = appState.answers.findIndex(a => a.question === (currentQ.text || currentQ));
             const newAnswer = {
                 question: currentQ.text || currentQ,
-                answer: appState.currentBuffer.trim() || 'No answer provided'
+                answer: appState.currentBuffer.trim() || 'No answer provided',
+                type: qType
             };
 
-            if (existingAnswerIdx !== -1) {
-                appState.answers[existingAnswerIdx] = newAnswer;
-            } else {
-                appState.answers.push(newAnswer);
-            }
+            appState.answers[appState.currentQuestion] = newAnswer;
 
             appState.currentBuffer = '';
             
@@ -172,7 +199,7 @@ async function handleApplicationMessage(message, client) {
         // Capture attachments
         if (message.attachments.size > 0) {
             message.attachments.forEach(att => {
-                appState.currentBuffer += `[Image/File]: ${att.proxyURL}\n`;
+                appState.currentBuffer += `[Image/File]: ${att.url}\n`;
             });
         }
 
@@ -182,7 +209,7 @@ async function handleApplicationMessage(message, client) {
             }
         } else if (qType === 'choice') {
             if (appState.currentBuffer === '') {
-                await message.author.send('⚠️ Please select an option using the buttons above, then type `next`.');
+                await message.author.send('⚠️ Please select an option using the buttons above.');
             }
         } else {
             if (message.content.trim() !== '') {
@@ -203,7 +230,7 @@ function formatQuestionLabel(index, questionText, prefix = '') {
     const num = index + 1;
     if (prefix === 'Q') return `Q${num}: ${cleanText}`;
     if (prefix) return `${prefix} ${num}: ${cleanText}`;
-    return `${num}. ${cleanText}`;
+    return `Question ${num}: ${cleanText}`;
 }
 
 async function showReviewScreen(messageOrInteraction, appState) {
@@ -211,11 +238,32 @@ async function showReviewScreen(messageOrInteraction, appState) {
     const user = messageOrInteraction.user || messageOrInteraction.author;
     
     let summary = '';
+    let imageUrl = null;
     appState.answers.forEach((ans, i) => {
         let displayAns = ans.answer;
-        if (displayAns.length > 100) displayAns = displayAns.substring(0, 97) + '...';
+        
+        // Extract the first image/attachment URL to display as a real embed image
+        if (!imageUrl) {
+            const match = displayAns.match(/https?:\/\/[^\s>]+/i);
+            if (match) imageUrl = match[0].trim();
+        }
+
+        if (displayAns.includes('http://') || displayAns.includes('https://')) {
+            // Strip out the raw URL, preserving any human caption text
+            displayAns = displayAns.replace(/\[Image\/File\]:\s*https?:\/\/[^\s>]+/gi, '').trim();
+            if (displayAns) {
+                displayAns = `${displayAns}\n🖼️ **[Attachment / Image]**`;
+            } else {
+                displayAns = `🖼️ **[Attachment / Image]**`;
+            }
+        } else if (displayAns.length > 100) {
+            displayAns = displayAns.substring(0, 97) + '...';
+        }
+
         const questionLabel = formatQuestionLabel(i, ans.question);
-        const line = `**${questionLabel}**\n> ${displayAns}\n\n`;
+        // Prefix every line with a quote marker for consistent Discord layout
+        const quotedAns = displayAns.split('\n').map(line => `> ${line}`).join('\n');
+        const line = `**${questionLabel}**\n${quotedAns}\n\n`;
         if ((summary + line).length < 4000) {
             summary += line;
         }
@@ -225,6 +273,10 @@ async function showReviewScreen(messageOrInteraction, appState) {
         .setTitle('🔍 Review Your Application')
         .setDescription(summary || 'No answers recorded yet.')
         .setColor('#ffd700');
+
+    if (imageUrl) {
+        embed.setImage(imageUrl);
+    }
 
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('app_edit_select')
@@ -280,24 +332,60 @@ async function submitApplication(interaction, appState) {
                     .setColor('#ffd700');
 
                 let fullAnswersText = '';
+                let imageUrl = null;
                 appState.answers.forEach((ans, i) => {
                     const questionLabel = formatQuestionLabel(i, ans.question);
-                    const line = `**${questionLabel}**\n${ans.answer}\n\n`;
+                    let displayAns = ans.answer;
+
+                    // Extract first image url from answers if any
+                    if (!imageUrl) {
+                        const match = displayAns.match(/https?:\/\/[^\s>]+/i);
+                        if (match) imageUrl = match[0].trim();
+                    }
+
+                    if (displayAns.includes('http://') || displayAns.includes('https://')) {
+                        // Strip out the raw URL, preserving any human caption text
+                        displayAns = displayAns.replace(/\[Image\/File\]:\s*https?:\/\/[^\s>]+/gi, '').trim();
+                        if (displayAns) {
+                            displayAns = `${displayAns}\n🖼️ **[Attachment / Image]**`;
+                        } else {
+                            displayAns = `🖼️ **[Attachment / Image]**`;
+                        }
+                    }
+
+                    // Prefix every line with a quote marker for consistent Discord layout
+                    const quotedAns = displayAns.split('\n').map(line => `> ${line}`).join('\n');
+                    const line = `**${questionLabel}**\n${quotedAns}\n\n`;
                     if ((fullAnswersText + line).length < 4000) {
                         fullAnswersText += line;
                     }
                 });
                 
                 adminEmbed.setDescription(adminEmbed.data.description + '\n\n' + fullAnswersText);
+                if (imageUrl) {
+                    adminEmbed.setImage(imageUrl);
+                }
 
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`admin_app_approve_${uuid}`).setLabel('Approve').setStyle(ButtonStyle.Success),
                     new ButtonBuilder().setCustomId(`admin_app_decline_${uuid}`).setLabel('Decline').setStyle(ButtonStyle.Danger)
                 );
 
-                // Add ping for staff
+                // Add ping for staff (prioritize option-specific ping roles, fallback to global)
                 let pingContent = '🔔 **New Application Received**';
-                if (config.ticketsPingRole) {
+                if (appState.opt.pingRoles) {
+                    const guild = interaction.client.guilds.cache.get(appState.guildId);
+                    const optionPingRoles = appState.opt.pingRoles.split(',')
+                        .map(r => r.trim().replace(/[^0-9]/g, ''))
+                        .filter(r => r && guild && guild.roles.cache.has(r))
+                        .map(r => `<@&${r}>`)
+                        .join(' ');
+                    if (optionPingRoles) {
+                        pingContent = `🔔 ${optionPingRoles} **New Application Received**`;
+                    } else if (config.ticketsPingRole) {
+                        pingContent = `🔔 <@&${config.ticketsPingRole}> **New Application Received**`;
+                    }
+                } else if (config.ticketsPingRole) {
                     pingContent = `🔔 <@&${config.ticketsPingRole}> **New Application Received**`;
                 }
 
@@ -398,8 +486,33 @@ async function handleApplicationStartButton(interaction) {
         const choiceIdx = parseInt(interaction.customId.split('_').pop());
         const choice = options[choiceIdx];
         
-        appState.currentBuffer = choice;
-        await interaction.update({ content: `✅ Selected: **${choice}**\nType \`next\` to confirm.`, components: [] });
+        // 1. Instantly update the current choice message in Discord UI to show it's selected and remove buttons
+        await interaction.update({ content: `✅ Selected: **${choice}**`, components: [] }).catch(() => {});
+        
+        // 2. Save the answer directly into appState.answers by current question index
+        const newAnswer = {
+            question: q.text || q,
+            answer: choice,
+            type: q.type
+        };
+        
+        appState.answers[appState.currentQuestion] = newAnswer;
+        appState.currentBuffer = '';
+        
+        // 3. Move to next question or show review screen
+        if (appState.status === 'editing') {
+            appState.status = 'review';
+            return await showReviewScreen(interaction, appState);
+        }
+        
+        appState.currentQuestion++;
+        
+        if (appState.currentQuestion >= appState.opt.questions.length) {
+            appState.status = 'review';
+            await showReviewScreen(interaction, appState);
+        } else {
+            await askQuestion(interaction, appState);
+        }
     } else {
         interaction.client.activeApplications.delete(interaction.user.id);
         await interaction.update({ content: 'Application aborted.', embeds: [], components: [] });
@@ -476,18 +589,54 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
 
     // Build fields from application answers
     const fields = [];
+    
+    // Core details styled professionally side-by-side
+    fields.push({ name: '<:zenith_user:1510658870790590646> Ticket Owner', value: `${user} (${user.username})`, inline: true });
+    fields.push({ name: '<:zenith_status:1510656159340695662> Status', value: '`OPEN`', inline: true });
+    
+    let imageUrl = null;
     if (answers && answers.length > 0) {
         answers.forEach((ans, i) => {
             const questionLabel = formatQuestionLabel(i, ans.question, 'Q');
-            fields.push({ name: questionLabel, value: ans.answer });
+            let displayAns = ans.answer.trim();
+
+            // Extract first image url from answers if any
+            if (!imageUrl) {
+                const match = displayAns.match(/https?:\/\/[^\s>]+/i);
+                if (match) imageUrl = match[0].trim();
+            }
+
+            if (displayAns.includes('http://') || displayAns.includes('https://')) {
+                // Strip out the raw URL, preserving any human caption text
+                displayAns = displayAns.replace(/\[Image\/File\]:\s*https?:\/\/[^\s>]+/gi, '').trim();
+                if (displayAns) {
+                    displayAns = `${displayAns}\n🖼️ **[Attachment / Image]**`;
+                } else {
+                    displayAns = `🖼️ **[Attachment / Image]**`;
+                }
+            }
+
+            // Trim and format the answer into a beautiful quote block
+            const formattedAnswer = displayAns.startsWith('>>>') ? displayAns : `>>> ${displayAns}`;
+            fields.push({ 
+                name: `<:zenith_question:1510656214613233725> ${questionLabel}`, 
+                value: formattedAnswer, 
+                inline: false 
+            });
         });
     }
 
+    let embedTitle = opt.embedTitle || 'Support Ticket Created';
+    let embedDesc = opt.embedDescription || 'Welcome! An administrator or support representative will assist you shortly. Please describe your inquiry in detail.';
+    
+    embedTitle = embedTitle.replace(/{user}/g, `${user}`).replace(/{username}/g, user.username);
+    embedDesc = embedDesc.replace(/{user}/g, `${user}`).replace(/{username}/g, user.username);
+
     const payload = buildMessage(useEmbed, {
-        title: opt.embedTitle || 'Support Ticket',
-        description: opt.embedDescription || `Welcome ${user}!`,
-        color: '#a855f7',
-        imageUrl: opt.imageUrl || null,
+        title: embedTitle,
+        description: embedDesc,
+        color: '#ffd700', // Premium KvK Gold/Yellow aesthetic color instead of hardcoded purple
+        imageUrl: imageUrl || opt.imageUrl || null,
         fields: fields,
         actionRows: [closeRow]
     });
@@ -495,8 +644,13 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
     payload.content = pingText;
     await ticketChannel.send(payload);
 
-    if (interaction.reply) {
-        await interaction.reply({ content: `✅ Ticket opened in ${ticketChannel}`, ephemeral: true });
+    // Only reply to interaction if this is the user opening their own ticket, not an admin approving an application
+    if (!targetUserId) {
+        if (interaction.replied || interaction.deferred) {
+            await interaction.followUp({ content: `✅ Ticket opened in ${ticketChannel}`, ephemeral: true }).catch(() => {});
+        } else if (interaction.reply) {
+            await interaction.reply({ content: `✅ Ticket opened in ${ticketChannel}`, ephemeral: true }).catch(() => {});
+        }
     }
 }
 

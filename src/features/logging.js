@@ -15,6 +15,7 @@ async function getLogChannel(guild) {
 
 module.exports = function setupLogging(client) {
     client.on('messageDelete', async message => {
+        if (message.partial) return;
         if (!message.guild || message.author?.bot) return;
         const res = await getLogChannel(message.guild);
         if (!res || !res.conf.logDeletes || !res.channel) return;
@@ -28,6 +29,7 @@ module.exports = function setupLogging(client) {
     });
 
     client.on('messageUpdate', async (oldMessage, newMessage) => {
+        if (oldMessage.partial || newMessage.partial) return;
         if (!oldMessage.guild || oldMessage.author?.bot) return;
         if (oldMessage.content === newMessage.content) return;
         

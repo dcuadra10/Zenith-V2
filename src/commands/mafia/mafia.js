@@ -20,12 +20,12 @@ module.exports = {
                 .addUserOption(opt => opt.setName('user').setDescription('Target user').setRequired(true)))
         .addSubcommand(sub => 
             sub.setName('heist')
-                .setDescription('Coordinate a massive heist on a city bank')
-                .addStringOption(opt => opt.setName('bank').setDescription('Target bank').setRequired(true).addChoices(
-                    { name: 'Standard City Bank (Easy)', value: 'standard' },
-                    { name: 'Zenith Central (Medium)', value: 'zenith' },
-                    { name: 'Royal Treasury (Hard)', value: 'royal' }
-                )))
+                .setDescription('Coordinate a massive heist on a city or private bank')
+                .addStringOption(opt => opt.setName('bank').setDescription('Target bank').setRequired(true).setAutocomplete(true)))
+        .addSubcommand(sub => 
+            sub.setName('raid')
+                .setDescription('Coordinate a mafia raid on a citizen\'s private business')
+                .addStringOption(opt => opt.setName('business').setDescription('Target business').setRequired(true).setAutocomplete(true)))
         .addSubcommand(sub =>
             sub.setName('donate')
                 .setDescription('Donate coins to your mafia treasury')
@@ -62,7 +62,7 @@ module.exports = {
         .addSubcommand(sub =>
             sub.setName('apply')
                 .setDescription('Apply to join a mafia')
-                .addStringOption(opt => opt.setName('id').setDescription('The ID of the mafia you want to join').setRequired(true)))
+                .addStringOption(opt => opt.setName('id').setDescription('The ID of the mafia you want to join').setRequired(true).setAutocomplete(true)))
         .addSubcommand(sub =>
             sub.setName('leave')
                 .setDescription('Leave your current mafia'))
@@ -104,7 +104,8 @@ module.exports = {
         .addSubcommand(sub =>
             sub.setName('clean')
                 .setDescription('Launder your dirty money into clean coins')
-                .addIntegerOption(opt => opt.setName('amount').setDescription('Amount to clean').setRequired(true).setMinValue(1)))
+                .addIntegerOption(opt => opt.setName('amount').setDescription('Amount to clean').setRequired(false).setMinValue(1))
+                .addBooleanOption(opt => opt.setName('max').setDescription('Launder all your dirty money').setRequired(false)))
         .addSubcommandGroup(group =>
             group.setName('business')
                 .setDescription('Manage your criminal enterprises (GTA Style)')
@@ -150,13 +151,60 @@ module.exports = {
                     sub.setName('salary')
                         .setDescription('Set the salary for your criminal employees')
                         .addStringOption(opt => opt.setName('type').setDescription('Business type').setRequired(true).setAutocomplete(true))
-                        .addIntegerOption(opt => opt.setName('amount').setDescription('Dirty money per work cycle').setRequired(true).setMinValue(50).setMaxValue(2000)))),
+                        .addIntegerOption(opt => opt.setName('amount').setDescription('Dirty money per work cycle').setRequired(true).setMinValue(50).setMaxValue(2000)))
+                .addSubcommand(sub =>
+                    sub.setName('cooldown')
+                        .setDescription('Set the work cooldown for your criminal employees (Minimum 4 hours)')
+                        .addStringOption(opt => opt.setName('type').setDescription('Business type').setRequired(true).setAutocomplete(true))
+                        .addIntegerOption(opt => opt.setName('hours').setDescription('Cooldown in hours (Minimum 4)').setRequired(true).setMinValue(4)))),
 
     async autocomplete(interaction) {
         const focusedValue = interaction.options.getFocused();
         const db = await getDb();
         const sub = interaction.options.getSubcommand();
         const subGroup = interaction.options.getSubcommandGroup(false);
+
+        if (sub === 'apply') {
+            const mafias = await db.all(`SELECT id, name FROM economy_mafias WHERE guildId = ?`, [interaction.guild.id]);
+            const choices = mafias.map(m => ({
+                name: `${m.name} (ID: ${m.id})`,
+                value: m.id
+            }));
+            const filtered = choices.filter(choice => choice.name.toLowerCase().includes(focusedValue.toLowerCase())).slice(0, 25);
+            return await interaction.respond(filtered);
+        }
+
+        if (sub === 'heist') {
+            const banks = await db.all(`SELECT id, name FROM economy_banks WHERE name LIKE ? OR id LIKE ? LIMIT 25`, [`%${focusedValue}%`, `%${focusedValue}%`]);
+            const choices = banks.map(b => ({
+                name: b.name,
+                value: b.id
+            }));
+            return await interaction.respond(choices);
+        }
+
+        if (sub === 'raid') {
+            const biz = await db.all(`SELECT id, type, userId FROM economy_operations WHERE id LIKE ? OR type LIKE ? LIMIT 25`, [`%${focusedValue}%`, `%${focusedValue}%`]);
+            const bizNames = {
+                car_wash: 'Car Wash',
+                nightclub: 'Nightclub',
+                law_firm: 'Law Firm',
+                tech_lab: 'Tech Lab'
+            };
+            const choices = [];
+            for (const b of biz) {
+                let ownerName = 'Unknown';
+                try {
+                    const ownerUser = await interaction.client.users.fetch(b.userId);
+                    ownerName = ownerUser.username;
+                } catch(e) {}
+                choices.push({
+                    name: `${bizNames[b.type] || b.type.toUpperCase()} (ID: ${b.id} - Owner: ${ownerName})`,
+                    value: b.id
+                });
+            }
+            return await interaction.respond(choices);
+        }
 
         if (subGroup === 'business') {
             const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
@@ -328,14 +376,14 @@ module.exports = {
             const self = members.find(m => m.userId === interaction.user.id);
 
             const embed = new EmbedBuilder()
-                .setTitle(`🌑 Mafia: ${mafia.name}`)
-                .setDescription(`**ID:** \`${mafia.id}\` | **Level:** ${mafia.level}\n**Treasury:** 💰 ${mafia.balance} coins\n**Vault:** 🏦 ${mafia.vault} coins\n**Tax Rate:** ${(mafia.taxRate * 100).toFixed(0)}%`)
+                .setTitle(`<:zenith_mafia:1510658751261052968> Mafia: ${mafia.name}`)
+                .setDescription(`**ID:** \`${mafia.id}\` | **Level:** ${mafia.level}\n**Treasury:** 💰 ${(mafia.balance || 0).toLocaleString('en-US')} coins\n**Vault:** 🏦 ${(mafia.vault || 0).toLocaleString('en-US')} coins\n**Tax Rate:** ${(mafia.taxRate * 100).toFixed(0)}%`)
                 .setColor('#111827')
                 .setTimestamp();
 
-            embed.addFields({ name: '👤 Your Status', value: `**Dirty Money:** 💵 ${self?.dirtyMoney || 0}\n*Use \`/mafia clean\` to launder it.*` });
+            embed.addFields({ name: '<:zenith_user:1510658870790590646> Your Status', value: `**Dirty Money:** 💵 ${(self?.dirtyMoney || 0).toLocaleString('en-US')}\n*Use \`/mafia clean\` to launder it.*` });
 
-            let memberList = members.map(m => `<@${m.userId}> (${m.rank}) - 💸 ${m.contributed}`).join('\n');
+            let memberList = members.map(m => `<@${m.userId}> (${m.rank}) - 💸 ${(m.contributed || 0).toLocaleString('en-US')}`).join('\n');
             embed.addFields({ name: 'Mafia Members (By Contribution)', value: memberList || 'No members.' });
 
             if (upgrades.length > 0) {
@@ -439,27 +487,35 @@ module.exports = {
 
         if (sub === 'kick') {
             const target = interaction.options.getUser('user');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ Not in a mafia!' });
 
             const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
-            if (member.rank !== 'Don') return await interaction.editReply({ content: '❌ Only the Don can kick members!' });
+            if (!member || member.rank !== 'Don') return await interaction.editReply({ content: '❌ Only the Don can kick members!' });
             if (target.id === interaction.user.id) return await interaction.editReply({ content: '❌ You cannot kick yourself!' });
+
+            // Verify target is in the same mafia
+            const targetMember = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [target.id, user.mafiaId]);
+            if (!targetMember) return await interaction.editReply({ content: '❌ That user is not a member of your mafia!' });
 
             await db.run(`UPDATE users SET mafiaId = NULL WHERE userId = ? AND mafiaId = ?`, [target.id, user.mafiaId]);
             await db.run(`DELETE FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [target.id, user.mafiaId]);
             
-            return await interaction.editReply({ content: `✅ <@${target.id}> has been "removed" from the mafia.` });
+            return await interaction.editReply({ content: `✅ <@${target.id}> has been kicked from the mafia.` });
         }
 
         if (sub === 'promote') {
             const target = interaction.options.getUser('user');
             const newRank = interaction.options.getString('rank');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ Not in a mafia!' });
 
             const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
-            if (member.rank !== 'Don') return await interaction.editReply({ content: '❌ Only the Don can change ranks!' });
+            if (!member || member.rank !== 'Don') return await interaction.editReply({ content: '❌ Only the Don can change ranks!' });
+
+            // Verify target is in the same mafia
+            const targetMember = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [target.id, user.mafiaId]);
+            if (!targetMember) return await interaction.editReply({ content: '❌ That user is not a member of your mafia!' });
 
             await db.run(`UPDATE mafia_members SET rank = ? WHERE userId = ? AND mafiaId = ?`, [newRank, target.id, user.mafiaId]);
             return await interaction.editReply({ content: `✅ <@${target.id}> is now a **${newRank}**.` });
@@ -471,7 +527,7 @@ module.exports = {
 
             const mafia = await db.get(`SELECT vault, taxRate, name FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
             const embed = new EmbedBuilder()
-                .setTitle(`🏦 ${mafia.name} Vault`)
+                .setTitle(`<:zenith_bank:1510681878032552166> ${mafia.name} Vault`)
                 .setDescription(`**Current Vault:** 💰 ${mafia.vault} coins\n**Tax Rate:** ${(mafia.taxRate * 100).toFixed(0)}%\n\n*These funds are collected automatically from members and used for upgrades and wars.*`)
                 .setColor('#f59e0b');
             
@@ -589,12 +645,22 @@ module.exports = {
         }
 
         if (sub === 'clean') {
-            const amount = interaction.options.getInteger('amount');
+            let amount = interaction.options.getInteger('amount');
+            const max = interaction.options.getBoolean('max');
             const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ Not in a mafia!' });
 
             const mafia = await db.get(`SELECT specialization FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
             const member = await db.get(`SELECT * FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
+
+            if (max) {
+                amount = member.dirtyMoney;
+            }
+
+            if (!amount || amount <= 0) {
+                return await interaction.editReply({ content: '❌ Please specify a valid amount of dirty money to clean or use the `max` option!' });
+            }
+
             if (member.dirtyMoney < amount) return await interaction.editReply({ content: `❌ You only have **${member.dirtyMoney}** in dirty money!` });
 
             let cut = 0.20; // 20% laundering fee
@@ -687,7 +753,7 @@ module.exports = {
 
         if (sub === 'heist') {
             const targetBankId = interaction.options.getString('bank');
-            const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ You must be in a mafia to coordinate a bank heist!' });
 
             const mafia = await db.get(`SELECT * FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
@@ -740,8 +806,8 @@ module.exports = {
                     return await i.reply({ content: '❌ You are already in the heist!', ephemeral: true });
                 }
 
-                // Check if they are in the same mafia
-                const pUser = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [i.user.id]);
+                // Check if they are in the same mafia (query mafia_members which is always canonical)
+                const pUser = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [i.user.id]);
                 if (!pUser || pUser.mafiaId !== user.mafiaId) {
                     return await i.reply({ content: '❌ You must be in this mafia to join the heist!', ephemeral: true });
                 }
@@ -775,8 +841,14 @@ module.exports = {
                 const isSuccess = Math.random() < successRate;
 
                 if (!isSuccess) {
-                    const fine = 2000 * targetBank.security * 10;
+                    const fine = Math.floor(2000 * (targetBank.security || 0.5) * 10);
                     await db.run(`UPDATE economy_mafias SET vault = MAX(0, vault - ?) WHERE id = ?`, [fine, user.mafiaId]);
+                    
+                    // Owner of private bank gets the fine added to bank reserve!
+                    if (targetBank.ownerId) {
+                        await db.run(`UPDATE economy_banks SET reserve = reserve + ? WHERE id = ?`, [fine, targetBankId]);
+                    }
+                    
                     return await interaction.followUp({ 
                         content: `🧨 **HEIST FAILED!** The SWAT team arrived. The mafia lost **${fine}** in cleanup. Participants narrowly escaped.` 
                     });
@@ -788,7 +860,7 @@ module.exports = {
                 
                 let totalStolen = 0;
                 for (const victim of usersInBank) {
-                    const protection = targetBank.insurance;
+                    const protection = targetBank.insurance || 0;
                     const actuallyStolen = Math.floor((victim.bank * lootPercent) * (1 - protection));
                     if (actuallyStolen > 0) {
                         totalStolen += actuallyStolen;
@@ -797,7 +869,7 @@ module.exports = {
                 }
 
                 // Steal from bank reserve too
-                const reserveStolen = Math.floor(targetBank.reserve * (lootPercent / 2));
+                const reserveStolen = Math.floor((targetBank.reserve || 0) * (lootPercent / 2));
                 if (reserveStolen > 0) {
                     totalStolen += reserveStolen;
                     await db.run(`UPDATE economy_banks SET reserve = reserve - ? WHERE id = ?`, [reserveStolen, targetBankId]);
@@ -812,7 +884,11 @@ module.exports = {
 
                 if (sharePerParticipant > 0) {
                     for (const pid of participants) {
-                        await db.run(`UPDATE users SET balance = balance + ? WHERE userId = ?`, [sharePerParticipant, pid]);
+                        await db.run(
+                            `INSERT INTO mafia_members (mafiaId, userId, dirtyMoney) VALUES (?, ?, ?)
+                             ON CONFLICT(mafiaId, userId) DO UPDATE SET dirtyMoney = mafia_members.dirtyMoney + ?`,
+                            [user.mafiaId, pid, sharePerParticipant, sharePerParticipant]
+                        );
                     }
                 }
 
@@ -820,7 +896,159 @@ module.exports = {
                     .setTitle('💣 HEIST COMPLETE: SUCCESS')
                     .setDescription(`The heist on **${targetBank.name}** was a total success!`)
                     .addFields(
-                        { name: '💰 Total Loot', value: `**${totalStolen}** Zenith Coins`, inline: true },
+                        { name: '<:zenith_coin:1510656265830011031> Total Loot', value: `**${totalStolen}** Zenith Coins`, inline: true },
+                        { name: '<:zenith_bank:1510681878032552166> Vault Share (20%)', value: `+${vaultShare} <:zenith_coin:1510656265830011031>`, inline: true },
+                        { name: '<:zenith_user:1510658870790590646> Participant Cut (80%)', value: `+${sharePerParticipant} <:zenith_coin:1510656265830011031> to each participant`, inline: true },
+                        { name: '👥 Team', value: participants.map(id => `<@${id}>`).join(', ') }
+                    )
+                    .setColor('#10b981')
+                    .setFooter({ text: '💡 You earned Dirty Money! Run "/mafia clean" to launder it into clean coins.' })
+                    .setTimestamp();
+
+                await interaction.followUp({ embeds: [resultEmbed] });
+            });
+            return;
+        }
+
+        if (sub === 'raid') {
+            const targetBizId = interaction.options.getString('business');
+            const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
+            if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ You must be in a mafia to coordinate a raid!' });
+
+            const mafia = await db.get(`SELECT * FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
+            const targetBiz = await db.get(`SELECT * FROM economy_operations WHERE id = ?`, [targetBizId]);
+
+            if (!targetBiz) return await interaction.editReply({ content: '❌ Private business not found!' });
+
+            const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+            const participants = [interaction.user.id];
+            const baseSuccess = 0.5 - (targetBiz.level * 0.05); // more upgraded businesses are harder to raid
+            const upgrades = JSON.parse(mafia.upgrades || '[]');
+
+            const getSuccessDisplay = (participantsCount) => {
+                let rate = baseSuccess + Math.min(participantsCount * 0.05, 0.40);
+                if (upgrades.includes('vests')) rate += 0.10;
+                if (upgrades.includes('scanner')) rate += 0.05;
+                if (mafia.specialization === 'Enforcers') rate += 0.10;
+                if (mafia.level >= 10) rate += 0.05;
+                const percent = Math.min(Math.floor(rate * 100), 99);
+                const barLength = 15;
+                const filled = Math.floor((percent / 100) * barLength);
+                const bar = '🟩'.repeat(filled) + '⬜'.repeat(barLength - filled);
+                return `**${percent}%**\n${bar}`;
+            };
+
+            const lobbyEmbed = new EmbedBuilder()
+                .setTitle(`💥 PRIVATE BUSINESS RAID: ${targetBiz.type.toUpperCase()}`)
+                .setDescription(`⚠️ **ASSAULT BRIEFING**\n<@${interaction.user.id}> is planning a hostile raid on a private enterprise (**ID: ${targetBizId}**).\n\n*Gather the breach crew! This legal operations cash belongs to the family.*`)
+                .addFields(
+                    { name: '📊 Success Probability', value: getSuccessDisplay(participants.length), inline: false },
+                    { name: '👥 Assault Team', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: '⏳ Launch Window', value: '5 Minutes', inline: true },
+                    { name: '🏢 Business Security', value: `🛡️ Defense Level: ${targetBiz.level} ⭐\n📍 Owner: <@${targetBiz.userId}>`, inline: true }
+                )
+                .setFooter({ text: 'Click the button below to join the raid team!' })
+                .setThumbnail('https://i.imgur.com/vH9Z3sW.png')
+                .setColor('#e11d48');
+
+            const joinBtn = new ButtonBuilder()
+                .setCustomId('join_heist') // re-use join heists lobby id for easy button handling
+                .setLabel('Join Raid')
+                .setStyle(ButtonStyle.Danger);
+
+            const row = new ActionRowBuilder().addComponents(joinBtn);
+
+            const lobbyMsg = await interaction.editReply({ embeds: [lobbyEmbed], components: [row] });
+            const collector = lobbyMsg.createMessageComponentCollector({ time: 300000 });
+
+            collector.on('collect', async i => {
+                if (participants.includes(i.user.id)) {
+                    return await i.reply({ content: '❌ You are already in the raid!', ephemeral: true });
+                }
+
+                const pUser = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [i.user.id]);
+                if (!pUser || pUser.mafiaId !== user.mafiaId) {
+                    return await i.reply({ content: '❌ You must be in this mafia to join the raid!', ephemeral: true });
+                }
+
+                participants.push(i.user.id);
+                
+                const updatedEmbed = EmbedBuilder.from(lobbyEmbed)
+                    .setFields(
+                        { name: '📊 Success Probability', value: getSuccessDisplay(participants.length), inline: false },
+                        { name: '👥 Assault Team', value: participants.map(id => `<@${id}>`).join(', '), inline: true },
+                        { name: '⏳ Launch Window', value: 'Lobby closing soon...', inline: true },
+                        { name: '🏢 Business Security', value: `🛡️ Defense Level: ${targetBiz.level} ⭐\n📍 Owner: <@${targetBiz.userId}>`, inline: true }
+                    );
+
+                await i.update({ embeds: [updatedEmbed] });
+            });
+
+            collector.on('end', async () => {
+                let successRate = baseSuccess + Math.min(participants.length * 0.05, 0.40);
+                if (upgrades.includes('vests')) successRate += 0.10;
+                if (upgrades.includes('scanner')) successRate += 0.05;
+                if (mafia.specialization === 'Enforcers') successRate += 0.10;
+                if (mafia.level >= 10) successRate += 0.05;
+
+                const isSuccess = Math.random() < successRate;
+
+                if (!isSuccess) {
+                    const fine = 1000 * targetBiz.level;
+                    await db.run(`UPDATE economy_mafias SET vault = MAX(0, vault - ?) WHERE id = ?`, [fine, user.mafiaId]);
+                    
+                    // Owner of business gets the fine as insurance / defensive cleanup!
+                    await db.run(`UPDATE users SET balance = balance + ? WHERE userId = ?`, [fine, targetBiz.userId]);
+
+                    return await interaction.followUp({ 
+                        content: `👮 **RAID FOILED!** The security forces defended the building. The mafia lost **${fine}** in cleanup. Participants narrowly escaped.` 
+                    });
+                }
+
+                // Success: Rob pending profits + 15% of owner's wallet cash (up to 5000)
+                const bizData = {
+                    car_wash: { income: 200 },
+                    nightclub: { income: 1000 },
+                    law_firm: { income: 3000 },
+                    tech_lab: { income: 8000 }
+                };
+                const hoursPassed = Math.floor((new Date() - new Date(targetBiz.lastCollect + ' UTC')) / 3600000);
+                const pendingProfits = hoursPassed * (bizData[targetBiz.type]?.income || 100) * targetBiz.level;
+                
+                // Steal wallet cash too
+                const owner = await db.get(`SELECT balance FROM users WHERE userId = ?`, [targetBiz.userId]);
+                const walletStolen = Math.min(Math.floor((owner?.balance || 0) * 0.15), 5000);
+
+                const totalStolen = pendingProfits + walletStolen;
+
+                if (totalStolen > 0) {
+                    // Reset business collect timestamp
+                    await db.run(`UPDATE economy_operations SET lastCollect = CURRENT_TIMESTAMP WHERE id = ?`, [targetBizId]);
+                    // Deduct from owner
+                    if (walletStolen > 0) {
+                        await db.run(`UPDATE users SET balance = balance - ? WHERE userId = ?`, [walletStolen, targetBiz.userId]);
+                    }
+                }
+
+                // Distribution: 20% Vault, 80% Participants
+                const vaultShare = Math.floor(totalStolen * 0.20);
+                const memberShareTotal = totalStolen - vaultShare;
+                const sharePerParticipant = Math.floor(memberShareTotal / participants.length);
+
+                await db.run(`UPDATE economy_mafias SET vault = vault + ? WHERE id = ?`, [vaultShare, user.mafiaId]);
+
+                if (sharePerParticipant > 0) {
+                    for (const pid of participants) {
+                        await db.run(`UPDATE users SET balance = balance + ? WHERE userId = ?`, [sharePerParticipant, pid]);
+                    }
+                }
+
+                const resultEmbed = new EmbedBuilder()
+                    .setTitle('🔥 RAID COMPLETE: SUCCESS')
+                    .setDescription(`The raid on **ID: ${targetBizId}** owned by <@${targetBiz.userId}> was a huge success!`)
+                    .addFields(
+                        { name: '💰 Stolen Profits', value: `**${pendingProfits}** 🪙`, inline: true },
+                        { name: '🔑 Safe Stolen', value: `**${walletStolen}** 🪙`, inline: true },
                         { name: '🏢 Vault Share (20%)', value: `+${vaultShare} 🪙`, inline: true },
                         { name: '👥 Participant Cut (80%)', value: `+${sharePerParticipant} 🪙 to each participant`, inline: true },
                         { name: '👥 Team', value: participants.map(id => `<@${id}>`).join(', ') }
@@ -874,9 +1102,11 @@ module.exports = {
                     .setColor('#6366f1');
 
                 for (const b of businesses) {
+                    const salary = b.salary || 0;
+                    const expenses = (b.employeeCount || 0) * salary;
                     embed.addFields({
                         name: `${b.customName || b.type.toUpperCase()} (Lvl ${b.level})`,
-                        value: `📦 Stock: ${b.stock}\n🔋 Supplies: ${b.supplies}%\n👥 Employees: ${b.employeeCount}\n📊 Market Share: **${(b.marketShare * 100).toFixed(1)}%**`,
+                        value: `📦 Stock: ${b.stock.toLocaleString('en-US')}\n🔋 Supplies: ${b.supplies}%\n👥 Employees: ${b.employeeCount || 0}\n💸 Salary: ${salary.toLocaleString('en-US')} / cycle\n📉 Expenses: **${expenses.toLocaleString('en-US')}** / cycle\n📊 Market Share: **${(b.marketShare * 100).toFixed(1)}%**`,
                         inline: true
                     });
                 }
@@ -1004,6 +1234,17 @@ module.exports = {
 
                 await db.run(`UPDATE mafia_businesses SET salary = ? WHERE mafiaId = ? AND type = ?`, [amount, user.mafiaId, type]);
                 return await interaction.editReply({ content: `💰 Underworld salary for **${type.toUpperCase()}** set to **${amount}** dirty bills.` });
+            }
+
+            if (sub === 'cooldown') {
+                const type = interaction.options.getString('type');
+                const hours = interaction.options.getInteger('hours');
+                const member = await db.get(`SELECT rank FROM mafia_members WHERE userId = ? AND mafiaId = ?`, [interaction.user.id, user.mafiaId]);
+                if (!member || member.rank !== 'Don') return await interaction.editReply({ content: '❌ Only the Don can set cooldowns!' });
+
+                const cooldownSeconds = hours * 3600;
+                await db.run(`UPDATE mafia_businesses SET cooldown = ? WHERE mafiaId = ? AND type = ?`, [cooldownSeconds, user.mafiaId, type]);
+                return await interaction.editReply({ content: `⏱️ Underworld work cooldown for **${type.toUpperCase()}** set to **${hours}** hours (${cooldownSeconds} seconds).` });
             }
         }
     },

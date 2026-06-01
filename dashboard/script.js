@@ -148,14 +148,27 @@ async function apiFetch(endpoint, options = {}) {
     if (options.body && !(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
     }
-    const res = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-    if (res.status === 401) {
-        localStorage.removeItem('discord_token');
-        document.cookie = 'discord_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        showScreen('loginScreen');
-        throw new Error('Unauthorized');
+    const indicator = document.getElementById('latencyIndicator');
+    try {
+        const res = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+        if (indicator) {
+            indicator.className = 'status-indicator-dot online';
+            indicator.title = 'Zenith Connection Live';
+        }
+        if (res.status === 401) {
+            localStorage.removeItem('discord_token');
+            document.cookie = 'discord_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            showScreen('loginScreen');
+            throw new Error('Unauthorized');
+        }
+        return res;
+    } catch (err) {
+        if (indicator) {
+            indicator.className = 'status-indicator-dot offline';
+            indicator.title = 'Syndicate Offline / Network Error';
+        }
+        throw err;
     }
-    return res;
 }
 
 function animateValue(el, start, end, duration) {
@@ -1144,9 +1157,9 @@ function updatePanelPreview() {
     const emojiVal = getVal('panelEmoji') || '';
     const descVal = getVal('panelDescription') || 'Please select a category below to open a ticket...';
     const descEmojiVal = getVal('panelDescEmoji') || '';
-    const useEmbed = getCheck('panelUseEmbed');
-    const color = useEmbed ? (getVal('v2SidebarColor') || '#a855f7') : (getVal('panelColor') || '#ffd700');
-    const isSpoiler = useEmbed && getCheck('v2IsSpoiler');
+    const useEmbed = !getCheck('panelUseEmbed');
+    const color = useEmbed ? (getVal('panelColor') || '#ffd700') : (getVal('v2SidebarColor') || '#a855f7');
+    const isSpoiler = !useEmbed && getCheck('v2IsSpoiler');
 
     const fullTitle = (emojiVal ? emojiVal + ' ' : '') + titleVal;
     const fullDesc = (descEmojiVal ? descEmojiVal + ' ' : '') + descVal;
@@ -1227,6 +1240,10 @@ function updatePanelPreview() {
                 }
             });
             
+            if (imageUrl) {
+                v2Html += `<div style="margin-top:12px;"><img src="${imageUrl}" style="width:100%; border-radius:4px;"></div>`;
+            }
+            
             // Check if there's already a v2 container, if not create one or use a placeholder
             let v2Wrap = content.querySelector('.v2-dynamic-content');
             if (!v2Wrap) {
@@ -1241,8 +1258,21 @@ function updatePanelPreview() {
             descEl.style.display = '';
             titleEl.innerHTML = formatDiscordText(fullTitle);
             descEl.innerHTML = formatDiscordText(fullDesc);
-            const v2Wrap = content.querySelector('.v2-dynamic-content');
-            if (v2Wrap) v2Wrap.innerHTML = '';
+            
+            let v2Html = '';
+            if (imageUrl) {
+                v2Html += `<div style="margin-top:12px;"><img src="${imageUrl}" style="width:100%; border-radius:4px;"></div>`;
+            }
+            
+            let v2Wrap = content.querySelector('.v2-dynamic-content');
+            if (!v2Wrap && imageUrl) {
+                v2Wrap = document.createElement('div');
+                v2Wrap.className = 'v2-dynamic-content';
+                content.insertBefore(v2Wrap, titleEl);
+            }
+            if (v2Wrap) {
+                v2Wrap.innerHTML = v2Html;
+            }
         }
     } else {
         // Remove V2 dynamic content if it exists
@@ -1404,6 +1434,16 @@ function toggleV2Mode() {
     if (isV2) {
         v2Editor.style.display = 'block';
         classicFields.style.display = 'none';
+        
+        // Inicializar con un componente de texto por defecto si la lista está completamente vacía
+        if (!panelDraft.v2Components || panelDraft.v2Components.length === 0) {
+            panelDraft.v2Components = [{
+                id: Date.now().toString(),
+                type: 'text',
+                content: ''
+            }];
+            renderV2Editor();
+        }
     } else {
         v2Editor.style.display = 'none';
         classicFields.style.display = 'block';
@@ -1740,12 +1780,22 @@ function clearPanelForm() {
 
     panelDraft = { dropdowns: [], buttonRows: [], v2Components: [] };
     document.getElementById('panelChannelId').value = '';
-    document.getElementById('panelTitle').value = '';
+    document.getElementById('panelTitle').value = 'Support Center';
     document.getElementById('panelEmoji').value = '';
-    document.getElementById('panelDescription').value = '';
+    document.getElementById('panelDescription').value = 'Please select a category below to open a ticket...';
     document.getElementById('panelDescEmoji').value = '';
     document.getElementById('panelColor').value = '#ffd700';
     document.getElementById('panelColorHex').textContent = '#ffd700';
+    
+    // Si el modo V2 está activo, inicializamos con el componente de texto pre-agregado por defecto
+    if (getCheck('panelUseEmbed')) {
+        panelDraft.v2Components = [{
+            id: Date.now().toString(),
+            type: 'text',
+            content: ''
+        }];
+        renderV2Editor();
+    }
     
     renderDropdowns();
     showToast('Form cleared and reset to fresh state.');
@@ -2023,7 +2073,7 @@ async function savePanel() {
                     v2SidebarColor: getVal('v2SidebarColor'),
                     v2IsSpoiler: getCheck('v2IsSpoiler'),
                     imageUrl: getVal('panelImageUrl'),
-                    useEmbed: document.getElementById('panelUseEmbed').checked ? 1 : 0,
+                    useEmbed: document.getElementById('panelUseEmbed').checked ? 0 : 1,
                     dropdowns: panelDraft.dropdowns,
                     buttonRows: panelDraft.buttonRows,
                     v2Components: panelDraft.v2Components || []
@@ -2081,7 +2131,6 @@ async function fetchPanels() {
                             <strong>${data.title || 'Panel'}</strong>
                             <br><small style="color:var(--text-muted);">Channel: ${p.channelId} · ${(data.dropdowns || []).length} Dropdowns</small>
                         </div>
-                    </div>
                     </div>
                     <div style="display:flex; gap:8px;">
                         <button class="z-btn z-btn-secondary" onclick="editPanel('${p.id}')">⚙️ Edit</button>
@@ -2267,9 +2316,11 @@ async function viewTranscript(ticketId) {
     const container = document.getElementById('discordChatContainer');
     const title = document.getElementById('viewerTicketTitle');
     
-    title.textContent = `Viewing Log: ${ticketId}`;
+    title.innerHTML = `<i class="fas fa-scroll" style="color:var(--gold-500); margin-right:10px;"></i> Viewing Log: ${ticketId}`;
     container.innerHTML = '<div style="color:var(--text-muted); text-align:center; margin-top:100px;">Decrypting transmission...</div>';
+    
     overlay.style.display = 'flex';
+    overlay.classList.add('active');
 
     try {
         const res = await apiFetch(`/transcripts/${activeGuild.id}/${ticketId}`);
@@ -2290,6 +2341,83 @@ function renderTranscript(rawContent) {
         return;
     }
 
+    // Helper: format markdown & discord mentions
+    const formatDiscordText = (text) => {
+        if (!text) return '';
+        // Escape HTML to prevent XSS
+        let escaped = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        
+        // Parse mentions
+        escaped = escaped.replace(/&lt;@!?(\d+)&gt;/g, (match, userId) => {
+            return `<span style="background:rgba(88,101,242,0.18); color:#e0e3ff; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.85em; display:inline-flex; align-items:center; gap:4px;"><i class="fab fa-discord" style="font-size:0.8em; color:#5865f2;"></i> @Citizen</span>`;
+        });
+        escaped = escaped.replace(/&lt;@&amp;(\d+)&gt;/g, (match, roleId) => {
+            return `<span style="background:rgba(241,196,15,0.18); color:#fde68a; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.85em; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-shield-alt" style="font-size:0.8em; color:#f1c40f;"></i> @Staff</span>`;
+        });
+        escaped = escaped.replace(/&lt;#(\d+)&gt;/g, (match, channelId) => {
+            return `<span style="background:rgba(255,255,255,0.1); color:#dbdee1; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.85em; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-hashtag" style="font-size:0.8em; color:#949ba4;"></i> #channel</span>`;
+        });
+        
+        // Bold and Italic markdown
+        escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        return escaped;
+    };
+
+    // Helper: render beautiful grouping of embed lines
+    const renderEmbedHtml = (lines) => {
+        let title = '';
+        let description = [];
+        let fields = [];
+        
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            
+            if (trimmed.startsWith('**') && trimmed.endsWith('**') && !trimmed.includes(':**')) {
+                title = trimmed.replace(/\*\*/g, '');
+            } else if (trimmed.startsWith('**') && trimmed.includes(':**')) {
+                const parts = trimmed.split(':**');
+                const name = parts[0].replace(/\*\*/g, '').trim();
+                const value = parts.slice(1).join(':**').trim();
+                fields.push({ name, value });
+            } else {
+                description.push(trimmed);
+            }
+        });
+        
+        let fieldsHtml = '';
+        if (fields.length > 0) {
+            fieldsHtml = `
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-top:12px; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px;">
+                    ${fields.map(f => `
+                        <div>
+                            <div style="font-size:0.75rem; font-weight:700; color:#949ba4; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">${formatDiscordText(f.name)}</div>
+                            <div style="font-size:0.875rem; color:#dbdee1; white-space:pre-wrap;">${formatDiscordText(f.value)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        const color = '#a855f7'; // default purple accent
+        
+        return `
+            <div style="display:flex; margin:10px 0; max-width:550px; text-align:left;">
+                <div style="width:4px; border-radius:4px 0 0 4px; background:${color}; flex-shrink:0;"></div>
+                <div style="background:#2b2d31; border:1px solid #1e1f22; border-left:none; border-radius:0 4px 4px 0; padding:16px; flex:1; box-shadow:0 4px 15px rgba(0,0,0,0.35);">
+                    ${title ? `<div style="font-size:0.95rem; font-weight:700; color:#ffffff; margin-bottom:8px;">${formatDiscordText(title)}</div>` : ''}
+                    ${description.length > 0 ? `<div style="font-size:0.875rem; color:#dbdee1; line-height:1.45; white-space:pre-wrap;">${formatDiscordText(description.join('\n'))}</div>` : ''}
+                    ${fieldsHtml}
+                </div>
+            </div>
+        `;
+    };
+
     // Check if this is the new Markdown format (starts with #)
     if (rawContent.startsWith('#')) {
         // Parse header metadata
@@ -2301,16 +2429,16 @@ function renderTranscript(rawContent) {
         while (i < lines.length && lines[i].trim() !== '---') {
             const line = lines[i].trim();
             if (line.startsWith('# ')) {
-                headerHtml += `<div style="font-size:1.2rem; font-weight:700; color:var(--text-primary); margin-bottom:12px;">${line.replace('# ', '')}</div>`;
+                headerHtml += `<div style="font-size:1.3rem; font-weight:700; color:var(--gold-500); margin-bottom:12px; font-family:'Cinzel',serif;"><i class="fas fa-scroll"></i> ${line.replace('# ', '')}</div>`;
             } else if (line.startsWith('**') && line.includes(':**')) {
-                headerHtml += `<div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px;">${line.replace(/\*\*/g, '<strong>').replace(/<strong>/g, '<strong>').replace(/<\/strong>/g, '</strong>')}</div>`;
+                headerHtml += `<div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;">${line.replace(/\*\*/g, '<strong>').replace(/<strong>/g, '<strong>').replace(/<\/strong>/g, '</strong>')}</div>`;
             }
             i++;
         }
         
         if (headerHtml) {
             const headerEl = document.createElement('div');
-            headerEl.style.cssText = 'padding:16px 20px; margin-bottom:16px; border-bottom:1px solid var(--border-subtle); background:rgba(88,101,242,0.05); border-radius:8px;';
+            headerEl.style.cssText = 'padding:20px; margin-bottom:20px; border:1px solid var(--border-medium); border-left:4px solid var(--gold-500); background:rgba(232,185,74,0.03); border-radius:8px;';
             headerEl.innerHTML = headerHtml;
             container.appendChild(headerEl);
         }
@@ -2327,25 +2455,41 @@ function renderTranscript(rawContent) {
             let timestamp = '';
             let contentParts = [];
             
-            for (const bLine of blockLines) {
+            let inEmbed = false;
+            let embedLines = [];
+            
+            for (let j = 0; j < blockLines.length; j++) {
+                const bLine = blockLines[j];
                 const trimmed = bLine.trim();
                 if (!trimmed) continue;
                 
                 if (trimmed.startsWith('### ')) {
-                    // Author line: ### Author — Timestamp
                     const parts = trimmed.replace('### ', '').split(' — ');
                     author = parts[0] || 'Unknown';
                     timestamp = parts[1] || '';
                 } else if (trimmed.startsWith('> ')) {
-                    contentParts.push(`<div style="border-left:3px solid var(--accent-purple); padding-left:10px; margin:4px 0; color:var(--text-secondary); font-size:0.85rem;">${trimmed.replace(/^> /, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>`);
-                } else if (trimmed.startsWith('📎')) {
-                    const linkMatch = trimmed.match(/\[(.*?)\]\((.*?)\)/);
-                    if (linkMatch) {
-                        contentParts.push(`<div style="margin:4px 0;"><a href="${linkMatch[2]}" target="_blank" style="color:var(--accent-cyan); text-decoration:none;">📎 ${linkMatch[1]}</a></div>`);
-                    }
+                    inEmbed = true;
+                    embedLines.push(trimmed.replace(/^> /, ''));
                 } else {
-                    contentParts.push(`<div style="margin:2px 0; color:var(--text-primary); white-space:pre-wrap;">${trimmed}</div>`);
+                    if (inEmbed && embedLines.length > 0) {
+                        contentParts.push(renderEmbedHtml(embedLines));
+                        embedLines = [];
+                        inEmbed = false;
+                    }
+                    
+                    if (trimmed.startsWith('📎')) {
+                        const linkMatch = trimmed.match(/\[(.*?)\]\((.*?)\)/);
+                        if (linkMatch) {
+                            contentParts.push(`<div style="margin:6px 0;"><a href="${linkMatch[2]}" target="_blank" style="color:var(--accent-cyan); text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><i class="fas fa-paperclip"></i> ${linkMatch[1]}</a></div>`);
+                        }
+                    } else {
+                        contentParts.push(`<div style="margin:4px 0; color:#dbdee1; white-space:pre-wrap; line-height:1.45;">${formatDiscordText(trimmed)}</div>`);
+                    }
                 }
+            }
+            
+            if (inEmbed && embedLines.length > 0) {
+                contentParts.push(renderEmbedHtml(embedLines));
             }
             
             if (!author && contentParts.length === 0) return;
@@ -2355,12 +2499,13 @@ function renderTranscript(rawContent) {
             
             const msgEl = document.createElement('div');
             msgEl.className = 'discord-message';
+            msgEl.style.cssText = 'display:flex; gap:16px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.03); transition:background 0.2s;';
             msgEl.innerHTML = `
-                <div class="discord-avatar" style="background:${colors[colorIdx]};">${(author.charAt(0) || '?').toUpperCase()}</div>
-                <div class="discord-content">
-                    <div class="discord-author">
-                        <span class="discord-author-name">${author}</span>
-                        <span class="discord-timestamp">${timestamp}</span>
+                <div class="discord-avatar" style="width:40px; height:40px; border-radius:50%; background:${colors[colorIdx]}; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:1.1rem; flex-shrink:0; box-shadow:0 2px 8px rgba(0,0,0,0.2);">${(author.charAt(0) || '?').toUpperCase()}</div>
+                <div class="discord-content" style="flex:1;">
+                    <div class="discord-author" style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span class="discord-author-name" style="color:#ffffff; font-weight:600; font-size:0.95rem;">${author}</span>
+                        <span class="discord-timestamp" style="color:#949ba4; font-size:0.75rem;">${timestamp}</span>
                     </div>
                     ${contentParts.join('')}
                 </div>
@@ -2368,33 +2513,101 @@ function renderTranscript(rawContent) {
             container.appendChild(msgEl);
         });
     } else {
-        // Legacy format fallback
-        const messages = rawContent.split('---------------------------');
-        messages.forEach(msgBlock => {
-            if (!msgBlock.trim()) return;
-            const match = msgBlock.match(/\[(.*?)\] (.*?):\n([\s\S]*)/);
-            if (match) {
-                const [_, timestamp, author, content] = match;
-                const msgEl = document.createElement('div');
-                msgEl.className = 'discord-message';
-                msgEl.innerHTML = `
-                    <div class="discord-avatar">${author.charAt(0).toUpperCase()}</div>
-                    <div class="discord-content">
-                        <div class="discord-author">
-                            <span class="discord-author-name">${author}</span>
-                            <span class="discord-timestamp">${timestamp}</span>
+        // Legacy format fallback: parse line-by-line
+        const lines = rawContent.split('\n');
+        let currentAuthor = '';
+        let currentTimestamp = '';
+        let currentContentParts = [];
+        let isFirstMessage = true;
+        
+        const renderLegacyMessage = (cont, auth, ts, text) => {
+            const colors = ['#5865f2', '#ed4245', '#57f287', '#fee75c', '#eb459e', '#3498db', '#e67e22'];
+            const colorIdx = auth.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
+            
+            // Reconstruct welcome embed simulation for bot welcome messages
+            let extraEmbedHtml = '';
+            if (isFirstMessage && (auth.toLowerCase().includes('zenith') || auth.toLowerCase().includes('bot'))) {
+                extraEmbedHtml = `
+                    <div style="display:flex; margin:12px 0; max-width:550px; text-align:left;">
+                        <div style="width:4px; border-radius:4px 0 0 4px; background:#a855f7; flex-shrink:0;"></div>
+                        <div style="background:#2b2d31; border:1px solid #1e1f22; border-left:none; border-radius:0 4px 4px 0; padding:16px; flex:1; box-shadow:0 4px 15px rgba(0,0,0,0.3); font-family:'Inter', sans-serif;">
+                            <div style="font-size:1.05rem; font-weight:700; color:#ffffff; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-ticket-alt" style="color:var(--gold-500);"></i> Support Ticket Created
+                            </div>
+                            <div style="font-size:0.875rem; color:#dbdee1; line-height:1.5; margin-bottom:12px;">
+                                Welcome! An administrator or support representative will assist you shortly. Please describe your inquiry in detail.
+                            </div>
+                            <div style="display:flex; gap:12px; margin-top:8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px;">
+                                <div style="flex:1;">
+                                    <div style="font-size:0.75rem; font-weight:700; color:#949ba4; text-transform:uppercase; margin-bottom:2px;">Ticket Owner</div>
+                                    <div style="font-size:0.85rem; color:#f2f3f5; font-weight:500;">Citizen</div>
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="font-size:0.75rem; font-weight:700; color:#949ba4; text-transform:uppercase; margin-bottom:2px;">Status</div>
+                                    <div style="font-size:0.85rem; color:#2ecc71; font-weight:600; display:flex; align-items:center; gap:4px;">
+                                        <span style="width:6px; height:6px; background:#2ecc71; border-radius:50%; display:inline-block; box-shadow:0 0 6px #2ecc71;"></span> OPEN
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="discord-text">${content.trim()}</div>
                     </div>
                 `;
-                container.appendChild(msgEl);
+                isFirstMessage = false;
+            }
+            
+            const msgEl = document.createElement('div');
+            msgEl.className = 'discord-message';
+            msgEl.style.cssText = 'display:flex; gap:16px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.03); transition:background 0.2s;';
+            msgEl.innerHTML = `
+                <div class="discord-avatar" style="width:40px; height:40px; border-radius:50%; background:${colors[colorIdx]}; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:1.1rem; flex-shrink:0; box-shadow:0 2px 8px rgba(0,0,0,0.2);">${(auth.charAt(0) || '?').toUpperCase()}</div>
+                <div class="discord-content" style="flex:1;">
+                    <div class="discord-author" style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span class="discord-author-name" style="color:#ffffff; font-weight:600; font-size:0.95rem;">${auth}</span>
+                        <span class="discord-timestamp" style="color:#949ba4; font-size:0.75rem;">${ts}</span>
+                    </div>
+                    <div style="margin:4px 0; color:#dbdee1; white-space:pre-wrap; line-height:1.45;">${formatDiscordText(text)}</div>
+                    ${extraEmbedHtml}
+                </div>
+            `;
+            cont.appendChild(msgEl);
+        };
+
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            
+            const match = trimmed.match(/^\[(.*?)\] (.*?):\s*(.*)/);
+            if (match) {
+                if (currentAuthor) {
+                    renderLegacyMessage(container, currentAuthor, currentTimestamp, currentContentParts.join(''));
+                    currentContentParts = [];
+                }
+                currentTimestamp = match[1];
+                currentAuthor = match[2].trim();
+                currentContentParts.push(match[3]);
+            } else {
+                if (currentAuthor) {
+                    currentContentParts.push('\n' + trimmed);
+                } else {
+                    currentContentParts.push(trimmed);
+                }
             }
         });
+        
+        if (currentAuthor) {
+            renderLegacyMessage(container, currentAuthor, currentTimestamp, currentContentParts.join(''));
+        } else if (currentContentParts.length > 0) {
+            container.innerHTML = `<div style="color:var(--text-primary); white-space:pre-wrap; padding:20px;">${formatDiscordText(currentContentParts.join('\n'))}</div>`;
+        }
     }
 }
 
 function closeTranscript() {
-    document.getElementById('transcriptOverlay').style.display = 'none';
+    const overlay = document.getElementById('transcriptOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+    }
 }
 
 async function editPanel(id) {
@@ -2425,7 +2638,7 @@ async function editPanel(id) {
         document.getElementById('v2ColorHex').textContent = data.v2SidebarColor || '#a855f7';
         setCheck('v2IsSpoiler', !!data.v2IsSpoiler);
         setVal('panelImageUrl', data.imageUrl || '');
-        setCheck('panelUseEmbed', data.useEmbed === undefined || data.useEmbed === null ? true : !!data.useEmbed);
+        setCheck('panelUseEmbed', data.useEmbed === undefined || data.useEmbed === null ? false : !data.useEmbed);
         
         panelDraft.dropdowns = data.dropdowns || [];
         panelDraft.buttonRows = data.buttonRows || [];

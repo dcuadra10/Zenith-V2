@@ -10,7 +10,7 @@ module.exports = {
         const items = await db.all(`SELECT * FROM economy_shop WHERE guildId = ?`, [interaction.guild.id]);
 
         const embed = new EmbedBuilder()
-            .setTitle('🏪 Server Shop')
+            .setTitle('<:zenith_shop:1510658653567324344> Server Shop')
             .setDescription(items.length > 0 ? 'Use `/buy <item_id>` to purchase an item.' : 'The shop is currently empty.')
             .setColor('#10b981')
             .setTimestamp();

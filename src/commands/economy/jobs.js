@@ -5,22 +5,7 @@ const { getDb } = require('../../config/database');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('jobs')
-        .setDescription('View and join available jobs')
-        .addSubcommand(sub => sub.setName('list').setDescription('List all available jobs'))
-        .addSubcommand(sub => 
-            sub.setName('join')
-                .setDescription('Join a new career path')
-                .addStringOption(opt => 
-                    opt.setName('job')
-                        .setDescription('The job you want to join')
-                        .setRequired(true)
-                        .addChoices(
-                            { name: 'Baker 🥖 (Salary: 50)', value: 'baker' },
-                            { name: 'Engineer 🛠️ (Salary: 150)', value: 'engineer' },
-                            { name: 'Pilot ✈️ (Salary: 500)', value: 'pilot' },
-                            { name: 'Ethical Hacker 💻 (Salary: 300)', value: 'hacker' },
-                            { name: 'Doctor 🩺 (Salary: 400)', value: 'doctor' }
-                        )))
+        .setDescription('View and apply to available private business jobs')
         .addSubcommand(sub =>
             sub.setName('vacancies')
                 .setDescription('View open positions in private businesses'))
@@ -34,29 +19,55 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'apply') {
-            const legalVacancies = await db.all(`SELECT id, type, salary FROM economy_operations WHERE hiringEnabled = 1`);
+            const legalVacancies = await db.all(`SELECT id, type, salary, customName FROM economy_operations WHERE hiringEnabled = 1`);
             const mafiaVacancies = await db.all(`SELECT mafiaId, type, salary, customName FROM mafia_businesses WHERE hiringEnabled = 1`);
 
             const bizNames = {
                 car_wash: 'Car Wash',
+                gas_station: 'Gas Station',
                 nightclub: 'Nightclub',
+                restaurant: 'Restaurant',
                 law_firm: 'Law Firm',
                 tech_lab: 'Tech Lab',
+                casino: 'Private Casino',
+                bank_private: 'Private Bank',
                 lab: 'Underworld Lab',
                 cash: 'Money Printing'
             };
 
+            const expRequirements = {
+                car_wash: 5,
+                gas_station: 10,
+                nightclub: 15,
+                restaurant: 20,
+                law_firm: 30,
+                tech_lab: 50,
+                casino: 75,
+                bank_private: 100,
+                lab: 30,
+                cash: 50
+            };
+
             const choices = [];
+            // Default Public Municipal Job
+            choices.push({
+                name: `🧹 Municipal Cleaner (Salary: 60 🪙 - Req. Exp: 0 - ID: MUNICIPAL)`,
+                value: 'MUNICIPAL'
+            });
+
             for (const v of legalVacancies) {
+                const displayName = v.customName || bizNames[v.type] || v.type.toUpperCase();
+                const req = expRequirements[v.type] || 0;
                 choices.push({
-                    name: `🏙️ ${bizNames[v.type] || v.type.toUpperCase()} (Salary: ${v.salary} 🪙 - ID: ${v.id})`,
+                    name: `🏙️ ${displayName} (Req. Exp: ${req} - ID: ${v.id})`,
                     value: v.id
                 });
             }
             for (const v of mafiaVacancies) {
                 const displayName = v.customName || v.type.toUpperCase();
+                const req = expRequirements[v.type] || 0;
                 choices.push({
-                    name: `🔞 UNDERWORLD: ${displayName} (${bizNames[v.type] || v.type.toUpperCase()}) (Salary: ${v.salary} 💸 - ID: ${v.mafiaId}_${v.type})`,
+                    name: `🔞 UNDERWORLD: ${displayName} (Req. Exp: ${req} - ID: ${v.mafiaId}_${v.type})`,
                     value: `${v.mafiaId}_${v.type}`.toUpperCase()
                 });
             }
@@ -70,70 +81,50 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
         const db = await getDb();
 
-        if (sub === 'list') {
-            const embed = new EmbedBuilder()
-                .setTitle('💼 City Careers')
-                .setDescription('Choose a job to start earning coins! Use `/jobs join <job_id>` to select one.')
-                .setColor('#3b82f6')
-                .setTimestamp();
-
-            Object.values(jobs).forEach(job => {
-                embed.addFields({
-                    name: `${job.name} (ID: ${job.id})`,
-                    value: `💰 **Salary:** ${job.salary} coins\n⏱️ **Cooldown:** ${job.cooldown / 3600}h\n📝 ${job.description}`
-                });
-            });
-
-            return await interaction.editReply({ embeds: [embed] });
-        }
-
-        if (sub === 'join') {
-            const jobId = interaction.options.getString('job');
-            const job = jobs[jobId];
-
-            if (!job) {
-                return await interaction.editReply({ content: '❌ Job not found. Check the list using `/jobs list`.' });
-            }
-
-            await db.run(
-                `INSERT INTO users (userId, jobId) VALUES (?, ?)
-                 ON CONFLICT(userId) DO UPDATE SET jobId = excluded.jobId`,
-                [interaction.user.id, jobId]
-            );
-
-            const embed = new EmbedBuilder()
-                .setTitle('👔 New Career Started!')
-                .setDescription(`Congratulations! You are now a **${job.name}**. Use \`/work\` to start earning.`)
-                .setColor('#10b981')
-                .setTimestamp();
-
-            await interaction.editReply({ embeds: [embed] });
-        }
-
         if (sub === 'vacancies') {
             const legalVacancies = await db.all(`SELECT * FROM economy_operations WHERE hiringEnabled = 1 LIMIT 5`);
             const mafiaVacancies = await db.all(`SELECT * FROM mafia_businesses WHERE hiringEnabled = 1 LIMIT 5`);
             
-            if (legalVacancies.length === 0 && mafiaVacancies.length === 0) 
-                return await interaction.editReply({ content: '😔 No businesses are currently hiring. Check back later!' });
-
             const embed = new EmbedBuilder()
                 .setTitle('🏢 Zenith Job Market')
-                .setDescription('Work for other citizens to earn competitive salaries!')
+                .setDescription('Work for other citizens or the city to gain experience and earn competitive salaries!')
                 .setColor('#f59e0b')
                 .setTimestamp();
 
+            // Default entry-level public municipal job always available
+            embed.addFields({
+                name: `🧹 Municipal Cleaner (ID: \`MUNICIPAL\`)`,
+                value: `💰 **Salary:** 60 🪙\n👥 **Staff:** Everyone welcome\n📍 **Owner:** The City\n⭐ **Req. Exp:** 0 (Perfect for beginners)`
+            });
+
+            const expRequirements = {
+                car_wash: 5,
+                gas_station: 10,
+                nightclub: 15,
+                restaurant: 20,
+                law_firm: 30,
+                tech_lab: 50,
+                casino: 75,
+                bank_private: 100,
+                lab: 30,
+                cash: 50
+            };
+
             for (const v of legalVacancies) {
+                const displayName = v.customName || v.type.replace('_', ' ').toUpperCase();
+                const req = expRequirements[v.type] || 0;
                 embed.addFields({
-                    name: `🏙️ ${v.type.replace('_', ' ').toUpperCase()} (ID: ${v.id})`,
-                    value: `💰 **Salary:** ${v.salary} 🪙\n👥 **Staff:** ${v.employeeCount}\n📍 **Owner:** <@${v.userId}>`
+                    name: `🏙️ ${displayName} (ID: ${v.id})`,
+                    value: `💰 **Salary:** ${v.salary} 🪙\n👥 **Staff:** ${v.employeeCount}\n📍 **Owner:** <@${v.userId}>\n⭐ **Req. Exp:** ${req} XP`
                 });
             }
 
             for (const v of mafiaVacancies) {
+                const displayName = v.customName || v.type.toUpperCase();
+                const req = expRequirements[v.type] || 0;
                 embed.addFields({
-                    name: `🔞 UNDERWORLD: ${v.type.toUpperCase()} (ID: ${v.mafiaId}_${v.type})`,
-                    value: `💰 **Salary:** ${v.salary} 💸 (Dirty Money)\n👥 **Staff:** ${v.employeeCount}\n💀 **Mafia:** ${v.mafiaId}`
+                    name: `🔞 UNDERWORLD: ${displayName} (ID: ${v.mafiaId}_${v.type})`,
+                    value: `💰 **Salary:** ${v.salary} 💸 (Dirty Money)\n👥 **Staff:** ${v.employeeCount}\n💀 **Mafia:** ${v.mafiaId}\n⭐ **Req. Exp:** ${req} XP`
                 });
             }
 
@@ -142,7 +133,52 @@ module.exports = {
 
         if (sub === 'apply') {
             const appId = interaction.options.getString('id').toUpperCase();
+            const user = await db.get(`SELECT workplaceId, workExperience FROM users WHERE userId = ?`, [interaction.user.id]);
+            const currentExp = (user && user.workExperience) || 0;
+
+            if (user && user.workplaceId === appId) {
+                return await interaction.editReply({ content: '❌ You are already employed at this business!' });
+            }
+
+            const expRequirements = {
+                car_wash: 5,
+                gas_station: 10,
+                nightclub: 15,
+                restaurant: 20,
+                law_firm: 30,
+                tech_lab: 50,
+                casino: 75,
+                bank_private: 100,
+                lab: 30,
+                cash: 50
+            };
+
+            // Decrement previous workplace employee count if switching
+            if (user && user.workplaceId) {
+                const oldWorkplaceId = user.workplaceId;
+                if (oldWorkplaceId.includes('_')) {
+                    const [oldMafiaId, oldType] = oldWorkplaceId.split('_');
+                    await db.run(`UPDATE mafia_businesses SET employeeCount = MAX(0, employeeCount - 1) WHERE mafiaId = ? AND type = ?`, [oldMafiaId, oldType.toLowerCase()]);
+                } else if (oldWorkplaceId !== 'MUNICIPAL') {
+                    await db.run(`UPDATE economy_operations SET employeeCount = MAX(0, employeeCount - 1) WHERE id = ?`, [oldWorkplaceId]);
+                }
+            }
             
+            if (appId === 'MUNICIPAL') {
+                await db.run(
+                    `INSERT INTO users (userId, workplaceId, jobId) VALUES (?, ?, NULL)
+                     ON CONFLICT(userId) DO UPDATE SET workplaceId = excluded.workplaceId, jobId = NULL`,
+                    [interaction.user.id, 'MUNICIPAL']
+                );
+                const embed = new EmbedBuilder()
+                    .setTitle('🧹 Hired as Municipal Cleaner!')
+                    .setDescription(`You have joined the **Municipal Cleaning Crew**. Work using \`/work\` to gain experience and qualify for better paying private jobs!`)
+                    .addFields({ name: 'Salary', value: `💰 60 coins per cycle`, inline: true })
+                    .setColor('#6b7280');
+
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
             if (appId.includes('_')) {
                 // Underworld Application
                 const [mafiaId, type] = appId.split('_');
@@ -151,12 +187,22 @@ module.exports = {
                 if (!business) return await interaction.editReply({ content: '❌ Underworld venture not found!' });
                 if (!business.hiringEnabled) return await interaction.editReply({ content: '❌ This venture is not currently hiring outsiders!' });
 
-                await db.run(`UPDATE users SET workplaceId = ?, jobId = NULL WHERE userId = ?`, [appId, interaction.user.id]);
+                const reqExp = expRequirements[type.toLowerCase()] || 0;
+                if (currentExp < reqExp) {
+                    return await interaction.editReply({ content: `❌ You do not have enough experience to join this underworld venture! Required: **${reqExp} XP**, Your Experience: **${currentExp} XP**.` });
+                }
+
+                await db.run(
+                    `INSERT INTO users (userId, workplaceId, jobId) VALUES (?, ?, NULL)
+                     ON CONFLICT(userId) DO UPDATE SET workplaceId = excluded.workplaceId, jobId = NULL`,
+                    [interaction.user.id, appId]
+                );
                 await db.run(`UPDATE mafia_businesses SET employeeCount = employeeCount + 1 WHERE mafiaId = ? AND type = ?`, [mafiaId, type.toLowerCase()]);
 
+                const displayName = business.customName || type.toUpperCase();
                 const embed = new EmbedBuilder()
                     .setTitle('🎭 Recruited!')
-                    .setDescription(`You are now an associate for the **${type.toUpperCase()}** venture.`)
+                    .setDescription(`You are now an associate for the **${displayName}** venture.`)
                     .addFields({ name: 'Salary', value: `💰 ${business.salary} dirty bills per cycle`, inline: true })
                     .setColor('#ef4444');
 
@@ -168,12 +214,22 @@ module.exports = {
                 if (!business) return await interaction.editReply({ content: '❌ Business not found!' });
                 if (!business.hiringEnabled) return await interaction.editReply({ content: '❌ This business is not currently hiring!' });
 
-                await db.run(`UPDATE users SET workplaceId = ?, jobId = NULL WHERE userId = ?`, [appId, interaction.user.id]);
+                const reqExp = expRequirements[business.type] || 0;
+                if (currentExp < reqExp) {
+                    return await interaction.editReply({ content: `❌ You do not have enough experience to apply here! Required: **${reqExp} XP**, Your Experience: **${currentExp} XP**.\nWork at the **Municipal Cleaner** (ID: \`MUNICIPAL\`) to gain experience!` });
+                }
+
+                await db.run(
+                    `INSERT INTO users (userId, workplaceId, jobId) VALUES (?, ?, NULL)
+                     ON CONFLICT(userId) DO UPDATE SET workplaceId = excluded.workplaceId, jobId = NULL`,
+                    [interaction.user.id, appId]
+                );
                 await db.run(`UPDATE economy_operations SET employeeCount = employeeCount + 1 WHERE id = ?`, [appId]);
 
+                const displayName = business.customName || appId;
                 const embed = new EmbedBuilder()
                     .setTitle('🤝 Hired!')
-                    .setDescription(`You have joined **${appId}** as an employee.`)
+                    .setDescription(`You have joined **${displayName}** as an employee.`)
                     .addFields({ name: 'Salary', value: `💰 ${business.salary} coins per cycle`, inline: true })
                     .setColor('#10b981');
 

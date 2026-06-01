@@ -67,7 +67,7 @@ module.exports = {
             }
 
             const embed = new EmbedBuilder()
-                .setTitle('🏦 Deposit Successful')
+                .setTitle('<:zenith_bank:1510681878032552166> Deposit Successful')
                 .setDescription(`You deposited **${netAmount}** coins into your bank.`)
                 .addFields(
                     { name: 'Wallet', value: `${user.balance - amount} 🪙`, inline: true },
@@ -92,7 +92,7 @@ module.exports = {
             await db.run(`UPDATE users SET balance = balance + ?, bank = bank - ? WHERE userId = ?`, [amount, amount, interaction.user.id]);
             
             const embed = new EmbedBuilder()
-                .setTitle('🏦 Withdrawal Successful')
+                .setTitle('<:zenith_bank:1510681878032552166> Withdrawal Successful')
                 .setDescription(`You withdrew **${amount}** coins from your bank.`)
                 .addFields(
                     { name: 'Wallet', value: `${user.balance + amount} 🪙`, inline: true },
@@ -104,30 +104,25 @@ module.exports = {
         }
 
         if (sub === 'upgrade') {
-            const tiers = [
-                { cap: 10000, cost: 2500 },
-                { cap: 25000, cost: 7500 },
-                { cap: 75000, cost: 20000 },
-                { cap: 150000, cost: 50000 },
-                { cap: 500000, cost: 150000 },
-                { cap: 1000000, cost: 300000 }
-            ];
+            const maxCapacity = 10000000;
+            if (user.bankCapacity >= maxCapacity) return await interaction.editReply({ content: '❌ You have already reached the maximum bank capacity!' });
 
-            const nextTier = tiers.find(t => t.cap > user.bankCapacity);
-            if (!nextTier) return await interaction.editReply({ content: '❌ You have already reached the maximum bank capacity!' });
+            const cost = Math.max(2500, Math.floor(user.bankCapacity * 0.10));
 
-            const embed = new EmbedBuilder()
-                .setTitle('🏦 Bank Upgrade')
-                .setDescription(`Would you like to upgrade your bank capacity to **${nextTier.cap}** coins?\n\n**Cost:** ${nextTier.cost} 🪙\n**Current Capacity:** ${user.bankCapacity} 🪙`)
-                .setColor('#6366f1');
+            const removed = await removeBalance(interaction.user.id, cost);
+            if (!removed) return await interaction.editReply({ content: `❌ You need **${cost.toLocaleString('en-US')}** coins in your wallet to upgrade!` });
 
-            const removed = await removeBalance(interaction.user.id, nextTier.cost);
-            if (!removed) return await interaction.editReply({ content: `❌ You need **${nextTier.cost}** coins in your wallet to upgrade!` });
+            // Random capacity gain between 2,500 and 7,500 + 5% of current capacity
+            const capacityGain = Math.floor(2500 + Math.random() * 5000 + (user.bankCapacity * 0.05));
+            const newCapacity = Math.min(maxCapacity, user.bankCapacity + capacityGain);
+            const actualGain = newCapacity - user.bankCapacity;
 
-            await db.run(`UPDATE users SET bankCapacity = ? WHERE userId = ?`, [nextTier.cap, interaction.user.id]);
+            await db.run(`UPDATE users SET bankCapacity = ? WHERE userId = ?`, [newCapacity, interaction.user.id]);
             
-            embed.setDescription(`✅ **Upgrade Complete!** Your new bank capacity is **${nextTier.cap}** coins.`)
-                 .setColor('#10b981');
+            const embed = new EmbedBuilder()
+                .setTitle('<:zenith_bank:1510681878032552166> Bank Capacity Upgrade')
+                .setDescription(`✅ **Upgrade Complete!**\n\n**Cost:** ${cost.toLocaleString('en-US')} 🪙\n**Capacity Gained:** +${actualGain.toLocaleString('en-US')} 🪙\n**New Bank Capacity:** **${newCapacity.toLocaleString('en-US')}** / ${maxCapacity.toLocaleString('en-US')} 🪙`)
+                .setColor('#10b981');
 
             return await interaction.editReply({ embeds: [embed] });
         }
@@ -188,7 +183,7 @@ module.exports = {
             );
 
             const embed = new EmbedBuilder()
-                .setTitle('🏦 New Bank Founded')
+                .setTitle('<:zenith_bank:1510681878032552166> New Bank Founded')
                 .setDescription(`Congratulations <@${interaction.user.id}>! You have established the **${name}** private bank.\n\n**Bank ID:** \`${bankId}\`\n**Cost:** ${cost} 🪙\n\nCitizens can now switch to your bank using \`/bank switch bank:${bankId}\`. You will collect a **1% fee** on every deposit!`)
                 .setColor('#10b981')
                 .setThumbnail(interaction.user.displayAvatarURL());
@@ -200,34 +195,78 @@ module.exports = {
             const ownedBank = await db.get(`SELECT * FROM economy_banks WHERE ownerId = ?`, [interaction.user.id]);
             if (!ownedBank) return await interaction.editReply({ content: '❌ You do not own any private bank!' });
 
-            const currentUpgrades = JSON.parse(ownedBank.upgrades || '[]');
-            
-            const upgradeList = [
-                { id: 'vaults', name: '🛡️ Reinforced Vaults', cost: 50000, effect: 'Security +0.1', desc: 'Adds physical layers of protection.' },
-                { id: 'encryption', name: '🔐 Advanced Encryption', cost: 100000, effect: 'Security +0.15', desc: 'Protects against digital heists.' },
-                { id: 'insurance', name: '📜 Gold Insurance', cost: 150000, effect: 'Insurance +0.2', desc: 'Reduces user loss during heists.' },
-                { id: 'reserve', name: '🏦 Reserve Expansion', cost: 200000, effect: 'Reserve +100k', desc: 'Increases the bank\'s base funds.' }
-            ];
+            const UPGRADES_CFG = {
+                vaults: { name: 'Reinforced Vaults', emoji: '🛡️', baseCost: 50000, costMultiplier: 1.5, maxLevel: 5, desc: 'Security +5% per lvl.' },
+                encryption: { name: 'Advanced Encryption', emoji: '🔐', baseCost: 100000, costMultiplier: 1.6, maxLevel: 5, desc: 'Security +8% per lvl.' },
+                insurance: { name: 'Gold Insurance', emoji: '📜', baseCost: 150000, costMultiplier: 1.5, maxLevel: 5, desc: 'Insurance +15% per lvl.' },
+                reserve: { name: 'Reserve Expansion', emoji: '🏦', baseCost: 200000, costMultiplier: 1.7, maxLevel: 5, desc: 'Reserve +100k per lvl.' },
+                guards: { name: 'Armed Guards', emoji: '💂', baseCost: 75000, costMultiplier: 1.4, maxLevel: 5, desc: 'Security +4% per lvl.' },
+                auditing: { name: 'Automated Auditing', emoji: '📈', baseCost: 120000, costMultiplier: 1.5, maxLevel: 5, desc: 'Deposit Fee +0.5% per lvl.' }
+            };
 
+            const getUpgradeLevels = (upgradesJson) => {
+                let levels = { vaults: 0, encryption: 0, insurance: 0, reserve: 0, guards: 0, auditing: 0 };
+                if (!upgradesJson) return levels;
+                try {
+                    const parsed = JSON.parse(upgradesJson);
+                    if (Array.isArray(parsed)) {
+                        parsed.forEach(name => {
+                            if (name.includes('Vaults')) levels.vaults = 1;
+                            if (name.includes('Encryption')) levels.encryption = 1;
+                            if (name.includes('Insurance')) levels.insurance = 1;
+                            if (name.includes('Reserve')) levels.reserve = 1;
+                        });
+                    } else if (typeof parsed === 'object') {
+                        levels = { ...levels, ...parsed };
+                    }
+                } catch (e) {}
+                return levels;
+            };
+
+            const levels = getUpgradeLevels(ownedBank.upgrades);
             const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
             
+            const selectOptions = [];
+            const activeUpgradesList = [];
+
+            Object.entries(UPGRADES_CFG).forEach(([id, up]) => {
+                const lvl = levels[id] || 0;
+                const cost = Math.floor(up.baseCost * Math.pow(up.costMultiplier, lvl));
+
+                if (lvl > 0) {
+                    activeUpgradesList.push(`${up.emoji} **${up.name}**: Level ${lvl} / ${up.maxLevel}`);
+                } else {
+                    activeUpgradesList.push(`${up.emoji} **${up.name}**: *Not Purchased*`);
+                }
+
+                if (lvl < up.maxLevel) {
+                    selectOptions.push({
+                        label: `${up.emoji} ${up.name} (Lvl ${lvl + 1})`,
+                        description: `💰 ${cost.toLocaleString()} coins — ${up.desc}`,
+                        value: id
+                    });
+                }
+            });
+
             const select = new StringSelectMenuBuilder()
                 .setCustomId(`bank_upgrade_${ownedBank.id}`)
-                .setPlaceholder('Select an upgrade to purchase...')
-                .addOptions(upgradeList.map(u => ({
-                    label: u.name,
-                    description: `${u.cost} 🪙 - ${u.effect}`,
-                    value: u.id,
-                    emoji: u.id === 'vaults' ? '🛡️' : (u.id === 'encryption' ? '🔐' : '💰')
-                })));
+                .setPlaceholder(selectOptions.length > 0 ? 'Select an upgrade to purchase...' : 'All upgrades fully completed!')
+                .addOptions(selectOptions.length > 0 ? selectOptions : [{ label: 'Completed', value: 'max' }]);
+
+            if (selectOptions.length === 0) {
+                select.setDisabled(true);
+            }
 
             const row = new ActionRowBuilder().addComponents(select);
 
+            // Cap security stars visual display
+            const securityStars = '⭐'.repeat(Math.min(5, Math.ceil(ownedBank.security * 5)));
+
             const embed = new EmbedBuilder()
-                .setTitle(`🏦 Management: ${ownedBank.name}`)
-                .setDescription(`Manage your institution and invest in its growth.\n\n**Current Stats:**\n🛡️ Security: ${'⭐'.repeat(Math.ceil(ownedBank.security * 5))}\n📜 Insurance: ${ownedBank.insurance * 100}%\n💰 Reserve: ${ownedBank.reserve} 🪙\n📈 Fee: ${ownedBank.fee * 100}%`)
-                .addFields({ name: 'Active Upgrades', value: currentUpgrades.length > 0 ? currentUpgrades.map(u => `✅ ${u}`).join('\n') : 'None' })
-                .setColor('#6366f1')
+                .setTitle(`<:zenith_bank:1510681878032552166> Management: ${ownedBank.name}`)
+                .setDescription(`Manage your institution and invest in its growth.\n\n**Current Stats:**\n🛡️ Security: ${securityStars} (Rate: ${(ownedBank.security * 100).toFixed(0)}%)\n📜 Insurance: ${(ownedBank.insurance * 100).toFixed(0)}%\n💰 Reserve: ${ownedBank.reserve.toLocaleString()} coins\n📈 Fee: ${(ownedBank.fee * 100).toFixed(1)}%`)
+                .addFields({ name: 'Active Upgrades', value: activeUpgradesList.join('\n') })
+                .setColor('#ffd700') // Gold color
                 .setFooter({ text: 'Select an upgrade from the menu below to buy it.' });
 
             return await interaction.editReply({ embeds: [embed], components: [row] });

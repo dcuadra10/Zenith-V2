@@ -11,10 +11,9 @@ module.exports = {
             .setDescription('Welcome to the Zenith experience. Use the menu below to explore bot systems.')
             .setThumbnail(interaction.client.user.displayAvatarURL())
             .addFields(
-                { name: 'Mafia & Basic Economy', value: 'Jobs, salaries, criminality, and the city legal system.\n*Category: Mafia & Economy*' },
-                { name: 'Social & Relationships', value: 'Marriage, families, and social status.\n*Category: Social*' },
-                { name: 'Stats & Rankings', value: 'Track your progress and compete for the top spot.\n*Category: Community*' },
-                { name: 'Management & Utility', value: 'Tools for staff and kingdom administration.\n*Category: Staff*' }
+                { name: '🌑 Mafia & Economy', value: 'Heists, business raids, legal enterprises, and underworld activities.\n*Category: Mafia & Economy*' },
+                { name: '📊 Stats & Rankings', value: 'Track your progress and compete for the top spot.\n*Category: Community*' },
+                { name: '⚙️ Management & Utility', value: 'Tools for staff and kingdom administration.\n*Category: Staff*' }
             )
             .setColor('#111827')
             .setFooter({ text: 'Zenith Bot • Master Guide' })
@@ -25,8 +24,7 @@ module.exports = {
                 .setCustomId('help_category')
                 .setPlaceholder('Select a category to see commands...')
                 .addOptions([
-                    { label: 'Mafia & Economy', description: 'Heists, Businesses, Jail, and Market', value: 'help_mafia', emoji: '🌑' },
-                    { label: 'Social & Family', description: 'Marriage, Divorce, and Adoption', value: 'help_social', emoji: '💍' },
+                    { label: 'Mafia & Economy', description: 'Heists, Raids, Businesses, and Jail', value: 'help_mafia', emoji: '🌑' },
                     { label: 'Community & Stats', description: 'Leaderboard, Rank, and Balance', value: 'help_community', emoji: '📊' },
                     { label: 'Staff & Admin', description: 'Ads Panel, Activity, and Setup', value: 'help_staff', emoji: '⚙️' }
                 ])

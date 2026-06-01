@@ -65,6 +65,18 @@ class CustomBotManager {
             const errorHandler = async (error) => {
                 console.error(`[CustomBotManager] ❌ Post-login error for guild ${guildId}:`, error.message || error);
                 client.destroy();
+                
+                // Purge from activeBots to prevent memory leak / stale reference blocking restarts
+                if (client.user && client.user.id) {
+                    this.activeBots.delete(client.user.id);
+                } else {
+                    for (const [cId, c] of this.activeBots.entries()) {
+                        if (c.token === token) {
+                            this.activeBots.delete(cId);
+                        }
+                    }
+                }
+
                 const db = await getDb();
                 const errMsg = error.message || String(error);
                 await db.run(
@@ -86,6 +98,14 @@ class CustomBotManager {
                 if (!client.isReady()) {
                     console.error(`[CustomBotManager] ⏰ Ready timeout for guild ${guildId} — bot never became ready.`);
                     client.destroy();
+
+                    // Purge potential stale instance reference
+                    for (const [cId, c] of this.activeBots.entries()) {
+                        if (c.token === token) {
+                            this.activeBots.delete(cId);
+                        }
+                    }
+
                     const db = await getDb();
                     await db.run(
                         `UPDATE custom_bots SET status = 'error', errorMessage = 'Connection timed out' WHERE botToken = ?`,

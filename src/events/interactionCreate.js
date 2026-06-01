@@ -83,9 +83,16 @@ module.exports = {
                         .setColor('#b91c1c')
                         .setTimestamp();
                     
-                    return await interaction.editReply({ 
-                        embeds: [embed]
-                    });
+                    if (interaction.deferred || interaction.replied) {
+                        return await interaction.editReply({ 
+                            embeds: [embed]
+                        }).catch(() => {});
+                    } else {
+                        return await interaction.reply({ 
+                            embeds: [embed],
+                            ephemeral: true
+                        }).catch(() => {});
+                    }
                 }
             }
 
@@ -316,12 +323,18 @@ module.exports = {
                 // Deduct Seller 1 stock (quantity + tax)
                 await db.run(
                     `UPDATE rss_seller_stocks SET 
-                        food = GREATEST(0, food - ?), 
-                        wood = GREATEST(0, wood - ?), 
-                        stone = GREATEST(0, stone - ?), 
-                        gold = GREATEST(0, gold - ?) 
+                        food = CASE WHEN food - ? < 0 THEN 0 ELSE food - ? END, 
+                        wood = CASE WHEN wood - ? < 0 THEN 0 ELSE wood - ? END, 
+                        stone = CASE WHEN stone - ? < 0 THEN 0 ELSE stone - ? END, 
+                        gold = CASE WHEN gold - ? < 0 THEN 0 ELSE gold - ? END 
                      WHERE sellerId = ?`,
-                    [deductFood1, deductWood1, deductStone1, deductGold1, tx.seller1Id]
+                    [
+                        deductFood1, deductFood1,
+                        deductWood1, deductWood1,
+                        deductStone1, deductStone1,
+                        deductGold1, deductGold1,
+                        tx.seller1Id
+                    ]
                 );
 
                 // Calculate tax to record pending taxes in database
@@ -384,12 +397,18 @@ module.exports = {
                     // Deduct Seller 2 stock (quantity + tax)
                     await db.run(
                         `UPDATE rss_seller_stocks SET 
-                            food = GREATEST(0, food - ?), 
-                            wood = GREATEST(0, wood - ?), 
-                            stone = GREATEST(0, stone - ?), 
-                            gold = GREATEST(0, gold - ?) 
+                            food = CASE WHEN food - ? < 0 THEN 0 ELSE food - ? END, 
+                            wood = CASE WHEN wood - ? < 0 THEN 0 ELSE wood - ? END, 
+                            stone = CASE WHEN stone - ? < 0 THEN 0 ELSE stone - ? END, 
+                            gold = CASE WHEN gold - ? < 0 THEN 0 ELSE gold - ? END 
                          WHERE sellerId = ?`,
-                        [deductFood2, deductWood2, deductStone2, deductGold2, tx.seller2Id]
+                        [
+                            deductFood2, deductFood2,
+                            deductWood2, deductWood2,
+                            deductStone2, deductStone2,
+                            deductGold2, deductGold2,
+                            tx.seller2Id
+                        ]
                     );
 
                     // Calculate tax for Seller 2
@@ -511,10 +530,6 @@ module.exports = {
                     const guildConfigs = await db.get(`SELECT * FROM guild_configs WHERE guildId = ?`, [interaction.guildId]);
                     const moduleConfigs = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
                     
-                    if (!moduleConfigs || !moduleConfigs.ticketsEnabled) {
-                        return interaction.reply({ content: '❌ The ticket system is currently disabled.', ephemeral: true });
-                    }
-                    
                     await handleTicketSelection(interaction, opt, guildConfigs, moduleConfigs);
                 }
 
@@ -565,7 +580,8 @@ module.exports = {
                     .setRequired(false)
                     .setPlaceholder('e.g. Issue resolved, Inactive user, Duplicate...');
                 
-                modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+                const row = new ActionRowBuilder().addComponents(reasonInput);
+                modal.addComponents(row);
                 await interaction.showModal(modal);
 
             } else if (interaction.customId.startsWith('close_ticket_modal_')) {
@@ -573,7 +589,8 @@ module.exports = {
                 const targetUser = interaction.customId.replace('close_ticket_modal_', '');
                 const closeReason = interaction.fields.getTextInputValue('close_reason') || 'No reason provided';
                 
-                await interaction.reply(`🔒 Closing ticket — Reason: **${closeReason}**\nGenerating transcript...`);
+                await interaction.deferReply({ ephemeral: true });
+                await interaction.editReply({ content: `🔒 Closing ticket — Reason: **${closeReason}**\nGenerating transcript...` });
                 
                 try {
                     const db = await getDb();
@@ -659,10 +676,12 @@ module.exports = {
                                         { name: 'Reason', value: closeReason }
                                     )
                                     .setTimestamp();
-                                await dmMember.send({ embeds: [dmEmbed], files: [attachment] });
+                                await dmMember.send({ embeds: [dmEmbed], files: [attachment] }).catch(err => {
+                                    console.error('Error sending DM to ticket owner:', err.message);
+                                });
                             }
                         } catch(err) {
-                            console.error('Could not DM user transcript.');
+                            console.error('Could not DM user transcript:', err.message);
                         }
                     }
                     // Send to transcript log channel
@@ -694,6 +713,9 @@ module.exports = {
                 const pending = await db.get(`SELECT * FROM pending_tickets WHERE uuid = ?`, [uuid]);
                 if (!pending) return interaction.reply({ content: '❌ Application data not found or already processed.', ephemeral: true });
 
+                // Defer and update button immediately to prevent Gateway timeout (Unknown Interaction)
+                await interaction.deferUpdate();
+
                 const opt = JSON.parse(pending.optJson);
                 const answers = JSON.parse(pending.answersJson);
                 const guildConfigs = await db.get(`SELECT * FROM guild_configs WHERE guildId = ?`, [interaction.guildId]);
@@ -701,7 +723,7 @@ module.exports = {
 
                 await createTicketChannel(interaction, opt, answers, guildConfigs, moduleConfigs, pending.userId);
                 await db.run(`DELETE FROM pending_tickets WHERE uuid = ?`, [uuid]);
-                await interaction.update({ content: `✅ Application approved by <@${interaction.user.id}>. Ticket created.`, embeds: interaction.message.embeds, components: [] });
+                await interaction.editReply({ content: `✅ Application approved by <@${interaction.user.id}>. Ticket created.`, embeds: interaction.message.embeds, components: [] });
 
             } else if (interaction.customId.startsWith('admin_app_decline_')) {
                 const uuid = interaction.customId.split('_').pop();
@@ -849,10 +871,6 @@ module.exports = {
                 const guildConfigs = await db.get(`SELECT * FROM guild_configs WHERE guildId = ?`, [interaction.guildId]);
                 const moduleConfigs = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
 
-                if (!moduleConfigs || !moduleConfigs.ticketsEnabled) {
-                    return interaction.reply({ content: '❌ The ticket system is currently disabled.', ephemeral: true });
-                }
-
                 await handleTicketSelection(interaction, opt, guildConfigs, moduleConfigs, panelId, dIdx, oIdx);
             } else if (interaction.customId === 'app_edit_select') {
                 await handleApplicationStartButton(interaction);
@@ -866,22 +884,13 @@ module.exports = {
                     helpEmbed.setTitle('🌑 Mafia & Economy — Detailed Guide')
                         .setDescription('Master the criminal underworld and the city economy.')
                         .addFields(
-                            { name: '💰 Earning Money', value: '• **Legal:** Use `/work` or `/jobs` to earn clean coins.\n• **Illegal:** Use `/mafia heist` or `/mafia rob` for high rewards in **Dirty Money**.' },
-                            { name: '🏦 The Mafia Vault', value: '• **Taxation:** Mafias have an automatic tax (max 20%) that funds the vault.\n• **Upgrades:** The Don uses vault funds in the `/mafia armory` for vests, cars, and hackers.' },
-                            { name: '🧼 Dirty Money & Cleaning', value: '• Illegal acts pay in unlaundered bills.\n• Use `/mafia clean` to process them into clean coins (20% fee).' },
-                            { name: '👛 Wallet vs 🏦 Bank', value: '• **Wallet:** Cash on hand. Risk of loss if robbed or jailed!\n• **Bank:** Safe storage for your coins. Use `/bank deposit` and `/bank withdraw`.\n• **Upgrades:** The bank starts at 5,000 capacity. Use `/bank upgrade` to store more.' },
+                            { name: '💰 Earning Money', value: '• **Private Businesses:** View openings with `/jobs vacancies` and apply with `/jobs apply`. Work using `/work` to earn salaries paid by the owners.\n• **Illegal acts:** Use `/mafia heist` (rob dynamic banks) or `/mafia raid` (raid citizen-owned businesses) for massive loot.' },
+                            { name: '🏦 The Mafia Vault', value: '• **Taxation:** Mafias have an automatic tax (max 20%) that funds the vault.\n• **Upgrades:** The Don uses vault funds in the `/mafia armory` for upgrades (vests, cars, hackers).' },
+                            { name: '🧼 Dirty Money & Cleaning', value: '• Underworld acts pay in unlaundered bills.\n• Use `/mafia clean` to process them into clean cash (20% fee).' },
+                            { name: '👛 Wallet vs 🏦 Private Banks', value: '• **Wallet:** Cash on hand. Risk of loss if robbed or jailed!\n• **Private Banks:** Switch to a citizen-owned bank using `/bank switch bank:ID`. You pay deposit fees, but get higher security and insurance protecting your coins.\n• **Bank Ownership:** Found your own bank using `/bank found <name>` for 500,000 coins! Earn money passively from deposit fees (1%+), and upgrade its security, vaults, guards, and insurance using `/bank manage`!' },
                             { name: '⚖️ Jail & Justice', value: '• Getting caught sends you to jail.\n• Use `/jail info` to see your sentence, or try a `/jail trial` or `/jail bribe`.' },
                             { name: '🚩 Turfs & Control', value: '• Mafias battle for city turfs using `/mafia turfs` to get global bonuses (discounts, extra loot).' },
-                            { name: '🌟 Community Rewards', value: '• Earn coins passively by being active!\n• **Chatting:** Coins per message.\n• **Invites:** Rewards for each friend invited.\n• **VC Activity:** Earnings for every minute in voice channels.\n• **Server Support:** Bonuses for Boosting and Welcoming new members.' }
-                        );
-                } else if (category === 'help_social') {
-                    helpEmbed.setTitle('💍 Social & Family — Detailed Guide')
-                        .setDescription('Build your legacy and dynasty in Zenith City.')
-                        .addFields(
-                            { name: '💍 Marriage & Partners', value: '• Use `/marry` to propose to another citizen.\n• **Bonus:** Gain a **+10% Coin Multiplier** on all earnings.' },
-                            { name: '👪 Adoption & Children', value: '• Use `/adopt` to add members to your family.\n• **Bonus:** Gain **+5% per child** (Max +25%).' },
-                            { name: '🌳 Visual Lineage', value: '• Use `/family` to see a high-fidelity image of your family tree.' },
-                            { name: '💔 Divorce', value: '• Relationship not working? Use `/divorce` to end the union (costs 2500 coins).' }
+                            { name: '🌟 Community Rewards', value: '• Earn coins passively by being active!\n• **Chatting:** Coins per message.\n• **Invites:** Rewards for each friend invited.\n• **VC Activity:** Earnings for every minute in voice channels.' }
                         );
                 } else if (category === 'help_community') {
                     helpEmbed.setTitle('📊 Community & Ranking — Detailed Guide')
@@ -905,33 +914,74 @@ module.exports = {
             } else if (interaction.customId.startsWith('bank_upgrade_')) {
                 const bankId = interaction.customId.split('_').pop();
                 const upgradeId = interaction.values[0];
+                if (upgradeId === 'max') return interaction.reply({ content: '❌ All upgrades for this bank are already at max level!', ephemeral: true });
+
                 const db = await getDb();
                 
                 const bank = await db.get(`SELECT * FROM economy_banks WHERE id = ?`, [bankId]);
                 if (!bank || bank.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ You do not own this bank.', ephemeral: true });
 
-                const upgrades = [
-                    { id: 'vaults', name: 'Reinforced Vaults', cost: 50000, sec: 0.1, ins: 0, res: 0 },
-                    { id: 'encryption', name: 'Advanced Encryption', cost: 100000, sec: 0.15, ins: 0, res: 0 },
-                    { id: 'insurance', name: 'Gold Insurance', cost: 150000, sec: 0, ins: 0.2, res: 0 },
-                    { id: 'reserve', name: 'Reserve Expansion', cost: 200000, sec: 0, ins: 0, res: 100000 }
-                ];
+                const UPGRADES_CFG = {
+                    vaults: { name: 'Reinforced Vaults', emoji: '🛡️', baseCost: 50000, costMultiplier: 1.5, maxLevel: 5, sec: 0.05, ins: 0, res: 0, fee: 0 },
+                    encryption: { name: 'Advanced Encryption', emoji: '🔐', baseCost: 100000, costMultiplier: 1.6, maxLevel: 5, sec: 0.08, ins: 0, res: 0, fee: 0 },
+                    insurance: { name: 'Gold Insurance', emoji: '📜', baseCost: 150000, costMultiplier: 1.5, maxLevel: 5, sec: 0, ins: 0.15, res: 0, fee: 0 },
+                    reserve: { name: 'Reserve Expansion', emoji: '🏦', baseCost: 200000, costMultiplier: 1.7, maxLevel: 5, sec: 0, ins: 0, res: 100000, fee: 0 },
+                    guards: { name: 'Armed Guards', emoji: '💂', baseCost: 75000, costMultiplier: 1.4, maxLevel: 5, sec: 0.04, ins: 0, res: 0, fee: 0 },
+                    auditing: { name: 'Automated Auditing', emoji: '📈', baseCost: 120000, costMultiplier: 1.5, maxLevel: 5, sec: 0, ins: 0, res: 0, fee: 0.005 }
+                };
 
-                const up = upgrades.find(u => u.id === upgradeId);
+                const getUpgradeLevels = (upgradesJson) => {
+                    let levels = { vaults: 0, encryption: 0, insurance: 0, reserve: 0, guards: 0, auditing: 0 };
+                    if (!upgradesJson) return levels;
+                    try {
+                        const parsed = JSON.parse(upgradesJson);
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach(name => {
+                                if (name.includes('Vaults')) levels.vaults = 1;
+                                if (name.includes('Encryption')) levels.encryption = 1;
+                                if (name.includes('Insurance')) levels.insurance = 1;
+                                if (name.includes('Reserve')) levels.reserve = 1;
+                            });
+                        } else if (typeof parsed === 'object') {
+                            levels = { ...levels, ...parsed };
+                        }
+                    } catch (e) {}
+                    return levels;
+                };
+
+                const up = UPGRADES_CFG[upgradeId];
+                if (!up) return interaction.reply({ content: '❌ Invalid upgrade selected!', ephemeral: true });
+
+                const levels = getUpgradeLevels(bank.upgrades);
+                const currentLvl = levels[upgradeId] || 0;
+
+                if (currentLvl >= up.maxLevel) {
+                    return interaction.reply({ content: `❌ **${up.name}** is already at the maximum level (${up.maxLevel})!`, ephemeral: true });
+                }
+
+                const cost = Math.floor(up.baseCost * Math.pow(up.costMultiplier, currentLvl));
                 const { removeBalance } = require('../utils/economyHandler');
                 
-                const removed = await removeBalance(interaction.user.id, up.cost);
-                if (!removed) return interaction.reply({ content: `❌ You need **${up.cost}** coins for this upgrade!`, ephemeral: true });
+                const removed = await removeBalance(interaction.user.id, cost);
+                if (!removed) return interaction.reply({ content: `❌ You need **${cost.toLocaleString()}** coins in your wallet for this upgrade!`, ephemeral: true });
 
-                const currentUps = JSON.parse(bank.upgrades || '[]');
-                currentUps.push(up.name);
+                levels[upgradeId] = currentLvl + 1;
 
                 await db.run(
-                    `UPDATE economy_banks SET security = security + ?, insurance = insurance + ?, reserve = reserve + ?, upgrades = ? WHERE id = ?`,
-                    [up.sec, up.ins, up.res, JSON.stringify(currentUps), bankId]
+                    `UPDATE economy_banks SET 
+                        security = security + ?, 
+                        insurance = insurance + ?, 
+                        reserve = reserve + ?, 
+                        fee = fee + ?, 
+                        upgrades = ? 
+                     WHERE id = ?`,
+                    [up.sec, up.ins, up.res, up.fee, JSON.stringify(levels), bankId]
                 );
 
-                await interaction.reply({ content: `✅ **Upgrade Purchased!** Your bank now has **${up.name}**.`, ephemeral: true });
+                await interaction.reply({ 
+                    content: `✅ **Upgrade Purchased!** You successfully upgraded **${up.name}** to **Level ${currentLvl + 1}** for **${cost.toLocaleString()}** coins.`, 
+                    ephemeral: true 
+                });
             }
         }
         else if (interaction.isModalSubmit()) {

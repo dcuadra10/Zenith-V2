@@ -11,16 +11,21 @@ module.exports = (client) => {
     for (const file of eventFiles) {
         const filePath = path.join(eventsPath, file);
         const event = require(filePath);
-        if (event.once) {
-            client.once(event.name, async (...args) => {
-                try { await event.execute(...args, client); }
-                catch (err) { console.error(`[EVENT ERROR] ${event.name}:`, err); }
-            });
-        } else {
-            client.on(event.name, async (...args) => {
-                try { await event.execute(...args, client); }
-                catch (err) { console.error(`[EVENT ERROR] ${event.name}:`, err); }
-            });
+
+        const names = Array.isArray(event.name) ? event.name : [event.name];
+
+        for (const name of names) {
+            if (event.once) {
+                client.once(name, async (...args) => {
+                    try { await event.execute(...args, client); }
+                    catch (err) { console.error(`[EVENT ERROR] ${name}:`, err); }
+                });
+            } else {
+                client.on(name, async (...args) => {
+                    try { await event.execute(...args, client); }
+                    catch (err) { console.error(`[EVENT ERROR] ${name}:`, err); }
+                });
+            }
         }
     }
 };

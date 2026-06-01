@@ -10,9 +10,28 @@ async function getAvatar(url) {
     }
 }
 
+function drawMafiaBackground(ctx, width, height, bgPath = null) {
+    // Base gradient: dark crimson to pitch black
+    const grad = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, Math.max(width, height) * 0.8);
+    grad.addColorStop(0, '#2a0808');
+    grad.addColorStop(1, '#050505');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Subtle grid/texture lines in deep red/gold
+    ctx.strokeStyle = 'rgba(220, 38, 38, 0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < width; i += 30) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke();
+    }
+    for (let i = 0; i < height; i += 30) {
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke();
+    }
+}
+
 function drawCurve(ctx, startX, startY, endX, endY) {
-    ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)'; // Gold connection lines
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(startX, startY);
     const midY = (startY + endY) / 2;
@@ -20,24 +39,31 @@ function drawCurve(ctx, startX, startY, endX, endY) {
     ctx.stroke();
 }
 
-async function drawNode(ctx, x, y, user, label = null, color = '#6366f1') {
+async function drawNode(ctx, x, y, user, label = null, color = '#dc2626') {
     const avatarSize = 70;
     
     // Glow Effect
     ctx.shadowBlur = 15;
     ctx.shadowColor = color;
     
-    // Node Background (Glassmorphism)
-    ctx.fillStyle = 'rgba(31, 41, 55, 0.8)';
+    // Node Background (Mafia Dossier Card Style)
+    ctx.fillStyle = 'rgba(18, 18, 22, 0.95)';
     ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.roundRect(x - 90, y - 45, 180, 90, 15);
+    ctx.roundRect(x - 100, y - 45, 200, 90, 8); // slightly wider to prevent text clipping
     ctx.fill();
     ctx.stroke();
     
     // Reset Shadow
     ctx.shadowBlur = 0;
+
+    // Inner subtle border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x - 95, y - 40, 190, 80, 6);
+    ctx.stroke();
 
     // Avatar Circle
     if (user.avatarUrl) {
@@ -45,43 +71,52 @@ async function drawNode(ctx, x, y, user, label = null, color = '#6366f1') {
         if (img) {
             ctx.save();
             ctx.beginPath();
-            ctx.arc(x - 45, y, avatarSize / 2, 0, Math.PI * 2);
+            ctx.arc(x - 50, y, avatarSize / 2, 0, Math.PI * 2);
             ctx.clip();
-            ctx.drawImage(img, x - 45 - avatarSize / 2, y - avatarSize / 2, avatarSize, avatarSize);
+            ctx.drawImage(img, x - 50 - avatarSize / 2, y - avatarSize / 2, avatarSize, avatarSize);
             ctx.restore();
             
             // Avatar Border
             ctx.strokeStyle = color;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(x - 45, y, avatarSize / 2, 0, Math.PI * 2);
+            ctx.arc(x - 50, y, avatarSize / 2, 0, Math.PI * 2);
             ctx.stroke();
         }
     }
 
-    // Text Section
+    // Text Section (Dossier Typeface Look)
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillText(user.username.substring(0, 10), x - 5, y - 5);
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText(user.username.substring(0, 12), x - 5, y - 5);
     
     if (label) {
         ctx.fillStyle = color;
-        ctx.font = '500 12px sans-serif';
+        ctx.font = 'bold 11px sans-serif';
         ctx.fillText(label.toUpperCase(), x - 5, y + 15);
     }
 }
 
-async function generateFamilyTree(mainUser, data) {
+async function generateFamilyTree(mainUser, data, backgroundPath = null) {
     const canvas = createCanvas(1000, 700);
     const ctx = canvas.getContext('2d');
+    const fs = require('fs');
+    const path = require('path');
 
-    // Gradient Background
-    const grad = ctx.createRadialGradient(500, 350, 100, 500, 350, 600);
-    grad.addColorStop(0, '#111827');
-    grad.addColorStop(1, '#000000');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 1000, 700);
+    const defaultBg = path.join(process.cwd(), 'godfather_bg.png');
+    const bgToUse = backgroundPath || (fs.existsSync(defaultBg) ? defaultBg : null);
+
+    if (bgToUse) {
+        try {
+            const bg = await loadImage(bgToUse);
+            ctx.drawImage(bg, 0, 0, 1000, 700);
+        } catch(e) {
+            drawMafiaBackground(ctx, 1000, 700);
+        }
+    } else {
+        drawMafiaBackground(ctx, 1000, 700);
+    }
 
     const centerX = 500;
     const centerY = 350;
@@ -89,13 +124,13 @@ async function generateFamilyTree(mainUser, data) {
     // Parent Connectors
     if (data.parent) {
         drawCurve(ctx, centerX, centerY - 45, centerX, centerY - 155);
-        await drawNode(ctx, centerX, centerY - 200, data.parent, 'Parent', '#10b981');
+        await drawNode(ctx, centerX, centerY - 200, data.parent, 'Godfather / Parent', '#b91c1c');
     }
 
     // Spouse Connector
     if (data.spouse) {
         drawCurve(ctx, centerX + 90, centerY, centerX + 210, centerY);
-        await drawNode(ctx, centerX + 300, centerY, data.spouse, 'Spouse', '#ec4899');
+        await drawNode(ctx, centerX + 300, centerY, data.spouse, 'Partner in Crime', '#fbbf24');
     }
 
     // Children Connectors
@@ -106,56 +141,65 @@ async function generateFamilyTree(mainUser, data) {
         for (let i = 0; i < data.children.length; i++) {
             const childX = startX + i * 250;
             drawCurve(ctx, centerX, centerY + 45, childX, centerY + 155);
-            await drawNode(ctx, childX, centerY + 200, data.children[i], 'Child', '#3b82f6');
+            await drawNode(ctx, childX, centerY + 200, data.children[i], 'Protege / Child', '#9ca3af');
         }
     }
 
     // Main User
-    await drawNode(ctx, centerX, centerY, mainUser, 'You', '#6366f1');
+    await drawNode(ctx, centerX, centerY, mainUser, 'The Boss (You)', '#dc2626');
 
     return canvas.toBuffer('image/png');
 }
 
-async function generateMafiaHierarchy(mafiaName, members, extraData = {}) {
+async function generateMafiaHierarchy(mafiaName, members, extraData = {}, backgroundPath = null) {
     const canvas = createCanvas(1200, 1000);
     const ctx = canvas.getContext('2d');
+    const fs = require('fs');
+    const path = require('path');
 
-    // Dark Background with subtle texture
-    ctx.fillStyle = '#0a0a0c';
-    ctx.fillRect(0, 0, 1200, 1000);
+    const defaultBg = path.join(process.cwd(), 'godfather_bg.png');
+    const bgToUse = backgroundPath || (fs.existsSync(defaultBg) ? defaultBg : null);
+
+    if (bgToUse) {
+        try {
+            const bg = await loadImage(bgToUse);
+            ctx.drawImage(bg, 0, 0, 1200, 1000);
+        } catch(e) {
+            drawMafiaBackground(ctx, 1200, 1000);
+        }
+    } else {
+        drawMafiaBackground(ctx, 1200, 1000);
+    }
     
     // Header Info
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 40px sans-serif';
-    ctx.fillText(mafiaName.toUpperCase(), 600, 60);
+    
+    // Title Shadow
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(220, 38, 38, 0.8)';
+    ctx.fillStyle = '#dc2626'; // Blood red title
+    ctx.font = 'bold 46px sans-serif';
+    ctx.fillText(mafiaName.toUpperCase(), 600, 55);
+    ctx.shadowBlur = 0;
     
     ctx.font = '500 20px sans-serif';
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillText(`LEVEL ${extraData.level || 1} • ${extraData.specialization || 'Unspecialized'}`, 600, 95);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-    ctx.lineWidth = 1;
-    for(let i=0; i<1200; i+=40) {
-        ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,900); ctx.stroke();
-    }
-    for(let i=0; i<900; i+=40) {
-        ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(1200,i); ctx.stroke();
-    }
+    ctx.fillStyle = '#fbbf24'; // Gold subtitle
+    ctx.fillText(`LEVEL ${extraData.level || 1} • ${extraData.specialization || 'Unspecialized'}`, 600, 90);
 
     const rankColors = {
-        'Don': '#fbbf24',
-        'Consigliere': '#94a3b8',
-        'Underboss': '#f87171',
-        'Soldier': '#60a5fa',
-        'Associate': '#9ca3af'
+        'Don': '#dc2626', // Blood Red
+        'Consigliere': '#fbbf24', // Gold
+        'Underboss': '#f59e0b', // Amber/Orange
+        'Soldier': '#3b82f6', // Steel Blue
+        'Associate': '#9ca3af' // Silver/Gray
     };
 
     const ranks = ['Don', 'Consigliere', 'Underboss', 'Soldier', 'Associate'];
     const grouped = {};
     ranks.forEach(r => grouped[r] = members.filter(m => m.rank === r));
 
-    let currentY = 120;
-    const levelHeight = 200;
+    let currentY = 180; // Shifted down to prevent overlap
+    const levelHeight = 180; // Adjusted spacing to fit height perfectly
     const prevLevelNodes = [];
 
     for (let i = 0; i < ranks.length; i++) {
@@ -171,10 +215,18 @@ async function generateMafiaHierarchy(mafiaName, members, extraData = {}) {
             const x = startX + j * 230;
             currentLevelNodes.push({x, y: currentY});
             
-            // Connect to previous level
+            // Connect to the closest node in previous level by X coordinate
             if (prevLevelNodes.length > 0) {
-                const parent = prevLevelNodes[0]; // Simplified: connect all to first node of prev level or center
-                drawCurve(ctx, parent.x, parent.y + 45, x, currentY - 45);
+                let closestParent = prevLevelNodes[0];
+                let minDistance = Math.abs(x - prevLevelNodes[0].x);
+                for (let k = 1; k < prevLevelNodes.length; k++) {
+                    const dist = Math.abs(x - prevLevelNodes[k].x);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        closestParent = prevLevelNodes[k];
+                    }
+                }
+                drawCurve(ctx, closestParent.x, closestParent.y + 45, x, currentY - 45);
             }
 
             await drawNode(ctx, x, currentY, rankMembers[j], rank, rankColors[rank] || '#ffffff');

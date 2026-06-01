@@ -20,14 +20,19 @@ async function addBalance(userId, amount, guildId = null, bypassTax = false) {
     // --- Mafia Tax System ---
     if (!bypassTax) {
         const userData = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [userId]);
-        if (userData && userData.mafiaId) {
-            const mafia = await db.get(`SELECT taxRate FROM economy_mafias WHERE id = ?`, [userData.mafiaId]);
+        let mafiaId = userData?.mafiaId;
+        if (!mafiaId) {
+            const memberData = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [userId]);
+            mafiaId = memberData?.mafiaId;
+        }
+        if (mafiaId) {
+            const mafia = await db.get(`SELECT taxRate FROM economy_mafias WHERE id = ?`, [mafiaId]);
             if (mafia && mafia.taxRate > 0) {
                 const tax = Math.floor(finalAmount * mafia.taxRate);
                 if (tax > 0) {
                     finalAmount -= tax;
-                    await db.run(`UPDATE economy_mafias SET vault = vault + ? WHERE id = ?`, [tax, userData.mafiaId]);
-                    await db.run(`UPDATE mafia_members SET contributed = contributed + ? WHERE userId = ? AND mafiaId = ?`, [tax, userId, userData.mafiaId]);
+                    await db.run(`UPDATE economy_mafias SET vault = vault + ? WHERE id = ?`, [tax, mafiaId]);
+                    await db.run(`UPDATE mafia_members SET contributed = contributed + ? WHERE userId = ? AND mafiaId = ?`, [tax, userId, mafiaId]);
                 }
             }
         }

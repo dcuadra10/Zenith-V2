@@ -26,7 +26,20 @@ async function checkGiveaways(client) {
                 let winners = [];
 
                 if (reaction) {
-                    const users = await reaction.users.fetch();
+                    const users = new Map();
+                    let lastId = null;
+                    while (true) {
+                        const options = { limit: 100 };
+                        if (lastId) options.after = lastId;
+                        const fetchedUsers = await reaction.users.fetch(options);
+                        if (fetchedUsers.size === 0) break;
+                        for (const [userId, user] of fetchedUsers) {
+                            users.set(userId, user);
+                        }
+                        if (fetchedUsers.size < 100) break;
+                        lastId = fetchedUsers.lastKey();
+                    }
+
                     const validUsers = [];
                     for (const [userId, user] of users) {
                         if (user.bot) continue;

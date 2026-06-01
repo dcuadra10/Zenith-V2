@@ -1,7 +1,9 @@
 module.exports = {
-    name: 'ready',
+    name: ['ready', 'clientReady'],
     once: true,
     async execute(client) {
+        if (client._readyHandled) return;
+        client._readyHandled = true;
         console.log(`🤖 Logged in as ${client.user.tag}!`);
         
         // Initialize Database Schema

@@ -9,6 +9,7 @@ module.exports = {
         .addUserOption(opt => opt.setName('target').setDescription('The user you want to rob').setRequired(true)),
 
     async execute(interaction) {
+        await interaction.deferReply();
         const target = interaction.options.getUser('target');
         const db = await getDb();
 
@@ -59,11 +60,12 @@ module.exports = {
                 .setTitle('🎭 ROBBERY SUCCESS')
                 .setDescription(`You successfully robbed <@${target.id}>!`)
                 .addFields(
-                    { name: '💰 Total Loot', value: `${amount} 🪙`, inline: true },
-                    { name: '🏢 Mafia Tax', value: `${vaultShare} 🪙 sent to vault`, inline: true },
-                    { name: '🧤 Your Cut', value: `${memberShare} (Dirty Money)`, inline: true }
+                    { name: '<:zenith_coin:1510656265830011031> Total Loot', value: `${amount} 🪙`, inline: true },
+                    { name: '<:zenith_bank:1510681878032552166> Mafia Tax', value: `${vaultShare} 🪙 sent to vault`, inline: true },
+                    { name: '<:zenith_user:1510658870790590646> Your Cut', value: `${memberShare} (Dirty Money)`, inline: true }
                 )
-                .setColor('#10b981');
+                .setColor('#10b981')
+                .setFooter({ text: '💡 You earned Dirty Money! Use "/mafia clean" to launder it into clean coins.' });
                 
             return await interaction.editReply({ embeds: [embed] });
         } else {

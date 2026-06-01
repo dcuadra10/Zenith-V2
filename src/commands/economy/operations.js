@@ -14,9 +14,13 @@ module.exports = {
                 .setDescription('Establish a new legal business')
                 .addStringOption(opt => opt.setName('type').setDescription('Business type').setRequired(true).addChoices(
                     { name: '🧼 Car Wash (💰 2000)', value: 'car_wash' },
+                    { name: '⚡ Gas Station (💰 5000)', value: 'gas_station' },
                     { name: '🌃 Nightclub (💰 8000)', value: 'nightclub' },
+                    { name: '🍕 Restaurant (💰 12000)', value: 'restaurant' },
                     { name: '⚖️ Law Firm (💰 20000)', value: 'law_firm' },
-                    { name: '🧪 Tech Lab (💰 50000)', value: 'tech_lab' }
+                    { name: '🧪 Tech Lab (💰 50000)', value: 'tech_lab' },
+                    { name: '🎰 Private Casino (💰 100000)', value: 'casino' },
+                    { name: '🏦 Private Bank (💰 250000)', value: 'bank_private' }
                 )))
         .addSubcommand(sub =>
             sub.setName('view')
@@ -37,20 +41,34 @@ module.exports = {
             sub.setName('salary')
                 .setDescription('Set the salary for your employees')
                 .addStringOption(opt => opt.setName('id').setDescription('Business ID').setRequired(true).setAutocomplete(true))
-                .addIntegerOption(opt => opt.setName('amount').setDescription('Coins per work cycle').setRequired(true).setMinValue(50).setMaxValue(1000))),
+                .addIntegerOption(opt => opt.setName('amount').setDescription('Coins per work cycle').setRequired(true).setMinValue(50).setMaxValue(1000)))
+        .addSubcommand(sub =>
+            sub.setName('cooldown')
+                .setDescription('Set the work cooldown for your employees (Minimum 4 hours)')
+                .addStringOption(opt => opt.setName('id').setDescription('Business ID').setRequired(true).setAutocomplete(true))
+                .addIntegerOption(opt => opt.setName('hours').setDescription('Cooldown in hours (Minimum 4)').setRequired(true).setMinValue(4)))
+        .addSubcommand(sub =>
+            sub.setName('rename')
+                .setDescription('Set a custom name for your business')
+                .addStringOption(opt => opt.setName('id').setDescription('Business ID').setRequired(true).setAutocomplete(true))
+                .addStringOption(opt => opt.setName('name').setDescription('New custom business name').setRequired(true))),
 
     async autocomplete(interaction) {
         const focusedValue = interaction.options.getFocused();
         const db = await getDb();
         const sub = interaction.options.getSubcommand();
 
-        if (sub === 'upgrade' || sub === 'hire' || sub === 'salary') {
+        if (sub === 'upgrade' || sub === 'hire' || sub === 'salary' || sub === 'cooldown' || sub === 'rename') {
             const ops = await db.all(`SELECT id, type, level FROM economy_operations WHERE userId = ?`, [interaction.user.id]);
             const bizNames = {
                 car_wash: 'Car Wash',
+                gas_station: 'Gas Station',
                 nightclub: 'Nightclub',
+                restaurant: 'Restaurant',
                 law_firm: 'Law Firm',
-                tech_lab: 'Tech Lab'
+                tech_lab: 'Tech Lab',
+                casino: 'Private Casino',
+                bank_private: 'Private Bank'
             };
             const choices = ops.map(op => {
                 const name = `${bizNames[op.type] || op.type.toUpperCase()} (Lvl ${op.level} - ID: ${op.id})`;
@@ -68,16 +86,27 @@ module.exports = {
 
         const bizData = {
             car_wash: { name: 'Car Wash', cost: 2000, income: 200 },
+            gas_station: { name: 'Gas Station', cost: 5000, income: 500 },
             nightclub: { name: 'Nightclub', cost: 8000, income: 1000 },
+            restaurant: { name: 'Restaurant', cost: 12000, income: 1500 },
             law_firm: { name: 'Law Firm', cost: 20000, income: 3000 },
-            tech_lab: { name: 'Tech Lab', cost: 50000, income: 8000 }
+            tech_lab: { name: 'Tech Lab', cost: 50000, income: 8000 },
+            casino: { name: 'Private Casino', cost: 100000, income: 15000 },
+            bank_private: { name: 'Private Bank', cost: 250000, income: 40000 }
         };
 
         if (sub === 'list') {
             const embed = new EmbedBuilder()
-                .setTitle('🏗️ Available Businesses')
-                .setDescription('Invest in legal enterprises to earn passive income.')
+                .setTitle('🏗️ Available Businesses & Jobs')
+                .setDescription('Invest in legal private enterprises to earn passive income, or work for the city.')
                 .setColor('#10b981');
+
+            // Add Municipal Cleaner at the top of the list
+            embed.addFields({ 
+                name: '🧹 Municipal Cleaner', 
+                value: `💰 **Cost:** Public (Free)\n📈 **Profit:** 60/cycle\n⭐ **Req:** 0 XP (Entry Job)`, 
+                inline: true 
+            });
 
             for (const [id, data] of Object.entries(bizData)) {
                 embed.addFields({ name: data.name, value: `💰 **Cost:** ${data.cost}\n📈 **Profit:** ${data.income}/hr`, inline: true });
@@ -87,6 +116,9 @@ module.exports = {
 
         if (sub === 'open') {
             const type = interaction.options.getString('type');
+            if (type === 'municipal') {
+                return await interaction.editReply({ content: `❌ **Municipal Cleaner** is a public, city-owned job. You do not need to buy it! Anyone can join it immediately using \`/jobs apply MUNICIPAL\`.` });
+            }
             const data = bizData[type];
 
             const success = await removeBalance(interaction.user.id, data.cost);
@@ -110,11 +142,15 @@ module.exports = {
 
             for (const op of ops) {
                 const data = bizData[op.type];
-                const hoursPassed = Math.floor((new Date() - new Date(op.lastCollect)) / 3600000);
+                const hoursPassed = Math.floor((new Date() - new Date(op.lastCollect + ' UTC')) / 3600000);
                 const pending = hoursPassed * data.income * op.level;
+                const displayName = op.customName ? `${op.customName} (${data.name})` : data.name;
+                const salary = op.salary || 0;
+                const expenses = (op.employeeCount || 0) * salary;
+
                 embed.addFields({ 
-                    name: `${data.name} (Lvl ${op.level})`, 
-                    value: `🆔 \`${op.id}\`\n👥 Employees: ${op.employeeCount}\n📊 Market Share: **${(op.marketShare * 100).toFixed(1)}%**\n💰 Pending: ${pending} 🪙`, 
+                    name: `${displayName} (Lvl ${op.level})`, 
+                    value: `🆔 \`${op.id}\`\n👥 Employees: ${op.employeeCount || 0}\n💸 Salary: ${salary.toLocaleString('en-US')} 🪙 / cycle\n📉 Expenses: **${expenses.toLocaleString('en-US')}** 🪙 / cycle\n📊 Market Share: **${(op.marketShare * 100).toFixed(1)}%**\n💰 Pending: ${pending.toLocaleString('en-US')} 🪙`, 
                     inline: true 
                 });
             }
@@ -129,7 +165,7 @@ module.exports = {
             let total = 0;
             for (const op of ops) {
                 const data = bizData[op.type];
-                const hoursPassed = Math.floor((new Date() - new Date(op.lastCollect)) / 3600000);
+                const hoursPassed = Math.floor((new Date() - new Date(op.lastCollect + ' UTC')) / 3600000);
                 const pending = hoursPassed * data.income * op.level;
                 if (pending > 0) {
                     total += pending;
@@ -189,6 +225,33 @@ module.exports = {
             
             await db.run(`UPDATE economy_operations SET salary = ? WHERE id = ?`, [amount, opId]);
             return await interaction.editReply({ content: `💰 Employee salary for **${opId}** set to **${amount}** coins per work cycle.` });
+        }
+
+        if (sub === 'cooldown') {
+            const opId = interaction.options.getString('id').toUpperCase();
+            const hours = interaction.options.getInteger('hours');
+            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ?`, [opId, interaction.user.id]);
+            
+            if (!op) return await interaction.editReply({ content: '❌ Business not found!' });
+            
+            const cooldownSeconds = hours * 3600;
+            await db.run(`UPDATE economy_operations SET cooldown = ? WHERE id = ?`, [cooldownSeconds, opId]);
+            return await interaction.editReply({ content: `⏱️ Cooldown for **${opId}** set to **${hours}** hours (${cooldownSeconds} seconds).` });
+        }
+
+        if (sub === 'rename') {
+            const opId = interaction.options.getString('id').toUpperCase();
+            const newName = interaction.options.getString('name');
+            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ?`, [opId, interaction.user.id]);
+            
+            if (!op) return await interaction.editReply({ content: '❌ Business not found or you don\'t own it!' });
+            
+            if (newName.length < 3 || newName.length > 50) {
+                return await interaction.editReply({ content: '❌ Custom name must be between 3 and 50 characters long.' });
+            }
+            
+            await db.run(`UPDATE economy_operations SET customName = ? WHERE id = ?`, [newName, opId]);
+            return await interaction.editReply({ content: `✅ Custom name for business **${opId}** set to **${newName}**.` });
         }
     }
 };

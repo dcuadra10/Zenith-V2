@@ -57,7 +57,14 @@ module.exports = {
             // --- 2. Auto-Role ---
             if (conf.autoroleEnabled && conf.autoroleIds) {
                 try {
-                    const rolesIds = JSON.parse(conf.autoroleIds);
+                    let rolesIds = [];
+                    try {
+                        const parsed = JSON.parse(conf.autoroleIds);
+                        rolesIds = Array.isArray(parsed) ? parsed : [];
+                    } catch(jsonErr) {
+                        // Fallback if configured as a plain comma-separated string list of IDs
+                        rolesIds = String(conf.autoroleIds).split(',').map(id => id.trim()).filter(id => id.length > 0);
+                    }
                     for (const roleId of rolesIds) {
                         const role = member.guild.roles.cache.get(roleId);
                         if (role) await member.roles.add(role).catch(()=>{});

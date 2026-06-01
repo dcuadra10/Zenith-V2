@@ -47,7 +47,7 @@ function buildColumnMap(cols) {
         'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
         'mafiaId', 'leaderId', 'taxRate', 'vault', 'upgrades', 'contributed', 'ownerMafiaId', 'bonusType', 'bonusValue', 'turfId',
         'sectorId', 'totalInvested', 'dirtyMoney', 'jailUntil', 'reputation',
-        'jobId', 'lastWork', 'workplaceId', 'employeeCount', 'hiringEnabled', 'salary',
+        'jobId', 'lastWork', 'workplaceId', 'employeeCount', 'hiringEnabled', 'salary', 'customName', 'workExperience',
         'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
         'pendingTaxFood', 'pendingTaxWood', 'pendingTaxStone', 'pendingTaxGold',
         'openaiApiKey', 'characterName', 'characterTraits', 'chatEnabled', 'chatChannels', 'supportEnabled', 'supportChannel', 'supportKnowledgeChannels', 'botToBotChatEnabled', 'maxBotTurns', 'enabled', 'clientId', 'languageMode',
@@ -119,7 +119,14 @@ async function createDbInstance() {
                         const client = await pool.connect();
                         try {
                             await client.query('BEGIN');
-                            const result = await callback(client);
+                            const wrappedClient = {
+                                query: async (query, params = []) => {
+                                    const { text, values } = convertSqliteToPg(query, params);
+                                    const res = await client.query(text, values);
+                                    return { changes: res.rowCount, rows: res.rows.map(restoreKeys) };
+                                }
+                            };
+                            const result = await callback(wrappedClient);
                             await client.query('COMMIT');
                             return result;
                         } catch (e) {
@@ -151,6 +158,13 @@ async function createDbInstance() {
             const db = new sqlite3.Database(process.env.SQLITE_PATH || './database.sqlite');
             
             db.configure('busyTimeout', 5000); // 5s timeout instead of immediate lock error
+            db.run('PRAGMA journal_mode=WAL;', (err) => {
+                if (err) console.error('[DB ERROR] Failed to enable WAL mode:', err);
+                else console.log('[DB] SQLite WAL mode enabled.');
+            });
+            db.run('PRAGMA synchronous=NORMAL;', (err) => {
+                if (err) console.error('[DB ERROR] Failed to set synchronous=NORMAL:', err);
+            });
             db.on('error', err => console.error('[DB ERROR] SQLite global error:', err.message || err));
             
             const wrapper = {
@@ -811,7 +825,8 @@ async function initializeSchema() {
             dirtyMoney BIGINT DEFAULT 0,
             jailUntil TIMESTAMP,
             reputation INTEGER DEFAULT 0,
-            workplaceId TEXT DEFAULT NULL
+            workplaceId TEXT DEFAULT NULL,
+            workExperience INTEGER DEFAULT 0
         );
         
         CREATE TABLE IF NOT EXISTS global_stats (
@@ -988,6 +1003,7 @@ async function initializeSchema() {
             hiringEnabled INTEGER DEFAULT 0,
             employeeCount INTEGER DEFAULT 0,
             salary BIGINT DEFAULT 100,
+            cooldown INTEGER DEFAULT 14400,
             marketShare REAL DEFAULT 0,
             customName TEXT,
             PRIMARY KEY (mafiaId, type)
@@ -1012,7 +1028,9 @@ async function initializeSchema() {
             hiringEnabled INTEGER DEFAULT 0,
             employeeCount INTEGER DEFAULT 0,
             salary BIGINT DEFAULT 100,
-            marketShare REAL DEFAULT 0
+            cooldown INTEGER DEFAULT 14400,
+            marketShare REAL DEFAULT 0,
+            customName TEXT
         );
 
         CREATE TABLE IF NOT EXISTS economy_influence (
@@ -1094,7 +1112,8 @@ async function initializeSchema() {
             'jobId TEXT', 'lastWork INTEGER', 'partnerId TEXT', 'mafiaId TEXT', 
             'balance BIGINT DEFAULT 0', 'bank BIGINT DEFAULT 0', 'bankCapacity BIGINT DEFAULT 5000',
             'dirtyMoney BIGINT DEFAULT 0', 'bankId TEXT DEFAULT \'standard\'',
-            'jailUntil TIMESTAMP', 'reputation INTEGER DEFAULT 0', 'workplaceId TEXT DEFAULT NULL'
+            'jailUntil TIMESTAMP', 'reputation INTEGER DEFAULT 0', 'workplaceId TEXT DEFAULT NULL',
+            'workExperience INTEGER DEFAULT 0'
         ],
         module_configs: [
             'ticketsMaxActive INTEGER DEFAULT 2', 'ticketsTranscriptChannel TEXT', 'countingMath INTEGER DEFAULT 0', 
@@ -1125,12 +1144,12 @@ async function initializeSchema() {
             'totalShares INTEGER DEFAULT 1000', 'publicShares INTEGER DEFAULT 0', 
             'sharePrice BIGINT DEFAULT 0', 'level INTEGER DEFAULT 1',
             'hiringEnabled INTEGER DEFAULT 0', 'employeeCount INTEGER DEFAULT 0', 'salary BIGINT DEFAULT 100',
-            'marketShare REAL DEFAULT 0', 'customName TEXT'
+            'cooldown INTEGER DEFAULT 14400', 'marketShare REAL DEFAULT 0', 'customName TEXT'
         ],
         economy_operations: [
             'level INTEGER DEFAULT 1', 'hiringEnabled INTEGER DEFAULT 0', 
             'employeeCount INTEGER DEFAULT 0', 'salary BIGINT DEFAULT 100',
-            'marketShare REAL DEFAULT 0'
+            'cooldown INTEGER DEFAULT 14400', 'marketShare REAL DEFAULT 0', 'customName TEXT'
         ],
         r4_tracking: [
             'excuseReason TEXT'

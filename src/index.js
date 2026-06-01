@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js'); // Zenith City Life Update
+const { Client, GatewayIntentBits, Partials, Collection, PermissionFlagsBits } = require('discord.js'); // Zenith City Life Update
 require('./utils/memberCache');
 require('dotenv').config();
 const { validateEnv } = require('./config/env');
@@ -24,6 +24,18 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, '../dashboard')));
 
+const tokenCache = new Map();
+
+// Periodic token cache cleanup every minute
+setInterval(() => {
+    const now = Date.now();
+    for (const [token, data] of tokenCache.entries()) {
+        if (data.expiresAt < now) {
+            tokenCache.delete(token);
+        }
+    }
+}, 60000);
+
 // Middleware to verify Discord Token
 async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -34,9 +46,20 @@ async function authenticateToken(req, res, next) {
         return res.status(401).json({ error: 'No autorizado' });
     }
 
+    const cached = tokenCache.get(token);
+    if (cached && cached.expiresAt > Date.now()) {
+        req.user = cached.user;
+        req.token = token;
+        return next();
+    }
+
     try {
         const userRes = await axios.get('https://discord.com/api/users/@me', {
             headers: { Authorization: `Bearer ${token}` }
+        });
+        tokenCache.set(token, {
+            user: userRes.data,
+            expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes cache
         });
         req.user = userRes.data;
         req.token = token; // Store for reuse
@@ -54,8 +77,8 @@ async function checkAdmin(userId, guildId) {
     if (!guild) return false;
     try {
         const member = await guild.members.fetch(userId).catch(() => null);
-        if (!member) return false;
-        return member.permissions.has('Administrator');
+            if (!member) return false;
+            return member.permissions.has(PermissionFlagsBits.Administrator);
     } catch (e) {
         return false;
     }
@@ -1522,22 +1545,22 @@ app.post('/api/levels/import/:guildId', authenticateToken, async (req, res) => {
         const db = await getDb();
         let successCount = 0;
 
-        await db.run('BEGIN TRANSACTION');
         try {
-            for (const item of levelsData) {
-                if (!item.userId || item.level === undefined) continue;
-                await db.run(
-                    `INSERT INTO users (userId, level, xp) VALUES (?, ?, 0)
-                     ON CONFLICT(userId) DO UPDATE SET level = excluded.level, xp = 0`,
-                    [item.userId, item.level]
-                );
-                successCount++;
-            }
-            await db.run('COMMIT');
+            await db.transaction(async (txClient) => {
+                for (const item of levelsData) {
+                    if (!item.userId || item.level === undefined) continue;
+                    await txClient.query(
+                        `INSERT INTO users (userId, level, xp) VALUES (?, ?, 0)
+                         ON CONFLICT(userId) DO UPDATE SET level = excluded.level, xp = 0`,
+                        [item.userId, item.level]
+                    );
+                    successCount++;
+                }
+            });
             res.json({ success: true, count: successCount });
         } catch (dbErr) {
-            await db.run('ROLLBACK');
-            throw dbErr;
+            console.error('Error importing levels database transaction:', dbErr);
+            res.status(500).json({ error: 'Error processing database transaction' });
         }
     } catch (e) {
         console.error('Error importing levels:', e);
@@ -1617,7 +1640,7 @@ setInterval(async () => {
     try {
         const db = await getDb();
         // --- MARKET COMPETITION SYSTEM ---
-        const businessTypes = ['car_wash', 'nightclub', 'law_firm', 'tech_lab', 'lab', 'cash'];
+        const businessTypes = ['car_wash', 'gas_station', 'nightclub', 'restaurant', 'law_firm', 'tech_lab', 'casino', 'bank_private', 'lab', 'cash'];
         
         for (const type of businessTypes) {
             // Get all businesses of this type (Legal and Mafia)
@@ -1665,11 +1688,11 @@ setInterval(async () => {
         }
 
         // --- ORIGINAL PRODUCTION LOOP ---
-        const businesses = await db.all(`SELECT * FROM mafia_businesses WHERE supplies > 0 OR type IN ('nightclub', 'car_wash', 'tech_lab', 'law_firm')`);
+        const businesses = await db.all(`SELECT * FROM mafia_businesses WHERE supplies > 0 OR type IN ('nightclub', 'car_wash', 'tech_lab', 'law_firm', 'gas_station', 'restaurant', 'casino', 'bank_private')`);
         
         for (const b of businesses) {
             const levelMult = b.level || 1;
-            const legalIncomes = { car_wash: 200, nightclub: 1000, law_firm: 3000, tech_lab: 8000 };
+            const legalIncomes = { car_wash: 200, gas_station: 500, nightclub: 1000, restaurant: 1500, law_firm: 3000, tech_lab: 8000, casino: 15000, bank_private: 40000 };
             
             if (legalIncomes[b.type]) {
                 // Passive clean cash to vault
@@ -1687,4 +1710,8 @@ setInterval(async () => {
     }
 }, 15 * 60 * 1000);
 
-client.login(process.env.DISCORD_TOKEN);
+if (process.env.DISCORD_TOKEN) {
+    client.login(process.env.DISCORD_TOKEN).catch(err => console.error('[Discord Login Error]', err));
+} else {
+    console.warn('[Startup] DISCORD_TOKEN not set; skipping Discord client login. Dashboard will still run.');
+}

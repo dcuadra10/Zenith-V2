@@ -25,7 +25,13 @@ module.exports = (client) => {
                 const group = groups[key];
                 const conf = await db.get(`SELECT r4TrackingAdQuota, r4TrackingMsgQuota, r4TrackingRole, spreadsheetId FROM module_configs mc JOIN guild_configs gc ON mc.guildId = gc.guildId WHERE mc.guildId = ?`, [group.guildId]);
                 
-                if (!conf) continue;
+                if (!conf) {
+                    console.log(`[R4Tracker] No config found for guild ${group.guildId}. Marking records as processed to prevent queue bloat.`);
+                    for (const record of group.records) {
+                        await db.run(`UPDATE r4_tracking SET isProcessed = 1 WHERE userId = ? AND guildId = ? AND weekId = ?`, [record.userId, record.guildId, record.weekId]);
+                    }
+                    continue;
+                }
 
                 const adQuota = conf.r4TrackingAdQuota || 40;
                 const msgQuota = conf.r4TrackingMsgQuota || 245;

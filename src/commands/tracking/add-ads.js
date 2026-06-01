@@ -30,9 +30,13 @@ async function processAdsSubmission(interaction, amount) {
 
         // --- R4 TRACKING (ADS) ---
         const modConf = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
-        if (modConf && modConf.r4trackingenabled && modConf.r4trackingrole) {
-            const roleId = modConf.r4trackingrole.replace(/[^0-9]/g, '');
-            if (interaction.member && interaction.member.roles && interaction.member.roles.cache.has(roleId)) {
+        if (modConf) {
+            const isSqlite = !process.env.DATABASE_URL || process.env.DB_TYPE === 'sqlite';
+            const isEnabled = modConf.r4trackingenabled || isSqlite;
+            const roleId = modConf.r4trackingrole ? modConf.r4trackingrole.replace(/[^0-9]/g, '') : null;
+            const hasRole = isSqlite || !roleId || (interaction.member && interaction.member.roles && interaction.member.roles.cache.has(roleId));
+
+            if (isEnabled && hasRole) {
                 const weekId = getISOWeekString();
                 await db.run(
                     `INSERT INTO r4_tracking (userId, guildId, weekId, messages, ads, excused) 
@@ -71,17 +75,31 @@ async function processAdsSubmission(interaction, amount) {
                     const evidenceUrl = m.attachments.first().url;
                     await dmChannel.send("✅ Evidence received and sent to Leadership! Thank you.");
                     
-                    const leadershipChannelId = config.leadershipChannelId;
-                    if (!leadershipChannelId) {
-                        return interaction.client.users.cache.get(interaction.user.id).send('Audit received, but no Leadership channel is configured.');
+                    const targetChannelId = config.leadershipChannelId || config.logChannelId;
+                    let channel = null;
+                    if (targetChannelId) {
+                        channel = interaction.guild.channels.cache.get(targetChannelId) || 
+                                  await interaction.guild.channels.fetch(targetChannelId).catch(() => null);
                     }
                     
-                    const channel = interaction.guild.channels.cache.get(leadershipChannelId);
+                    // Fallback: search for channels by common administrative names
+                    if (!channel) {
+                        channel = interaction.guild.channels.cache.find(c => 
+                            c.name.toLowerCase() === 'admin' || 
+                            c.name.toLowerCase() === 'logs' || 
+                            c.name.toLowerCase() === 'audits' || 
+                            c.name.toLowerCase() === 'leadership' || 
+                            c.name.toLowerCase() === 'transcripts'
+                        );
+                    }
+                    
                     if (channel) {
                         await channel.send({
                             content: `📢 **Global 1000-Ads Milestone Audit**\nUser: <@${interaction.user.id}>\nAd Evidence:`,
                             files: [evidenceUrl]
                         });
+                    } else {
+                        console.error('Evidence received but no leadership/admin/logs channel could be resolved in the guild.');
                     }
                 });
 

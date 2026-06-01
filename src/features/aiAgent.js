@@ -211,8 +211,21 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
             }
 
             // Determine if the message is in a configured channel
-            const chatChannels = JSON.parse(config.chatChannels || '[]');
-            const supportKnowledgeChannels = JSON.parse(config.supportKnowledgeChannels || '[]');
+            let chatChannels = [];
+            try {
+                const parsed = JSON.parse(config.chatChannels || '[]');
+                chatChannels = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                chatChannels = String(config.chatChannels || '').split(',').map(id => id.trim()).filter(id => id.length > 0);
+            }
+
+            let supportKnowledgeChannels = [];
+            try {
+                const parsed = JSON.parse(config.supportKnowledgeChannels || '[]');
+                supportKnowledgeChannels = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                supportKnowledgeChannels = String(config.supportKnowledgeChannels || '').split(',').map(id => id.trim()).filter(id => id.length > 0);
+            }
             
             const isChatChannel = config.chatEnabled && chatChannels.includes(message.channel.id);
             const isSupportChannel = config.supportEnabled && config.supportChannel === message.channel.id;

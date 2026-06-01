@@ -58,6 +58,9 @@ module.exports = {
         // Ignore ourself to avoid infinite loops
         if (message.author.id === client.user.id) return;
 
+        // Ensure message.member exists for all guild operations and checks
+        if (!message.member) return;
+
         if (true) {
             // Custom bots should NOT run server management features (auto-mod, leveling, swear jar, etc.)
             // They only handle AI agent responses via aiAgent.js
@@ -207,7 +210,7 @@ module.exports = {
                             
                             const upChannel = conf.levelupchannel ? message.guild.channels.cache.get(conf.levelupchannel) : message.channel;
                             if (upChannel) {
-                                let title = conf.leveluptitle || '🎉 Level Up!';
+                                let title = conf.leveluptitle || '<:zenith_levelup:1510658706763944056> Level Up!';
                                 let desc = conf.levelupmessage || `Congratulations <@${message.author.id}>, you just leveled up to **Level ${currentLevel + 1}**!`;
                                 
                                 const pTitle = title.replace('{user}', `<@${message.author.id}>`)
@@ -227,8 +230,13 @@ module.exports = {
 
                             // Check Role Rewards (if configured)
                             try {
-                                const rewards = JSON.parse(conf.rolerewards || '[]');
-                                const reward = rewards.find(r => parseInt(r.level) === currentLevel + 1);
+                                let rewards = [];
+                                try {
+                                    const parsed = JSON.parse(conf.rolerewards || '[]');
+                                    rewards = Array.isArray(parsed) ? parsed : [];
+                                } catch (e) {}
+
+                                const reward = rewards.find(r => r && parseInt(r.level) === currentLevel + 1);
                                 if (reward && reward.roleId) {
                                     const rr = message.guild.roles.cache.get(reward.roleId.replace(/[^0-9]/g, ''));
                                     if (rr) await message.member.roles.add(rr).catch(()=>{});
@@ -329,7 +337,7 @@ module.exports = {
                             if (sjChannel) {
                                 const ping = conf.swearjarping ? `<@${message.author.id}>` : `**${message.author.username}**`;
                                 
-                                let title = conf.swearjartitle || '🏺 Swear Jar Contribution!';
+                                let title = conf.swearjartitle || '<:zenith_swear_jar:1510658808408440863> Swear Jar Contribution!';
                                 let desc = conf.swearjarmessage || `${ping} just added a coin to the jar for using prohibited dialect: \`${foundWord}\``;
 
                                 const pTitle = title.replace('{user}', ping).replace('{word}', foundWord).replace('{count}', swearCount);

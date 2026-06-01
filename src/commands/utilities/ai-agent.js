@@ -50,9 +50,9 @@ module.exports = {
                 await db.run(`UPDATE ai_agent_configs SET clientId = ? WHERE guildId = ? AND (clientId IS NULL OR clientId = '')`, [clientId, guildId]);
             } else {
                 await db.run(
-                    `INSERT INTO ai_agent_configs (guildId, clientId, welcomeEnabled, chatEnabled, supportEnabled, botToBotChatEnabled, maxBotTurns, enabled)
-                     VALUES (?, ?, 0, 0, 0, 0, 5, 1)`,
-                    [guildId, clientId]
+                    `INSERT INTO ai_agent_configs (guildId, agentId, clientId, welcomeEnabled, chatEnabled, supportEnabled, botToBotChatEnabled, maxBotTurns, enabled)
+                     VALUES (?, ?, ?, 0, 0, 0, 0, 5, 1)`,
+                    [guildId, `agent_${clientId}`, clientId]
                 );
             }
             config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [guildId, clientId]);

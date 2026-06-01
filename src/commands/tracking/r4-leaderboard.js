@@ -25,7 +25,48 @@ module.exports = {
         const weekId = getISOWeekString();
         const records = await db.all(`SELECT userId, ads, messages, excused FROM r4_tracking WHERE guildId = ? AND weekId = ?`, [interaction.guild.id, weekId]);
 
-        if (!records || records.length === 0) {
+        // Fetch all current guild members to ensure hot cache and identify officers
+        const officerIds = new Set();
+        if (roleId) {
+            try {
+                await interaction.guild.members.fetch();
+                interaction.guild.members.cache.forEach(m => {
+                    if (m.roles.cache.has(roleId)) {
+                        officerIds.add(m.id);
+                    }
+                });
+            } catch (err) {
+                console.error('[Command] Error fetching guild members:', err);
+            }
+        }
+
+        const recordsMap = new Map();
+        records.forEach(r => recordsMap.set(r.userId, r));
+
+        const finalRecords = [];
+        
+        // Ensure every active officer has a baseline record for this week
+        officerIds.forEach(officerId => {
+            if (recordsMap.has(officerId)) {
+                finalRecords.push(recordsMap.get(officerId));
+            } else {
+                finalRecords.push({
+                    userId: officerId,
+                    ads: 0,
+                    messages: 0,
+                    excused: 0
+                });
+            }
+        });
+
+        // Add any non-officer who has historical data for this week
+        records.forEach(r => {
+            if (!officerIds.has(r.userId)) {
+                finalRecords.push(r);
+            }
+        });
+
+        if (finalRecords.length === 0) {
             return interaction.editReply(`No R4 activity recorded yet for the current week (${weekId}).`);
         }
 
@@ -33,7 +74,7 @@ module.exports = {
         const msgQuota = conf.r4TrackingMsgQuota || 245;
 
         // Calculate progress percentage and sort
-        const leaderboard = records.map(r => {
+        const leaderboard = finalRecords.map(r => {
             const adPct = (r.ads / adQuota) * 100;
             const msgPct = (r.messages / msgQuota) * 100;
             const totalPct = Math.min(Math.round(adPct + msgPct), 200);

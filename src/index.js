@@ -1419,7 +1419,12 @@ app.get('/api/r4-tracking/:guildId', authenticateToken, async (req, res) => {
             excusesMap[exc.userId] = exc;
         });
 
+        const conf = await db.get(`SELECT r4TrackingRole, r4TrackingEnabled FROM module_configs WHERE guildId = ?`, [req.params.guildId]);
+        const roleId = conf?.r4TrackingRole ? conf.r4TrackingRole.replace(/[^0-9]/g, '') : null;
+
         let membersMap = {};
+        let officerIds = new Set();
+
         if (client.isReady()) {
             const guild = client.guilds.cache.get(req.params.guildId);
             if (guild) {
@@ -1431,6 +1436,9 @@ app.get('/api/r4-tracking/:guildId', authenticateToken, async (req, res) => {
                             displayName: m.displayName,
                             avatar: m.user.displayAvatarURL({ dynamic: true })
                         };
+                        if (roleId && m.roles.cache.has(roleId)) {
+                            officerIds.add(m.id);
+                        }
                     });
                 } catch (err) {
                     console.error('[API] Error fetching guild members:', err);
@@ -1438,9 +1446,49 @@ app.get('/api/r4-tracking/:guildId', authenticateToken, async (req, res) => {
             }
         }
 
-        const { isWeekWithinExcuse } = require('./utils/dateHelpers');
+        const existingRecordsMap = new Map();
+        const uniqueWeeks = new Set();
+        
+        records.forEach(r => {
+            existingRecordsMap.set(`${r.userId}_${r.weekId}`, r);
+            uniqueWeeks.add(r.weekId);
+        });
 
-        const enrichedRecords = records.map(r => {
+        const { getISOWeekString, isWeekWithinExcuse } = require('./utils/dateHelpers');
+        const currentWeek = getISOWeekString();
+        uniqueWeeks.add(currentWeek);
+
+        const finalRecords = [];
+
+        uniqueWeeks.forEach(weekId => {
+            // Add all current officers for this week
+            officerIds.forEach(officerId => {
+                const key = `${officerId}_${weekId}`;
+                if (existingRecordsMap.has(key)) {
+                    finalRecords.push(existingRecordsMap.get(key));
+                } else {
+                    finalRecords.push({
+                        userId: officerId,
+                        guildId: req.params.guildId,
+                        weekId: weekId,
+                        messages: 0,
+                        ads: 0,
+                        excused: 0,
+                        excuseReason: null,
+                        isProcessed: 0
+                    });
+                }
+            });
+
+            // Add historical non-officers
+            records.forEach(r => {
+                if (r.weekId === weekId && !officerIds.has(r.userId)) {
+                    finalRecords.push(r);
+                }
+            });
+        });
+
+        const enrichedRecords = finalRecords.map(r => {
             const exc = excusesMap[r.userId];
             let isExcused = r.excused === 1;
             let excuseReason = r.excuseReason;

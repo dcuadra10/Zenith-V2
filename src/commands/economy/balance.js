@@ -15,15 +15,15 @@ module.exports = {
         const user = await db.get(`SELECT balance, bank, bankCapacity FROM users WHERE userId = ?`, [target.id]);
         const mafiaMember = await db.get(`SELECT dirtyMoney FROM mafia_members WHERE userId = ?`, [target.id]);
         
-        const wallet = user ? user.balance : 0;
-        const bank = user ? user.bank : 0;
-        const capacity = user ? user.bankCapacity : 5000;
-        const dirty = mafiaMember ? mafiaMember.dirtyMoney : 0;
+        const wallet = user?.balance ?? 0;
+        const bank = user?.bank ?? 0;
+        const capacity = user?.bankCapacity ?? 5000;
+        const dirty = mafiaMember?.dirtyMoney ?? 0;
 
-        const walletFormatted = wallet.toLocaleString('en-US');
-        const bankFormatted = bank.toLocaleString('en-US');
-        const capacityFormatted = capacity.toLocaleString('en-US');
-        const dirtyFormatted = dirty.toLocaleString('en-US');
+        const walletFormatted = Number(wallet).toLocaleString('en-US');
+        const bankFormatted = Number(bank).toLocaleString('en-US');
+        const capacityFormatted = Number(capacity).toLocaleString('en-US');
+        const dirtyFormatted = Number(dirty).toLocaleString('en-US');
 
         const embed = new EmbedBuilder()
             .setTitle(`💰 Financial Status: ${target.username}`)

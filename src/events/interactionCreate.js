@@ -152,14 +152,14 @@ module.exports = {
                     .setCustomId('rss_buy_payment_select')
                     .setPlaceholder('Select your preferred payment method...')
                     .addOptions(
-                        { label: 'PayPal', value: 'paypal', emoji: '💳', description: 'Pay securely via PayPal' },
-                        { label: 'Cash App', value: 'cashapp', emoji: '💵', description: 'Pay via Cash App transfer' },
-                        { label: 'Venmo', value: 'venmo', emoji: '📱', description: 'Pay via Venmo mobile app' },
-                        { label: 'Zelle', value: 'zelle', emoji: '🏦', description: 'Instant bank transfer via Zelle' },
-                        { label: 'Revolut', value: 'revolut', emoji: '🪙', description: 'International transfer via Revolut' },
-                        { label: 'Crypto (BTC/USDT)', value: 'crypto', emoji: '₿', description: 'Pay using Bitcoin or USDT stablecoin' },
-                        { label: 'Bank Transfer', value: 'bank', emoji: '🏛️', description: 'Direct wire or local bank transfer' },
-                        { label: 'Apple Pay / Google Pay', value: 'applepay', emoji: '🍎', description: 'Pay using Apple Pay or Google Pay mobile wallet' }
+                        { label: 'PayPal', value: 'paypal', emoji: { name: '💳' }, description: 'Pay securely via PayPal' },
+                        { label: 'Cash App', value: 'cashapp', emoji: { name: '💵' }, description: 'Pay via Cash App transfer' },
+                        { label: 'Venmo', value: 'venmo', emoji: { name: '📱' }, description: 'Pay via Venmo mobile app' },
+                        { label: 'Zelle', value: 'zelle', emoji: { name: '🏦' }, description: 'Instant bank transfer via Zelle' },
+                        { label: 'Revolut', value: 'revolut', emoji: { name: '🪙' }, description: 'International transfer via Revolut' },
+                        { label: 'Crypto (BTC/USDT)', value: 'crypto', emoji: { name: '₿' }, description: 'Pay using Bitcoin or USDT stablecoin' },
+                        { label: 'Bank Transfer', value: 'bank', emoji: { name: '🏛️' }, description: 'Direct wire or local bank transfer' },
+                        { label: 'Apple Pay / Google Pay', value: 'applepay', emoji: { name: '🍎' }, description: 'Pay using Apple Pay or Google Pay mobile wallet' }
                     );
 
                 const row = new (require('discord.js').ActionRowBuilder)().addComponents(selectMenu);

@@ -846,25 +846,25 @@ function loadModuleToggles(mods) {
     setCheck('toggleEconomy', mods.ecoEnabled);
     setVal('ecoCoinsPerMessage', mods.ecoCoinsPerMessage ?? 1);
     setVal('ecoCoinsPerAd', mods.ecoCoinsPerAd ?? 10);
-    setVal('ecoCoinsPerInvite', mods.ecocoinsperinvite ?? 50);
-    setVal('ecoCoinsPerWelcome', mods.ecocoinsperwelcome ?? 5);
-    setVal('ecoCoinsPerBoost', mods.ecocoinsperboost ?? 100);
-    setVal('ecoCoinsPerGiveaway', mods.ecocoinspergiveaway ?? 200);
-    setVal('ecoCoinsPerVCMinute', mods.ecocoinspervcminute ?? 1);
-    setVal('ecoWelcomeKeywords', mods.ecowelcomekeywords || 'welcome,bienvenido,bienvenida');
-    setVal('ecoWelcomeNotifyChannel', mods.ecowelcomenotifychannel);
+    setVal('ecoCoinsPerInvite', mods.ecoCoinsPerInvite ?? 50);
+    setVal('ecoCoinsPerWelcome', mods.ecoCoinsPerWelcome ?? 5);
+    setVal('ecoCoinsPerBoost', mods.ecoCoinsPerBoost ?? 100);
+    setVal('ecoCoinsPerGiveaway', mods.ecoCoinsPerGiveaway ?? 200);
+    setVal('ecoCoinsPerVCMinute', mods.ecoCoinsPerVCMinute ?? 1);
+    setVal('ecoWelcomeKeywords', mods.ecoWelcomeKeywords || 'welcome,bienvenido,bienvenida');
+    setVal('ecoWelcomeNotifyChannel', mods.ecoWelcomeNotifyChannel);
     
     // RSS
-    setCheck('toggleRss', mods.rssenabled);
-    setVal('rssSellerRole', mods.rsssellerrole);
-    setVal('rssTaxRate', mods.rsstaxrate ?? 10);
-    setVal('rssCategory', mods.rsscategory);
+    setCheck('toggleRss', mods.rssEnabled);
+    setVal('rssSellerRole', mods.rssSellerRole);
+    setVal('rssTaxRate', mods.rssTaxRate ?? 10);
+    setVal('rssCategory', mods.rssCategory);
     
     // Giveaways
-    setVal('giveawaysManagerRole', mods.giveawaysmanagerrole);
-    setVal('giveawaysLogChannel', mods.giveawayslogchannel);
-    setCheck('giveawaysEcoReward', mods.giveawaysecoreward);
-    setVal('giveawaysEcoCoins', mods.giveawaysecocoins ?? 200);
+    setVal('giveawaysManagerRole', mods.giveawaysManagerRole);
+    setVal('giveawaysLogChannel', mods.giveawaysLogChannel);
+    setCheck('giveawaysEcoReward', mods.giveawaysEcoReward);
+    setVal('giveawaysEcoCoins', mods.giveawaysEcoCoins ?? 200);
 }
 
 function setCheck(id, val) {

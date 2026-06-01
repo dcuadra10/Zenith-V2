@@ -63,5 +63,5 @@ module.exports = function setupServerStats(client) {
         } catch (e) {
             console.error('Error updating server stats', e);
         }
-    }, 600000); // 10 minutes
+    }, 300000); // 5 minutes
 };

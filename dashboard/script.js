@@ -634,12 +634,24 @@ function renderMarketForumChannels() {
                 <input type="number" class="z-input" style="font-size:0.8rem; padding:6px;" value="${c.max}" onchange="updateMarketForumChannel(${i}, 'max', parseFloat(this.value))">
             </div>
             <div style="display:flex; flex-direction:column;">
-                <label style="font-size:0.65rem; color:var(--text-muted);">FORUM CHANNEL ID</label>
-                <input class="z-input" style="font-size:0.8rem; padding:6px;" value="${c.channelId}" onchange="updateMarketForumChannel(${i}, 'channelId', this.value)" placeholder="e.g. 123456789">
+                <label style="font-size:0.65rem; color:var(--text-muted);">FORUM CHANNEL</label>
+                <select id="marketForumChannel_${i}" class="z-input" style="font-size:0.8rem; padding:6px;"> </select>
             </div>
             <button class="z-btn z-btn-danger" style="padding:6px; font-size:0.8rem; margin-top:14px;" onclick="removeMarketForumChannel(${i})">✕</button>
         </div>
     `).join('');
+
+    // After rendering, populate each newly created select with current guild channels
+    try {
+        const textChannels = currentGuildChannels.filter(c => c.type === 0 || c.type === 5);
+        marketForumChannelsArr.forEach((c, i) => {
+            const selId = `marketForumChannel_${i}`;
+            populateDropdown(selId, textChannels, 'Select a Channel');
+            const sel = document.getElementById(selId);
+            if (sel) sel.value = c.channelId || '';
+            if (sel) sel.addEventListener('change', function() { updateMarketForumChannel(i, 'channelId', this.value); });
+        });
+    } catch(e) { console.warn('Could not populate market forum channel selects:', e); }
 }
 
 // ===== MIDDLEMAN PAYMENTS LOGIC =====

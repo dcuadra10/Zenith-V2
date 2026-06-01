@@ -169,10 +169,11 @@ app.get('/api/auth/callback', async (req, res) => {
         });
         const accessToken = tokenRes.data.access_token;
         
-        // Guardar token en cookie segura y regresar al dashboard
+        const isSecure = baseUrl.startsWith('https://');
+        // Guardar token en cookie y regresar al dashboard
         res.cookie('discord_token', accessToken, { 
             httpOnly: false, 
-            secure: true, 
+            secure: isSecure, 
             sameSite: 'Lax',
             path: '/',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days

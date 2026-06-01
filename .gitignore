@@ -4,3 +4,5 @@ database.sqlite
 scratch/
 *.mp4
 lurkr_levels*.json
+database.sqlite-wal
+database.sqlite-shm

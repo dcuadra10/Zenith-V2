@@ -117,10 +117,17 @@ module.exports = {
                 await handleMarketInteraction(interaction);
                 return;
             } else if (interaction.customId === 'rss_buy_start') {
+                const safeReply = async (response) => {
+                    if (interaction.replied || interaction.deferred || interaction.acknowledged) {
+                        return interaction.followUp(response).catch(() => {});
+                    }
+                    return interaction.reply(response).catch(() => {});
+                };
+
                 const db = await getDb();
                 const config = await db.get(`SELECT rssEnabled, rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
                 if (!config || !config.rssEnabled) {
-                    return interaction.reply({
+                    return safeReply({
                         content: '❌ The RSS Buying module is currently disabled.',
                         ephemeral: true
                     });
@@ -142,29 +149,30 @@ module.exports = {
                 }
 
                 if (sellers.length === 0) {
-                    return interaction.reply({
+                    return safeReply({
                         content: '❌ No verified RSS Sellers are currently registered or online. Please try again later.',
                         ephemeral: true
                     });
                 }
 
-                const selectMenu = new (require('discord.js').StringSelectMenuBuilder)()
+                const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder } = require('discord.js');
+                const selectMenu = new StringSelectMenuBuilder()
                     .setCustomId('rss_buy_payment_select')
                     .setPlaceholder('Select your preferred payment method...')
                     .addOptions(
-                        { label: 'PayPal', value: 'paypal', emoji: { name: '💳' }, description: 'Pay securely via PayPal' },
-                        { label: 'Cash App', value: 'cashapp', emoji: { name: '💵' }, description: 'Pay via Cash App transfer' },
-                        { label: 'Venmo', value: 'venmo', emoji: { name: '📱' }, description: 'Pay via Venmo mobile app' },
-                        { label: 'Zelle', value: 'zelle', emoji: { name: '🏦' }, description: 'Instant bank transfer via Zelle' },
-                        { label: 'Revolut', value: 'revolut', emoji: { name: '🪙' }, description: 'International transfer via Revolut' },
-                        { label: 'Crypto (BTC/USDT)', value: 'crypto', emoji: { name: '💰' }, description: 'Pay using Bitcoin or USDT stablecoin' },
-                        { label: 'Bank Transfer', value: 'bank', emoji: { name: '🏛️' }, description: 'Direct wire or local bank transfer' },
-                        { label: 'Apple Pay / Google Pay', value: 'applepay', emoji: { name: '🍎' }, description: 'Pay using Apple Pay or Google Pay mobile wallet' }
+                        new StringSelectMenuOptionBuilder().setLabel('PayPal').setValue('paypal').setEmoji({ name: '💳' }).setDescription('Pay securely via PayPal'),
+                        new StringSelectMenuOptionBuilder().setLabel('Cash App').setValue('cashapp').setEmoji({ name: '💵' }).setDescription('Pay via Cash App transfer'),
+                        new StringSelectMenuOptionBuilder().setLabel('Venmo').setValue('venmo').setEmoji({ name: '📱' }).setDescription('Pay via Venmo mobile app'),
+                        new StringSelectMenuOptionBuilder().setLabel('Zelle').setValue('zelle').setEmoji({ name: '🏦' }).setDescription('Instant bank transfer via Zelle'),
+                        new StringSelectMenuOptionBuilder().setLabel('Revolut').setValue('revolut').setEmoji({ name: '🔷' }).setDescription('International transfer via Revolut'),
+                        new StringSelectMenuOptionBuilder().setLabel('Crypto (BTC/USDT)').setValue('crypto').setEmoji({ name: '💰' }).setDescription('Pay using Bitcoin or USDT stablecoin'),
+                        new StringSelectMenuOptionBuilder().setLabel('Bank Transfer').setValue('bank').setEmoji({ name: '🏛️' }).setDescription('Direct wire or local bank transfer'),
+                        new StringSelectMenuOptionBuilder().setLabel('Apple Pay / Google Pay').setValue('applepay').setEmoji({ name: '🍎' }).setDescription('Pay using Apple Pay or Google Pay mobile wallet')
                     );
 
-                const row = new (require('discord.js').ActionRowBuilder)().addComponents(selectMenu);
+                const row = new ActionRowBuilder().addComponents(selectMenu);
 
-                return interaction.reply({
+                return safeReply({
                     content: '✨ **Welcome to RSS Buying!** Please select your preferred payment method from the options below:',
                     components: [row],
                     ephemeral: true

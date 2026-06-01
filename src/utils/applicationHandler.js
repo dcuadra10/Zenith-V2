@@ -43,12 +43,18 @@ async function handleTicketSelection(interaction, opt, guildConfigs, moduleConfi
 
             const numQuestions = Math.min(opt.questions.length, 5);
             for (let i = 0; i < numQuestions; i++) {
+                const rawQuestion = opt.questions[i];
+                const questionText = typeof rawQuestion === 'string'
+                    ? rawQuestion
+                    : (rawQuestion?.text || rawQuestion?.label || `Question ${i + 1}`);
+                const required = rawQuestion?.required !== false;
+
                 modal.addComponents(new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId(`q_${i}`)
-                        .setLabel(opt.questions[i].substring(0, 45))
+                        .setLabel(questionText.substring(0, 45))
                         .setStyle(TextInputStyle.Paragraph)
-                        .setRequired(true)
+                        .setRequired(required)
                 ));
             }
             return await interaction.showModal(modal);

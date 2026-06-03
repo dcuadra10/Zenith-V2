@@ -325,7 +325,7 @@ async function generateLeaderboardImage(title, entries, backgroundPath) {
             ctx.fillStyle = medalColors[i];
             ctx.shadowBlur = 8;
             ctx.shadowColor = medalColors[i];
-            ctx.fillText(medalLabels[i], 80, y + 22);
+            ctx.fillText(`#${i + 1}`, 80, y + 22);
             ctx.shadowBlur = 0;
         } else {
             ctx.fillStyle = '#9ca3af';

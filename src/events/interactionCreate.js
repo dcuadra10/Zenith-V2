@@ -697,22 +697,39 @@ module.exports = {
                 }
                 setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
             } else if (interaction.customId.startsWith('admin_app_approve_')) {
+                // Defer and update button immediately to prevent Gateway timeout (Unknown Interaction)
+                await interaction.deferUpdate();
+
                 const uuid = interaction.customId.split('_').pop();
                 const db = await getDb();
                 const pending = await db.get(`SELECT * FROM pending_tickets WHERE uuid = ?`, [uuid]);
-                if (!pending) return interaction.reply({ content: '❌ Application data not found or already processed.', ephemeral: true });
-
-                // Defer and update button immediately to prevent Gateway timeout (Unknown Interaction)
-                await interaction.deferUpdate();
+                if (!pending) {
+                    return interaction.followUp({ content: '❌ Application data not found or already processed.', ephemeral: true }).catch(() => {});
+                }
 
                 const opt = JSON.parse(pending.optJson);
                 const answers = JSON.parse(pending.answersJson);
                 const guildConfigs = await db.get(`SELECT * FROM guild_configs WHERE guildId = ?`, [interaction.guildId]);
                 const moduleConfigs = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
 
-                await createTicketChannel(interaction, opt, answers, guildConfigs, moduleConfigs, pending.userId);
+                const ticketChannel = await createTicketChannel(interaction, opt, answers, guildConfigs, moduleConfigs, pending.userId);
                 await db.run(`DELETE FROM pending_tickets WHERE uuid = ?`, [uuid]);
                 await interaction.editReply({ content: `✅ Application approved by <@${interaction.user.id}>. Ticket created.`, embeds: interaction.message.embeds, components: [] });
+
+                // DM the user that their ticket has been opened
+                try {
+                    const applicantUser = await interaction.client.users.fetch(pending.userId);
+                    if (applicantUser) {
+                        const embed = new EmbedBuilder()
+                            .setTitle('✅ Application Approved')
+                            .setDescription(`Congratulations! Your application for **${opt.label || 'Application'}** has been approved.\n\nA ticket channel has been opened for you here: ${ticketChannel}`)
+                            .setColor('#22c55e')
+                            .setTimestamp();
+                        await applicantUser.send({ embeds: [embed] });
+                    }
+                } catch (dmErr) {
+                    console.error(`Failed to DM approval notification to user ${pending.userId}:`, dmErr.message);
+                }
 
             } else if (interaction.customId.startsWith('admin_app_decline_')) {
                 const uuid = interaction.customId.split('_').pop();
@@ -1558,7 +1575,14 @@ module.exports = {
 
                 const user = await client.users.fetch(pending.userId).catch(() => null);
                 if (user) {
-                    await user.send(`❌ Your application for **${JSON.parse(pending.optJson).label}** was declined.\n**Reason:** ${reason}`).catch(() => {});
+                    const opt = JSON.parse(pending.optJson);
+                    const embed = new EmbedBuilder()
+                        .setTitle('❌ Application Declined')
+                        .setDescription(`Your application for **${opt.label || 'Application'}** was declined.`)
+                        .addFields({ name: 'Reason', value: reason })
+                        .setColor('#ef4444')
+                        .setTimestamp();
+                    await user.send({ embeds: [embed] }).catch(() => {});
                 }
 
                 await db.run(`DELETE FROM pending_tickets WHERE uuid = ?`, [uuid]);

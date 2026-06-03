@@ -138,6 +138,18 @@ module.exports = {
                 const newWinner = validUsers[Math.floor(Math.random() * validUsers.length)];
                 await channel.send(`🎉 **GIVEAWAY REROLL!** Congratulations <@${newWinner.id}>, you are the new winner of **${ga.prize}**!`);
                 
+                // Enviar DM al ganador
+                try {
+                    const winEmbed = new EmbedBuilder()
+                        .setTitle('🎉 You won a giveaway!')
+                        .setDescription(`Congratulations! You are the new winner of **${ga.prize}** in **${interaction.guild.name}**!\n\n**Click here to view the giveaway**`)
+                        .setColor('#a855f7')
+                        .setTimestamp();
+                    await newWinner.send({ embeds: [winEmbed] });
+                } catch (err) {
+                    console.log(`[Giveaways] Could not DM the reroll winner ${newWinner.tag} (DMs might be closed).`);
+                }
+                
                 if (conf?.giveawaysLogChannel) {
                     const logChan = interaction.guild.channels.cache.get(conf.giveawaysLogChannel);
                     if (logChan) {

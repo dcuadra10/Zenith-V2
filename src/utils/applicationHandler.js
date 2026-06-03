@@ -146,14 +146,6 @@ async function handleApplicationMessage(message, client) {
         }
         const qType = currentQ.type || 'text';
 
-        // 1. Process attachments first for image questions
-        if (qType === 'image' && message.attachments.size > 0 && appState.status !== 'review') {
-            message.attachments.forEach(attachment => {
-                appState.currentBuffer += attachment.url + '\n';
-            });
-            await message.react('✅').catch(() => {});
-        }
-
         // 2. Handle Navigation Commands
         if (content === 'back' || content === 'repeatq') {
             if (appState.currentQuestion > 0) {
@@ -202,6 +194,7 @@ async function handleApplicationMessage(message, client) {
             message.attachments.forEach(att => {
                 appState.currentBuffer += `[Image/File]: ${att.url}\n`;
             });
+            await message.react('✅').catch(() => {});
         }
 
         if (qType === 'image') {
@@ -275,23 +268,16 @@ async function showReviewScreen(messageOrInteraction, appState) {
     
     let summary = '';
     let imageUrl = null;
+    let allImageUrls = [];
     appState.answers.forEach((ans, i) => {
         let displayAns = ans.answer;
-        
-        // Extract the first image/attachment URL to display as a real embed image
-        if (!imageUrl) {
-            const match = displayAns.match(/https?:\/\/[^\s>]+/i);
-            if (match) imageUrl = match[0].trim();
-        }
 
         if (displayAns.includes('http://') || displayAns.includes('https://')) {
-            // Strip out the raw URL, preserving any human caption text
-            displayAns = displayAns.replace(/\[Image\/File\]:\s*https?:\/\/[^\s>]+/gi, '').trim();
-            if (displayAns) {
-                displayAns = `${displayAns}\n🖼️ **[Attachment / Image]**`;
-            } else {
-                displayAns = `🖼️ **[Attachment / Image]**`;
-            }
+            let counter = 1;
+            displayAns = displayAns.replace(/\[Image\/File\]:\s*(https?:\/\/[^\s>]+)/gi, (match, url) => {
+                allImageUrls.push(url);
+                return `\n🔗 [Attachment ${counter++}](<${url}>)`;
+            }).trim();
         } else if (displayAns.length > 100) {
             displayAns = displayAns.substring(0, 97) + '...';
         }
@@ -333,6 +319,13 @@ async function showReviewScreen(messageOrInteraction, appState) {
     );
 
     return await user.send({ embeds: [embed], components: [rowMenu, rowButtons] });
+    let contentStr = '';
+    if (allImageUrls.length > 1) {
+        const extraImages = allImageUrls.slice(1);
+        contentStr = `**Additional Images:**\n${extraImages.join('\n')}`;
+    }
+
+    return await user.send({ content: contentStr || null, embeds: [embed], components: [rowMenu, rowButtons] });
 }
 
 async function submitApplication(interaction, appState) {
@@ -369,24 +362,17 @@ async function submitApplication(interaction, appState) {
 
                 let fullAnswersText = '';
                 let imageUrl = null;
+                let allImageUrls = [];
                 appState.answers.forEach((ans, i) => {
                     const questionLabel = formatQuestionLabel(i, ans.question);
                     let displayAns = ans.answer;
 
-                    // Extract first image url from answers if any
-                    if (!imageUrl) {
-                        const match = displayAns.match(/https?:\/\/[^\s>]+/i);
-                        if (match) imageUrl = match[0].trim();
-                    }
-
                     if (displayAns.includes('http://') || displayAns.includes('https://')) {
-                        // Strip out the raw URL, preserving any human caption text
-                        displayAns = displayAns.replace(/\[Image\/File\]:\s*https?:\/\/[^\s>]+/gi, '').trim();
-                        if (displayAns) {
-                            displayAns = `${displayAns}\n🖼️ **[Attachment / Image]**`;
-                        } else {
-                            displayAns = `🖼️ **[Attachment / Image]**`;
-                        }
+                        let counter = 1;
+                        displayAns = displayAns.replace(/\[Image\/File\]:\s*(https?:\/\/[^\s>]+)/gi, (match, url) => {
+                            allImageUrls.push(url);
+                            return `\n🔗 [Attachment ${counter++}](<${url}>)`;
+                        }).trim();
                     }
 
                     // Prefix every line with a quote marker for consistent Discord layout
@@ -615,15 +601,6 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
 
     const useEmbed = opt.useEmbed === undefined || opt.useEmbed === null ? true : !!opt.useEmbed;
 
-    let pingText = `${user}`;
-    const pingRoleSource = opt.pingRoles || moduleConfigs?.ticketsPingRole;
-    if (pingRoleSource) {
-        const pingRolesStr = pingRoleSource.split(',').map(r => `<@&${r.trim().replace(/[^0-9]/g, '')}>`).join(' ').trim();
-        if (pingRolesStr) {
-            pingText += ` ${pingRolesStr}`;
-        }
-    }
-
     const closeRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`claim_ticket_${user.id}`).setLabel('✋ Claim').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId(`close_ticket_${user.id}`).setLabel('🔒 Close').setStyle(ButtonStyle.Danger)
@@ -637,35 +614,42 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
     fields.push({ name: '<:zenith_status:1510656159340695662> Status', value: '`OPEN`', inline: true });
     
     let imageUrl = null;
+    let allImageUrls = [];
     if (answers && answers.length > 0) {
         answers.forEach((ans, i) => {
             const questionLabel = formatQuestionLabel(i, ans.question, 'Q');
             let displayAns = ans.answer.trim();
 
-            // Extract first image url from answers if any
-            if (!imageUrl) {
-                const match = displayAns.match(/https?:\/\/[^\s>]+/i);
-                if (match) imageUrl = match[0].trim();
-            }
-
             if (displayAns.includes('http://') || displayAns.includes('https://')) {
-                // Strip out the raw URL, preserving any human caption text
-                displayAns = displayAns.replace(/\[Image\/File\]:\s*https?:\/\/[^\s>]+/gi, '').trim();
-                if (displayAns) {
-                    displayAns = `${displayAns}\n🖼️ **[Attachment / Image]**`;
-                } else {
-                    displayAns = `🖼️ **[Attachment / Image]**`;
-                }
+                let counter = 1;
+                displayAns = displayAns.replace(/\[Image\/File\]:\s*(https?:\/\/[^\s>]+)/gi, (match, url) => {
+                    allImageUrls.push(url);
+                    return `\n🔗 [Attachment ${counter++}](<${url}>)`;
+                }).trim();
             }
 
             // Trim and format the answer into a beautiful quote block
-            const formattedAnswer = displayAns.startsWith('>>>') ? displayAns : `>>> ${displayAns}`;
+            let formattedAnswer = displayAns.startsWith('>>>') ? displayAns : `>>> ${displayAns}`;
+            if (formattedAnswer.length > 1024) {
+                formattedAnswer = formattedAnswer.substring(0, 1021) + '...';
+            }
+            
+            const fieldName = `<:zenith_question:1510656214613233725> ${questionLabel}`;
             fields.push({ 
-                name: `<:zenith_question:1510656214613233725> ${questionLabel}`, 
+                name: fieldName.substring(0, 256), 
                 value: formattedAnswer, 
                 inline: false 
             });
         });
+    }
+
+    let pingText = `${user}`;
+    const pingRoleSource = opt.pingRoles || moduleConfigs?.ticketsPingRole;
+    if (pingRoleSource) {
+        const pingRolesStr = pingRoleSource.split(',').map(r => `<@&${r.trim().replace(/[^0-9]/g, '')}>`).join(' ').trim();
+        if (pingRolesStr) {
+            pingText += ` ${pingRolesStr}`;
+        }
     }
 
     let embedTitle = opt.embedTitle || 'Support Ticket Created';
@@ -694,6 +678,7 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
             await interaction.reply({ content: `✅ Ticket opened in ${ticketChannel}`, ephemeral: true }).catch(() => {});
         }
     }
+    return ticketChannel;
 }
 
 module.exports = { handleTicketSelection, handleApplicationMessage, handleApplicationStartButton, createTicketChannel };

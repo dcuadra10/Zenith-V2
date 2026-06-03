@@ -94,7 +94,11 @@ const client = new Client({
     GatewayIntentBits.GuildPresences,
     GatewayIntentBits.GuildMessageReactions
   ],
-  partials: [Partials.Channel, Partials.Message, Partials.Reaction]
+  partials: [Partials.Channel, Partials.Message, Partials.Reaction],
+  rest: {
+    timeout: 30000,
+    retries: 4
+  }
 });
 client.commands = new Collection();
 client.activeApplications = new Collection();
@@ -1204,7 +1208,7 @@ app.post('/api/modules/:guildId', authenticateToken, async (req, res) => {
             'newKingdomEnabled', 'newKingdomSourceChannel', 'newKingdomTargetChannel', 'newKingdomPingRole',
             'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
             'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
-            'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins'
+            'giveawaysEnabled', 'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins'
         ];
         
         const allFields = ['guildId', ...fields];

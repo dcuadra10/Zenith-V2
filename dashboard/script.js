@@ -247,6 +247,15 @@ window.addEventListener('DOMContentLoaded', () => {
     // Color pickers sync
     setupColorSync('panelColor', 'panelColorHex');
     setupColorSync('welcomeColor', 'welcomeColorHex');
+    
+    // Bind visual toggle sync for all module main switches
+    const togglesToWatch = ['toggleWelcome', 'toggleLeveling', 'toggleTickets', 'toggleAutomod', 'toggleLogging', 'toggleAutorole', 'toggleSwearJar', 'toggleCounting', 'toggleServerStats', 'toggleAntinuke', 'toggleEconomy', 'toggleRss', 'toggleGiveaways', 'toggleMarket'];
+    togglesToWatch.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', applyToggleVisuals);
+        }
+    });
 });
 
 function setupColorSync(inputId, hexId) {
@@ -789,7 +798,7 @@ function loadModuleToggles(mods) {
     setCheck('automodMentions', mods.automodMentions);
     setCheck('automodCaps', mods.automodCaps);
     setCheck('automodWords', mods.automodWords);
-    setVal('automodWordList', mods.automodWordList || 'fuck,shit,bitch,asshole,dick,cunt,pussy,motherfucker,puta,mierda,pendejo,cabron');
+    setVal('automodWordList', (mods.automodWordList !== undefined && mods.automodWordList !== null) ? mods.automodWordList : 'fuck,shit,bitch,asshole,dick,cunt,pussy,motherfucker,puta,mierda,pendejo,cabron');
     setVal('automodMaxMentions', mods.automodMaxMentions ?? 5);
     setVal('automodLogChannel', mods.automodLogChannel);
     // Logging
@@ -809,7 +818,7 @@ function loadModuleToggles(mods) {
     // Swear Jar
     setCheck('toggleSwearJar', mods.swearJarEnabled);
     setVal('swearJarChannel', mods.swearJarChannel);
-    setVal('swearJarWords', mods.swearJarWords || 'fuck,shit,bitch,asshole,dick,cunt,pussy,motherfucker,puta,mierda,pendejo,cabron');
+    setVal('swearJarWords', (mods.swearJarWords !== undefined && mods.swearJarWords !== null) ? mods.swearJarWords : 'fuck,shit,bitch,asshole,dick,cunt,pussy,motherfucker,puta,mierda,pendejo,cabron');
     setCheck('swearJarPing', mods.swearJarPing === undefined || mods.swearJarPing === null ? true : !!mods.swearJarPing);
     // Counting
     setCheck('toggleCounting', mods.countingEnabled);
@@ -851,7 +860,7 @@ function loadModuleToggles(mods) {
     setVal('ecoCoinsPerBoost', mods.ecoCoinsPerBoost ?? 100);
     setVal('ecoCoinsPerGiveaway', mods.ecoCoinsPerGiveaway ?? 200);
     setVal('ecoCoinsPerVCMinute', mods.ecoCoinsPerVCMinute ?? 1);
-    setVal('ecoWelcomeKeywords', mods.ecoWelcomeKeywords || 'welcome,bienvenido,bienvenida');
+    setVal('ecoWelcomeKeywords', (mods.ecoWelcomeKeywords !== undefined && mods.ecoWelcomeKeywords !== null) ? mods.ecoWelcomeKeywords : 'welcome,bienvenido,bienvenida');
     setVal('ecoWelcomeNotifyChannel', mods.ecoWelcomeNotifyChannel);
     
     // RSS
@@ -865,6 +874,10 @@ function loadModuleToggles(mods) {
     setVal('giveawaysLogChannel', mods.giveawaysLogChannel);
     setCheck('giveawaysEcoReward', mods.giveawaysEcoReward);
     setVal('giveawaysEcoCoins', mods.giveawaysEcoCoins ?? 200);
+    setCheck('toggleGiveaways', mods.giveawaysEnabled);
+    
+    // Refresh visual locking system after loading all values
+    applyToggleVisuals();
 }
 
 function setCheck(id, val) {
@@ -875,6 +888,45 @@ function setCheck(id, val) {
 function getCheck(id) {
     const el = document.getElementById(id);
     return el ? (el.checked ? 1 : 0) : 0;
+}
+
+function applyToggleVisuals() {
+    const mappings = [
+        { page: 'welcome', toggle: 'toggleWelcome' },
+        { page: 'leveling', toggle: 'toggleLeveling' },
+        { page: 'tickets', toggle: 'toggleTickets' },
+        { page: 'automod', toggle: 'toggleAutomod' },
+        { page: 'logging', toggle: 'toggleLogging' },
+        { page: 'autorole', toggle: 'toggleAutorole' },
+        { page: 'swearjar', toggle: 'toggleSwearJar' },
+        { page: 'counting', toggle: 'toggleCounting' },
+        { page: 'serverstats', toggle: 'toggleServerStats' },
+        { page: 'antinuke', toggle: 'toggleAntinuke' },
+        { page: 'economy', toggle: 'toggleEconomy' },
+        { page: 'rss', toggle: 'toggleRss' },
+        { page: 'giveaways', toggle: 'toggleGiveaways' },
+        { page: 'market', toggle: 'toggleMarket' }
+    ];
+
+    mappings.forEach(m => {
+        const toggle = document.getElementById(m.toggle);
+        const page = document.getElementById(`page-${m.page}`);
+        
+        if (toggle && page) {
+            const enabled = toggle.checked;
+            // Identify the card holding the master toggle to NOT dim it
+            const toggleCard = toggle.closest('.z-card') || toggle.parentElement;
+            
+            // Find all other configuration cards inside the page to dim and lock them
+            const elementsToDim = Array.from(page.querySelectorAll('.z-card, .dashboard-section')).filter(el => el !== toggleCard && !toggleCard.contains(el));
+            
+            elementsToDim.forEach(el => {
+                el.style.opacity = enabled ? '1' : '0.35';
+                el.style.pointerEvents = enabled ? 'auto' : 'none';
+                el.style.transition = 'all 0.3s ease';
+            });
+        }
+    });
 }
 
 function getVal(id) {
@@ -977,11 +1029,6 @@ async function saveModuleConfig(moduleName) {
         // Auto-Role
         autoroleEnabled: getCheck('toggleAutorole'),
         autoroleIds: getVal('autoroleIds'),
-        // Swear Jar
-        swearJarEnabled: getCheck('toggleSwearJar'),
-        swearJarChannel: getVal('swearJarChannel'),
-        swearJarWords: getVal('swearJarWords'),
-        swearJarPing: getCheck('swearJarPing'),
         // Counting
         countingEnabled: getCheck('toggleCounting'),
         countingChannel: getVal('countingChannel'),
@@ -2236,7 +2283,6 @@ document.addEventListener('change', (e) => {
 document.querySelectorAll('.sidebar-link').forEach(link => {
     link.addEventListener('click', () => {
         currentPage = link.dataset.page;
-        document.getElementById('saveBar').classList.remove('visible');
         
         if (currentPage === 'economy') {
             fetchShopItems();
@@ -3821,4 +3867,3 @@ async function saveAIAgentConfig() {
         showToast('❌ Server error saving configuration', true);
     }
 }
-

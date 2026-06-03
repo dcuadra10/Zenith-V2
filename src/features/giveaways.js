@@ -72,6 +72,20 @@ async function checkGiveaways(client) {
                 if (winners.length > 0) {
                     await channel.send(`🎉 Congratulations ${winners.map(w => `<@${w.id}>`).join(', ')}! You won the **${ga.prize}**!`);
                     
+                    // Enviar DM a cada uno de los ganadores iniciales
+                    for (const winner of winners) {
+                        try {
+                            const winEmbed = new EmbedBuilder()
+                                .setTitle('🎉 You won a giveaway!')
+                                .setDescription(`Congratulations! You won **${ga.prize}** in **${guild.name}**!\n\n**Click here to view the giveaway**`)
+                                .setColor('#a855f7')
+                                .setTimestamp();
+                            await winner.send({ embeds: [winEmbed] });
+                        } catch (err) {
+                            console.log(`[Giveaways] Could not DM winner ${winner.tag} (DMs might be closed).`);
+                        }
+                    }
+                    
                     // Economy reward for winners
                     if (conf && conf.giveawaysEcoReward) {
                         const { addBalance } = require('../utils/economyHandler');

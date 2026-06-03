@@ -1,5 +1,19 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = require('discord.js');
 
+function cloneEmbed(embed) {
+    if (!embed) return embed;
+    try {
+        return typeof embed.toJSON === 'function' ? embed.toJSON() : embed;
+    } catch (e) { return embed; }
+}
+
+function cloneComponents(components) {
+    if (!components || components.length === 0) return undefined;
+    try {
+        return components.map(row => typeof row.toJSON === 'function' ? row.toJSON() : row);
+    } catch (e) { return undefined; }
+}
+
 // Helper to extract thread IDs from a block of text
 function extractThreadIds(text) {
     if (!text) return [];
@@ -13,7 +27,7 @@ function extractThreadIds(text) {
     }
     
     // Pattern 2: Direct thread URLs
-    const urlRegex = /https?:\/\/discord\.com\/channels\/\d+\/(?:\d+\/)?(\d+)/g;
+    const urlRegex = /https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/\d+\/(?:\d+\/)?(\d+)/g;
     while ((match = urlRegex.exec(text)) !== null) {
         threadIds.add(match[1]);
     }
@@ -102,20 +116,25 @@ module.exports = {
         .setName('copy-embed-to-forums')
         .setDescription('Parse an embed or section threads to copy referenced threads into Forum Channels.')
         .addChannelOption(option =>
-            option.setName('channel')
-                .setDescription('The source text channel containing threads or the directory message')
-                .addChannelTypes(ChannelType.GuildText)
-                .setRequired(true)
-        )
-        .addChannelOption(option =>
             option.setName('category')
                 .setDescription('The target category where the new Forum Channels will be created')
                 .addChannelTypes(ChannelType.GuildCategory)
                 .setRequired(true)
         )
+        .addChannelOption(option =>
+            option.setName('channel')
+                .setDescription('The source text channel containing threads or the directory message')
+                .addChannelTypes(ChannelType.GuildText)
+                .setRequired(false)
+        )
+        .addStringOption(option =>
+            option.setName('source_url')
+                .setDescription('Channel ID or URL from another server (Optional)')
+                .setRequired(false)
+        )
         .addStringOption(option =>
             option.setName('message_id')
-                .setDescription('The message ID containing the embed or markdown configuration (Optional)')
+                .setDescription('The message ID or URL containing the embed configuration (Optional)')
                 .setRequired(false)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -123,10 +142,33 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply();
         
-        const sourceChannel = interaction.options.getChannel('channel');
+        let sourceChannel = interaction.options.getChannel('channel');
+        const sourceUrl = interaction.options.getString('source_url');
         const targetCategory = interaction.options.getChannel('category');
         const messageId = interaction.options.getString('message_id');
         
+        if (!sourceChannel && !sourceUrl) {
+            return await interaction.editReply('❌ You must provide either a `channel` or a `source_url`.');
+        }
+
+        if (sourceUrl) {
+            try {
+                const urlMatch = sourceUrl.match(/https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)/);
+                let channelId = sourceUrl;
+                
+                if (urlMatch) {
+                    const srcGuild = interaction.client.guilds.cache.get(urlMatch[1]);
+                    if (!srcGuild) throw new Error('El bot no está en el servidor de origen (debe estar en ambos).');
+                    channelId = urlMatch[2];
+                }
+                
+                sourceChannel = await interaction.client.channels.fetch(channelId);
+                if (!sourceChannel) throw new Error('Canal de origen no encontrado.');
+            } catch (err) {
+                return await interaction.editReply(`❌ Error al buscar el canal: ${err.message}`);
+            }
+        }
+
         const guild = interaction.guild;
         const sections = []; // Array of { id?: string, name: string, threadIds: string[] }
         const allReferencedThreadIds = new Set();
@@ -134,7 +176,18 @@ module.exports = {
         if (messageId) {
             // Method B: Parse markdown headers or embed fields from the message
             try {
-                const message = await sourceChannel.messages.fetch(messageId);
+                let message = null;
+                const urlMatch = messageId.match(/https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)/);
+                
+                if (urlMatch) {
+                    const srcGuild = interaction.client.guilds.cache.get(urlMatch[1]);
+                    if (!srcGuild) throw new Error('Bot is not in the source server.');
+                    const srcChan = await interaction.client.channels.fetch(urlMatch[2]);
+                    if (!srcChan) throw new Error('Source channel not found.');
+                    message = await srcChan.messages.fetch(urlMatch[3]);
+                } else {
+                    message = await sourceChannel.messages.fetch(messageId);
+                }
                 
                 // 1. Check message content for markdown headers (# or ##)
                 const content = message.content || '';
@@ -268,7 +321,7 @@ module.exports = {
                 // 2. Clone each referenced thread into the forum
                 for (const threadId of section.threadIds) {
                     try {
-                        const originalThread = await guild.channels.fetch(threadId).catch(() => null);
+                        const originalThread = await interaction.client.channels.fetch(threadId).catch(() => null);
                         if (!originalThread || !originalThread.isThread()) continue;
                         
                         console.log(`[CLONER] Cloning thread ${originalThread.name} into forum ${forumChannel.name}`);
@@ -278,40 +331,69 @@ module.exports = {
                         const firstMsg = sortedMsgs[0];
                         if (!firstMsg) continue;
                         
-                        const finalFirstEmbeds = firstMsg.embeds.filter(e => e.data && e.data.type === 'rich');
+                        const finalFirstEmbeds = firstMsg.embeds
+                            .filter(e => e.data && (e.data.type === 'rich' || e.data.title || e.data.description || e.data.fields || e.data.image || e.data.author))
+                            .map(cloneEmbed);
                         let firstSendContent = firstMsg.content;
                         if (!firstMsg.author.bot) {
                             firstSendContent = firstMsg.content ? `**${firstMsg.author.username}**: ${firstMsg.content}` : `**${firstMsg.author.username}** created this post.`;
+                        } else if (!firstSendContent && finalFirstEmbeds.length === 0 && firstMsg.attachments.size === 0 && firstMsg.components.length === 0) {
+                            firstSendContent = `**${firstMsg.author.username}** created this post.`;
                         }
 
                         // Create the Forum Post (Thread)
-                        const post = await forumChannel.threads.create({
-                            name: originalThread.name,
-                            message: {
-                                content: firstSendContent || null,
-                                embeds: finalFirstEmbeds.length > 0 ? finalFirstEmbeds : undefined,
-                                files: Array.from(firstMsg.attachments.values()).map(a => a.url),
-                                components: firstMsg.components && firstMsg.components.length > 0 ? firstMsg.components : undefined
-                            }
-                        });
+                        let post;
+                        try {
+                            post = await forumChannel.threads.create({
+                                name: originalThread.name,
+                                message: {
+                                    content: firstSendContent || null,
+                                    embeds: finalFirstEmbeds.length > 0 ? finalFirstEmbeds : undefined,
+                                    files: Array.from(firstMsg.attachments.values()).map(a => a.url),
+                                    components: cloneComponents(firstMsg.components)
+                                }
+                            });
+                        } catch (err) {
+                            console.error(`Failed to create forum post for ${originalThread.name}:`, err.message);
+                            post = await forumChannel.threads.create({
+                                name: originalThread.name,
+                                message: {
+                                    content: firstSendContent || null,
+                                    embeds: finalFirstEmbeds.length > 0 ? finalFirstEmbeds : undefined
+                                }
+                            }).catch(() => null);
+                        }
+                        
+                        if (!post) continue;
                         
                         // Clone the rest of the messages
                         for (const msg of sortedMsgs.slice(1)) {
-                            if (msg.author.bot && msg.webhookId) continue;
-                            if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0) continue;
+                            if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0 && msg.components.length === 0) continue;
                             
-                            const finalEmbeds = msg.embeds.filter(e => e.data && e.data.type === 'rich');
+                            const finalEmbeds = msg.embeds
+                                .filter(e => e.data && (e.data.type === 'rich' || e.data.title || e.data.description || e.data.fields || e.data.image || e.data.author))
+                                .map(cloneEmbed);
                             let sendContent = msg.content;
                             if (!msg.author.bot) {
                                 sendContent = msg.content ? `**${msg.author.username}**: ${msg.content}` : `**${msg.author.username}** sent an embed/attachment.`;
+                            } else if (!sendContent && finalEmbeds.length === 0 && msg.attachments.size === 0 && msg.components.length === 0) {
+                                continue;
                             }
 
-                            await post.send({
+                            const payload = {
                                 content: sendContent || null,
                                 embeds: finalEmbeds.length > 0 ? finalEmbeds : undefined,
                                 files: Array.from(msg.attachments.values()).map(a => a.url),
-                                components: msg.components && msg.components.length > 0 ? msg.components : undefined
-                            });
+                                components: cloneComponents(msg.components)
+                            };
+                            
+                            try {
+                                await post.send(payload);
+                            } catch (err) {
+                                payload.files = undefined;
+                                payload.components = undefined;
+                                await post.send(payload).catch(() => {});
+                            }
                         }
                     } catch (threadErr) {
                         console.error(`Error cloning thread ${threadId}:`, threadErr);

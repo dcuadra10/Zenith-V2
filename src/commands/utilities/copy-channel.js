@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = require('discord.js');
 
 // Helper to remap thread IDs and URLs in message text
-function remapContent(content, threadMap, guildId) {
+function remapContent(content, threadMap, sourceGuildId, targetGuildId) {
     if (!content) return content;
     let remapped = content;
     
@@ -12,36 +12,62 @@ function remapContent(content, threadMap, guildId) {
         
         // Remap direct URLs: https://discord.com/channels/guildId/oldId
         // and https://discord.com/channels/guildId/parentId/oldId
-        const urlRegex = new RegExp(`https?:\\/\\/discord\\.com\\/channels\\/${guildId}\\/(?:\\d+\\/)?${oldId}`, 'g');
-        remapped = remapped.replace(urlRegex, `https://discord.com/channels/${guildId}/${newId}`);
+        const urlRegex = new RegExp(`https?:\\/\\/(?:ptb\\.|canary\\.)?discord(?:app)?\\.com\\/channels\\/${sourceGuildId}\\/(?:\\d+\\/)?${oldId}`, 'g');
+        remapped = remapped.replace(urlRegex, `https://discord.com/channels/${targetGuildId}/${newId}`);
     }
     return remapped;
 }
 
 // Helper to remap content inside embeds
-function remapEmbed(embed, threadMap, guildId) {
+function remapEmbed(embed, threadMap, sourceGuildId, targetGuildId) {
     if (!embed) return embed;
-    const builder = EmbedBuilder.from(embed);
-    
-    if (embed.description) {
-        builder.setDescription(remapContent(embed.description, threadMap, guildId));
-    }
-    
-    if (embed.fields && embed.fields.length > 0) {
-        builder.setFields(
-            embed.fields.map(f => ({
+    try {
+        const data = typeof embed.toJSON === 'function' ? embed.toJSON() : embed;
+        
+        if (data.description) data.description = remapContent(data.description, threadMap, sourceGuildId, targetGuildId);
+        if (data.title) data.title = remapContent(data.title, threadMap, sourceGuildId, targetGuildId);
+        if (data.url) data.url = remapContent(data.url, threadMap, sourceGuildId, targetGuildId);
+        
+        if (data.fields && data.fields.length > 0) {
+            data.fields = data.fields.map(f => ({
+                ...f,
                 name: f.name,
-                value: remapContent(f.value, threadMap, guildId),
-                inline: f.inline
-            }))
-        );
+                value: remapContent(f.value, threadMap, sourceGuildId, targetGuildId)
+            }));
+        }
+        
+        if (data.author && data.author.url) {
+            data.author.url = remapContent(data.author.url, threadMap, sourceGuildId, targetGuildId);
+        }
+        
+        return data;
+    } catch (e) {
+        console.error('Embed remap error', e);
+        return embed;
     }
-    
-    if (embed.title) {
-        builder.setTitle(remapContent(embed.title, threadMap, guildId));
+}
+
+// Helper to remap URLs inside message components (Buttons)
+function remapComponents(components, threadMap, sourceGuildId, targetGuildId) {
+    if (!components || components.length === 0) return undefined;
+    try {
+        return components.map(row => {
+            const rowData = typeof row.toJSON === 'function' ? row.toJSON() : row;
+            if (rowData.components) {
+                rowData.components = rowData.components.map(comp => {
+                    // Type 2 = Button, Style 5 = Link Button
+                    if (comp.type === 2 && comp.style === 5 && comp.url) {
+                        comp.url = remapContent(comp.url, threadMap, sourceGuildId, targetGuildId);
+                    }
+                    return comp;
+                });
+            }
+            return rowData;
+        });
+    } catch (e) {
+        console.error('Failed to remap components', e);
+        return undefined;
     }
-    
-    return builder;
 }
 
 // Helper to fetch all messages in a channel/thread chronologically (oldest first)
@@ -126,9 +152,14 @@ module.exports = {
         .setDescription('Duplicate a text channel along with all its active/archived threads and remap thread links.')
         .addChannelOption(option =>
             option.setName('source')
-                .setDescription('The source text channel to duplicate')
+                .setDescription('The source text channel to duplicate (In this server)')
                 .addChannelTypes(ChannelType.GuildText)
-                .setRequired(true)
+                .setRequired(false)
+        )
+        .addStringOption(option =>
+            option.setName('source_url')
+                .setDescription('Channel ID or URL from another server (Optional)')
+                .setRequired(false)
         )
         .addStringOption(option =>
             option.setName('name')
@@ -146,11 +177,35 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply();
         
-        const sourceChannel = interaction.options.getChannel('source');
+        let sourceChannel = interaction.options.getChannel('source');
+        const sourceUrl = interaction.options.getString('source_url');
         const customName = interaction.options.getString('name');
         const targetCategory = interaction.options.getChannel('category');
         
+        if (!sourceChannel && !sourceUrl) {
+            return await interaction.editReply('❌ You must provide either a `source` channel or a `source_url`.');
+        }
+
+        if (sourceUrl) {
+            try {
+                const urlMatch = sourceUrl.match(/https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)/);
+                let channelId = sourceUrl;
+                
+                if (urlMatch) {
+                    const srcGuild = interaction.client.guilds.cache.get(urlMatch[1]);
+                    if (!srcGuild) throw new Error('El bot no está en el servidor de origen (debe estar en ambos).');
+                    channelId = urlMatch[2];
+                }
+                
+                sourceChannel = await interaction.client.channels.fetch(channelId);
+                if (!sourceChannel) throw new Error('Canal de origen no encontrado.');
+            } catch (err) {
+                return await interaction.editReply(`❌ Error al buscar el canal: ${err.message}`);
+            }
+        }
+
         const guild = interaction.guild;
+        const isSameGuild = sourceChannel.guildId === guild.id;
         const threadMap = new Map(); // oldThreadId -> newThreadId
         
         // 1. Fetch all threads of the source channel paginated
@@ -165,19 +220,24 @@ module.exports = {
         let targetChannel;
         try {
             console.log(`[CLONER] Creating destination text channel...`);
-            targetChannel = await guild.channels.create({
-                name: customName || `${sourceChannel.name}-copy`,
-                type: ChannelType.GuildText,
-                parent: targetCategory ? targetCategory.id : sourceChannel.parent?.id,
-                topic: sourceChannel.topic,
-                rateLimitPerUser: sourceChannel.rateLimitPerUser,
-                nsfw: sourceChannel.nsfw,
-                permissionOverwrites: sourceChannel.permissionOverwrites.cache.map(p => ({
+            let overwrites = [];
+            if (isSameGuild) {
+                overwrites = sourceChannel.permissionOverwrites.cache.map(p => ({
                     id: p.id,
                     type: p.type,
                     allow: p.allow,
                     deny: p.deny
-                })),
+                }));
+            }
+
+            targetChannel = await guild.channels.create({
+                name: customName || `${sourceChannel.name}-copy`,
+                type: ChannelType.GuildText,
+                parent: targetCategory ? targetCategory.id : (isSameGuild ? sourceChannel.parent?.id : null),
+                topic: sourceChannel.topic,
+                rateLimitPerUser: sourceChannel.rateLimitPerUser,
+                nsfw: sourceChannel.nsfw,
+                permissionOverwrites: overwrites,
                 reason: 'Channel clone'
             });
         } catch (err) {
@@ -210,23 +270,39 @@ module.exports = {
             const sortedChannelMsgs = await fetchAllMessages(sourceChannel);
             
             for (const msg of sortedChannelMsgs) {
-                if (msg.author.bot && msg.webhookId) continue;
-                if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0) continue;
+                if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0 && msg.components.length === 0) continue;
                 
-                const finalContent = remapContent(msg.content, threadMap, guild.id);
-                const finalEmbeds = msg.embeds.filter(e => e.data && e.data.type === 'rich').map(e => remapEmbed(e, threadMap, guild.id));
+                const finalContent = remapContent(msg.content, threadMap, sourceChannel.guildId, guild.id);
+                const finalEmbeds = msg.embeds
+                    .filter(e => e.data && (e.data.type === 'rich' || e.data.title || e.data.description || e.data.fields || e.data.image || e.data.author))
+                    .map(e => remapEmbed(e, threadMap, sourceChannel.guildId, guild.id));
                 
                 let sendContent = finalContent;
                 if (!msg.author.bot) {
                     sendContent = finalContent ? `**${msg.author.username}**: ${finalContent}` : `**${msg.author.username}** sent an embed/attachment.`;
+                } else if (!sendContent && finalEmbeds.length === 0 && msg.attachments.size === 0 && msg.components.length === 0) {
+                    continue;
                 }
 
-                await targetChannel.send({
-                    content: sendContent || null,
-                    embeds: finalEmbeds.length > 0 ? finalEmbeds : undefined,
-                    files: Array.from(msg.attachments.values()).map(a => a.url),
-                    components: msg.components && msg.components.length > 0 ? msg.components : undefined
-                });
+                try {
+                    const payload = {
+                        content: sendContent || null,
+                        embeds: finalEmbeds.length > 0 ? finalEmbeds : undefined,
+                        files: Array.from(msg.attachments.values()).map(a => a.url),
+                        components: remapComponents(msg.components, threadMap, sourceChannel.guildId, guild.id)
+                    };
+                    
+                    try {
+                        await targetChannel.send(payload);
+                    } catch (sendErr) {
+                        console.error(`[CLONER] Failed to send msg ${msg.id}, retrying without files/components:`, sendErr.message);
+                        payload.files = undefined;
+                        payload.components = undefined;
+                        await targetChannel.send(payload).catch(e => console.error(`[CLONER] Final retry failed for msg ${msg.id}:`, e.message));
+                    }
+                } catch (err) {
+                    console.error(`[CLONER] Unhandled error processing msg ${msg.id}:`, err);
+                }
             }
         } catch (err) {
             console.error(`Failed to clone main channel messages:`, err);
@@ -246,23 +322,35 @@ module.exports = {
                 const sortedThreadMsgs = await fetchAllMessages(thread);
                 
                 for (const msg of sortedThreadMsgs) {
-                    if (msg.author.bot && msg.webhookId) continue;
-                    if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0) continue;
+                    if (!msg.content && msg.embeds.length === 0 && msg.attachments.size === 0 && msg.components.length === 0) continue;
                     
-                    const finalContent = remapContent(msg.content, threadMap, guild.id);
-                    const finalEmbeds = msg.embeds.filter(e => e.data && e.data.type === 'rich').map(e => remapEmbed(e, threadMap, guild.id));
+                    const finalContent = remapContent(msg.content, threadMap, sourceChannel.guildId, guild.id);
+                    const finalEmbeds = msg.embeds
+                        .filter(e => e.data && (e.data.type === 'rich' || e.data.title || e.data.description || e.data.fields || e.data.image || e.data.author))
+                        .map(e => remapEmbed(e, threadMap, sourceChannel.guildId, guild.id));
                     
                     let sendContent = finalContent;
                     if (!msg.author.bot) {
                         sendContent = finalContent ? `**${msg.author.username}**: ${finalContent}` : `**${msg.author.username}** sent an embed/attachment.`;
+                    } else if (!sendContent && finalEmbeds.length === 0 && msg.attachments.size === 0 && msg.components.length === 0) {
+                        continue;
                     }
 
-                    await newThread.send({
-                        content: sendContent || null,
-                        embeds: finalEmbeds.length > 0 ? finalEmbeds : undefined,
-                        files: Array.from(msg.attachments.values()).map(a => a.url),
-                        components: msg.components && msg.components.length > 0 ? msg.components : undefined
-                    });
+                    try {
+                        const payload = {
+                            content: sendContent || null,
+                            embeds: finalEmbeds.length > 0 ? finalEmbeds : undefined,
+                            files: Array.from(msg.attachments.values()).map(a => a.url),
+                            components: remapComponents(msg.components, threadMap, sourceChannel.guildId, guild.id)
+                        };
+                        try {
+                            await newThread.send(payload);
+                        } catch (sendErr) {
+                            payload.files = undefined;
+                            payload.components = undefined;
+                            await newThread.send(payload).catch(() => {});
+                        }
+                    } catch (err) {}
                 }
             } catch (err) {
                 console.error(`Failed to clone messages inside thread ${thread.name}:`, err);

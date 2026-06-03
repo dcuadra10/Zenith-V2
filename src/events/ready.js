@@ -20,16 +20,13 @@ module.exports = {
             const devGuild = client.guilds.cache.get(devGuildId);
             
             if (devGuild) {
-                // Delete global commands to avoid duplicates
-                await client.application.commands.set([]);
-                
-                await devGuild.commands.set(client.commands.map(c => c.data));
-                console.log(`✅ Slash Commands Cargados (Guild: ${devGuildId})`);
-            } else {
-                // Fallback to global if guild not found
-                await client.application.commands.set(client.commands.map(c => c.data));
-                console.log('✅ Slash Commands Cargados (Global)');
+                // Limpiar comandos específicos del servidor de desarrollo para evitar duplicados
+                await devGuild.commands.set([]);
             }
+            
+            // Registrar comandos globalmente para todos los servidores
+            await client.application.commands.set(client.commands.map(c => c.data));
+            console.log('✅ Slash Commands Cargados (Global en todos los servidores)');
         } catch(e) {
             console.error('Error cargando comandos', e);
         }

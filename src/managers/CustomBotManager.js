@@ -42,7 +42,11 @@ class CustomBotManager {
                 GatewayIntentBits.GuildPresences,
                 GatewayIntentBits.GuildMessageReactions
             ],
-            partials: [Partials.Channel, Partials.Message, Partials.Reaction]
+            partials: [Partials.Channel, Partials.Message, Partials.Reaction],
+            rest: {
+                timeout: 30000,
+                retries: 4
+            }
         });
 
         client.commands = new Collection();

@@ -2,67 +2,83 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType,
 const { getDb } = require('../config/database');
 const { buildMessage } = require('./messageBuilder');
 
+const activeTicketCreators = new Set();
+
 async function handleTicketSelection(interaction, opt, guildConfigs, moduleConfigs, panelId, dIdx, oIdx) {
-    const systemType = opt.systemType || 'ticket';
-    const limit = moduleConfigs?.ticketsMaxActive || 2;
-    
-    // Count active tickets for user securely using channel topics
-    const botGuild = interaction.client.guilds.cache.get(interaction.guildId);
-    let openCount = 0;
-    if (botGuild) {
-        botGuild.channels.cache.forEach(c => {
-            if (c.type === ChannelType.GuildText && c.topic === interaction.user.id) {
-                openCount++;
-            }
-        });
+    if (activeTicketCreators.has(interaction.user.id)) {
+        const warningMsg = `⚠️ Your request is already being processed. Please wait a moment.`;
+        if (interaction.replied || interaction.deferred) {
+            return await interaction.followUp({ content: warningMsg, ephemeral: true }).catch(() => {});
+        } else {
+            return await interaction.reply({ content: warningMsg, ephemeral: true }).catch(() => {});
+        }
     }
-    
-    if (openCount >= limit) {
-        // Reset the select menu back to its placeholder in Discord UI if it's a select menu
-        if (interaction.isStringSelectMenu() && !interaction.replied && !interaction.deferred) {
-            await interaction.update({ components: interaction.message.components }).catch(() => {});
+
+    activeTicketCreators.add(interaction.user.id);
+    try {
+        const systemType = opt.systemType || 'ticket';
+        const limit = moduleConfigs?.ticketsMaxActive || 2;
+        
+        // Count active tickets for user securely using channel topics
+        const botGuild = interaction.client.guilds.cache.get(interaction.guildId);
+        let openCount = 0;
+        if (botGuild) {
+            botGuild.channels.cache.forEach(c => {
+                if (c.type === ChannelType.GuildText && c.topic === interaction.user.id) {
+                    openCount++;
+                }
+            });
         }
         
-        const limitMsg = `❌ You have reached the maximum open limit of ${limit} active tickets. Please close them before opening a new one.`;
-        if (interaction.replied || interaction.deferred) {
-            return await interaction.followUp({ content: limitMsg, ephemeral: true }).catch(() => {});
-        } else {
-            return await interaction.reply({ content: limitMsg, ephemeral: true }).catch(() => {});
-        }
-    }
-
-    const hasQuestions = opt.questions && opt.questions.length > 0;
-    const delivery = opt.questionDelivery || 'dm';
-
-    if (hasQuestions) {
-        if (delivery === 'modal') {
-            const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-            const modal = new ModalBuilder()
-                .setCustomId(`modal_ticket_app_${panelId}_${dIdx}_${oIdx}`)
-                .setTitle((opt.label || 'Application').substring(0, 45));
-
-            const numQuestions = Math.min(opt.questions.length, 5);
-            for (let i = 0; i < numQuestions; i++) {
-                const rawQuestion = opt.questions[i];
-                const questionText = typeof rawQuestion === 'string'
-                    ? rawQuestion
-                    : (rawQuestion?.text || rawQuestion?.label || `Question ${i + 1}`);
-                const required = rawQuestion?.required !== false;
-
-                modal.addComponents(new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId(`q_${i}`)
-                        .setLabel(questionText.substring(0, 45))
-                        .setStyle(TextInputStyle.Paragraph)
-                        .setRequired(required)
-                ));
+        if (openCount >= limit) {
+            // Reset the select menu back to its placeholder in Discord UI if it's a select menu
+            if (interaction.isStringSelectMenu() && !interaction.replied && !interaction.deferred) {
+                await interaction.update({ components: interaction.message.components }).catch(() => {});
             }
-            return await interaction.showModal(modal);
-        } else {
-            return await startApplication(interaction, opt, guildConfigs, moduleConfigs);
+            
+            const limitMsg = `❌ You have reached the maximum open limit of ${limit} active tickets. Please close them before opening a new one.`;
+            if (interaction.replied || interaction.deferred) {
+                return await interaction.followUp({ content: limitMsg, ephemeral: true }).catch(() => {});
+            } else {
+                return await interaction.reply({ content: limitMsg, ephemeral: true }).catch(() => {});
+            }
         }
-    } else {
-        await createTicketChannel(interaction, opt, {}, guildConfigs, moduleConfigs);
+
+        const hasQuestions = opt.questions && opt.questions.length > 0;
+        const delivery = opt.questionDelivery || 'dm';
+
+        if (hasQuestions) {
+            if (delivery === 'modal') {
+                const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+                const modal = new ModalBuilder()
+                    .setCustomId(`modal_ticket_app_${panelId}_${dIdx}_${oIdx}`)
+                    .setTitle((opt.label || 'Application').substring(0, 45));
+
+                const numQuestions = Math.min(opt.questions.length, 5);
+                for (let i = 0; i < numQuestions; i++) {
+                    const rawQuestion = opt.questions[i];
+                    const questionText = typeof rawQuestion === 'string'
+                        ? rawQuestion
+                        : (rawQuestion?.text || rawQuestion?.label || `Question ${i + 1}`);
+                    const required = rawQuestion?.required !== false;
+
+                    modal.addComponents(new ActionRowBuilder().addComponents(
+                        new TextInputBuilder()
+                            .setCustomId(`q_${i}`)
+                            .setLabel(questionText.substring(0, 45))
+                            .setStyle(TextInputStyle.Paragraph)
+                            .setRequired(required)
+                    ));
+                }
+                return await interaction.showModal(modal);
+            } else {
+                return await startApplication(interaction, opt, guildConfigs, moduleConfigs);
+            }
+        } else {
+            await createTicketChannel(interaction, opt, {}, guildConfigs, moduleConfigs);
+        }
+    } finally {
+        activeTicketCreators.delete(interaction.user.id);
     }
 }
 

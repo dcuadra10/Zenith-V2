@@ -84,6 +84,51 @@ async function checkAdmin(userId, guildId) {
     }
 }
 
+// Sync leveling milestone roles for a guild members
+async function syncMilestoneRoles(guildId) {
+    if (!client.isReady()) return;
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return;
+    
+    const db = await getDb();
+    const conf = await db.get(`SELECT levelingEnabled, roleRewards FROM module_configs WHERE guildId = ?`, [guildId]);
+    if (!conf || !conf.levelingEnabled) return;
+    
+    let rewards = [];
+    try {
+        const parsed = JSON.parse(conf.roleRewards || '[]');
+        rewards = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return;
+    }
+    if (rewards.length === 0) return;
+    
+    const dbUsers = await db.all(`SELECT userId, level FROM users WHERE level > 0`);
+    if (dbUsers.length === 0) return;
+    
+    try {
+        await guild.members.fetch();
+    } catch (e) {
+        console.error(`[SYNC] Failed to fetch guild members for ${guildId}:`, e);
+    }
+    
+    for (const dbUser of dbUsers) {
+        const member = guild.members.cache.get(dbUser.userId);
+        if (!member) continue;
+        
+        for (const reward of rewards) {
+            if (reward && reward.roleId && dbUser.level >= parseInt(reward.level)) {
+                const role = guild.roles.cache.get(reward.roleId.replace(/[^0-9]/g, ''));
+                if (role && !member.roles.cache.has(role.id)) {
+                    await member.roles.add(role).catch(err => {
+                        console.error(`[SYNC] Failed to add role ${role.name} to ${member.user.tag}:`, err.message);
+                    });
+                }
+            }
+        }
+    }
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -1225,6 +1270,9 @@ app.post('/api/modules/:guildId', authenticateToken, async (req, res) => {
             values
         );
         
+        // Sync role rewards in the background for users who already reached the levels
+        syncMilestoneRoles(guildId).catch(err => console.error('[SYNC ERROR]:', err));
+
         res.json({ success: true });
     } catch (e) {
         console.error('Error saving module configs:', e);
@@ -1635,6 +1683,10 @@ app.post('/api/levels/import/:guildId', authenticateToken, async (req, res) => {
                     successCount++;
                 }
             });
+
+            // Sync roles in background after successful level import
+            syncMilestoneRoles(req.params.guildId).catch(err => console.error('[SYNC ERROR]:', err));
+
             res.json({ success: true, count: successCount });
         } catch (dbErr) {
             console.error('Error importing levels database transaction:', dbErr);
@@ -1643,6 +1695,53 @@ app.post('/api/levels/import/:guildId', authenticateToken, async (req, res) => {
     } catch (e) {
         console.error('Error importing levels:', e);
         res.status(500).json({ error: 'Internal error during import' });
+    }
+});
+
+// POST Reset All Levels
+app.post('/api/levels/reset/:guildId', authenticateToken, async (req, res) => {
+    try {
+        const guildId = req.params.guildId;
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const db = await getDb();
+        
+        // Reset database levels and XP for all users to 0
+        await db.run(`UPDATE users SET level = 0, xp = 0`);
+
+        // Remove milestone roles from members in this guild
+        const config = await db.get(`SELECT roleRewards FROM module_configs WHERE guildId = ?`, [guildId]);
+        if (config && config.roleRewards) {
+            try {
+                const parsed = JSON.parse(config.roleRewards || '[]');
+                const rewards = Array.isArray(parsed) ? parsed : [];
+                
+                const guild = client.guilds.cache.get(guildId);
+                if (guild && rewards.length > 0) {
+                    await guild.members.fetch();
+                    for (const reward of rewards) {
+                        if (reward && reward.roleId) {
+                            const role = guild.roles.cache.get(reward.roleId.replace(/[^0-9]/g, ''));
+                            if (role) {
+                                for (const [memberId, member] of guild.members.cache) {
+                                    if (member.roles.cache.has(role.id)) {
+                                        await member.roles.remove(role).catch(() => {});
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (parseErr) {
+                console.error('Error removing role rewards on level reset:', parseErr);
+            }
+        }
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error resetting levels:', e);
+        res.status(500).json({ error: 'Error resetting levels' });
     }
 });
 

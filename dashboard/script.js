@@ -2822,6 +2822,46 @@ async function executeLevelImport(input) {
 }
 
 // =============================================
+// RESET LEVELS logic
+// =============================================
+async function resetAllLevels() {
+    if (!activeGuild) return;
+    if (!confirm('🚨 WARNING: Are you sure you want to RESET ALL LEVELS to 0 and remove milestone roles for all members in this server? This action is irreversible.')) {
+        return;
+    }
+    
+    const statusDiv = document.getElementById('importStatus');
+    if (statusDiv) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.color = 'var(--accent-red)';
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting levels...';
+    }
+    
+    try {
+        const res = await apiFetch(`/levels/reset/${activeGuild.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await res.json();
+        if (res.ok) {
+            if (statusDiv) {
+                statusDiv.style.color = 'var(--accent-green)';
+                statusDiv.innerHTML = `<i class="fas fa-check-circle"></i> Successfully reset all levels to 0.`;
+            }
+            showToast('✅ All levels have been reset to 0!');
+        } else {
+            throw new Error(result.error || 'Server rejected the reset');
+        }
+    } catch (err) {
+        if (statusDiv) {
+            statusDiv.style.color = 'var(--accent-red)';
+            statusDiv.innerHTML = `<i class="fas fa-times-circle"></i> Error: ${err.message}`;
+        }
+        showToast(`❌ Reset failed: ${err.message}`, true);
+    }
+}
+
+// =============================================
 
 
 // ===== CUSTOM BOT MANAGEMENT (AI AGENTS LIST) =====

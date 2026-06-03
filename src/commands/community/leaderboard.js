@@ -58,20 +58,40 @@ module.exports = {
         title = '🪙  Economy Leaderboard';
         embedTitle = '🪙 Economy Leaderboard';
         color = '#F59E0B';
-        const topUsers = await db.all(`SELECT userId, balance, bank FROM users WHERE (balance + bank) > 0 ORDER BY (balance + bank) DESC, balance DESC LIMIT 10`);
+        const topUsersRaw = await db.all(`SELECT userId, balance, bank FROM users`);
+        
+        const processedUsers = topUsersRaw.map(u => {
+            const balanceVal = BigInt(u.balance || 0);
+            const bankVal = BigInt(u.bank || 0);
+            return {
+                userId: u.userId,
+                balance: balanceVal,
+                bank: bankVal,
+                total: balanceVal + bankVal
+            };
+        })
+        .filter(u => u.total > 0n)
+        .sort((a, b) => {
+            if (b.total > a.total) return 1;
+            if (b.total < a.total) return -1;
+            if (b.balance > a.balance) return 1;
+            if (b.balance < a.balance) return -1;
+            return 0;
+        })
+        .slice(0, 10);
         
         if (useImage) {
-            for (const u of topUsers) {
+            for (const u of processedUsers) {
                 let name = `User ${u.userId.slice(-4)}`;
                 try {
                     const member = await interaction.guild.members.fetch(u.userId).catch(() => null);
                     if (member) name = member.displayName || member.user.username;
                 } catch (e) {}
-                entries.push({ name, value: `🪙 ${(u.balance + u.bank).toLocaleString()}` });
+                entries.push({ name, value: `🪙 ${u.total.toLocaleString()}` });
             }
         } else {
-            embedDesc = topUsers.length > 0
-                ? topUsers.map((u, i) => `**${i + 1}.** <@${u.userId}> - **🪙 ${(u.balance + u.bank).toLocaleString()}** (Cash: ${u.balance.toLocaleString()}, Bank: ${u.bank.toLocaleString()})`).join('\n')
+            embedDesc = processedUsers.length > 0
+                ? processedUsers.map((u, i) => `**${i + 1}.** <@${u.userId}> - **🪙 ${u.total.toLocaleString()}** (Cash: ${u.balance.toLocaleString()}, Bank: ${u.bank.toLocaleString()})`).join('\n')
                 : 'No economy data found.';
         }
     } 

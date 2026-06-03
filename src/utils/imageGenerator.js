@@ -243,13 +243,44 @@ async function generateMafiaHierarchy(mafiaName, members, extraData = {}, backgr
 async function generateLeaderboardImage(title, entries, backgroundPath) {
     const canvas = createCanvas(900, 600);
     const ctx = canvas.getContext('2d');
+    const path = require('path');
+    const fs = require('fs');
+
+    // Clean and validate background path to prevent string 'null'/'undefined' issues
+    let bgToUse = null;
+    if (backgroundPath && typeof backgroundPath === 'string' && backgroundPath.toLowerCase() !== 'null' && backgroundPath.toLowerCase() !== 'undefined' && backgroundPath.trim() !== '') {
+        if (backgroundPath.startsWith('http')) {
+            bgToUse = backgroundPath;
+        } else {
+            const resolvedPath = path.resolve(process.cwd(), backgroundPath);
+            if (fs.existsSync(resolvedPath)) {
+                bgToUse = resolvedPath;
+            }
+        }
+    }
+    if (!bgToUse) {
+        const defaultBg = path.join(process.cwd(), 'zenith_bg - Copy.png');
+        if (fs.existsSync(defaultBg)) {
+            bgToUse = defaultBg;
+        }
+    }
 
     // Load and draw background image
-    try {
-        const bg = await loadImage(backgroundPath);
-        ctx.drawImage(bg, 0, 0, 900, 600);
-    } catch (e) {
-        // Fallback gradient if image fails
+    if (bgToUse) {
+        try {
+            const bg = await loadImage(bgToUse);
+            ctx.drawImage(bg, 0, 0, 900, 600);
+        } catch (e) {
+            // Fallback gradient if image fails
+            const grad = ctx.createLinearGradient(0, 0, 0, 600);
+            grad.addColorStop(0, '#0f0c29');
+            grad.addColorStop(0.5, '#302b63');
+            grad.addColorStop(1, '#24243e');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 900, 600);
+        }
+    } else {
+        // Fallback gradient
         const grad = ctx.createLinearGradient(0, 0, 0, 600);
         grad.addColorStop(0, '#0f0c29');
         grad.addColorStop(0.5, '#302b63');
@@ -258,8 +289,8 @@ async function generateLeaderboardImage(title, entries, backgroundPath) {
         ctx.fillRect(0, 0, 900, 600);
     }
 
-    // Dark glass overlay panel
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    // Dark glass overlay panel (reduced opacity for background visibility)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.beginPath();
     ctx.roundRect(40, 30, 820, 540, 20);
     ctx.fill();
@@ -420,8 +451,8 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
     ctx.shadowBlur = 20;
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     const cardGrad = ctx.createLinearGradient(25, 20, 25, 230);
-    cardGrad.addColorStop(0, 'rgba(17, 12, 28, 0.85)');
-    cardGrad.addColorStop(1, 'rgba(8, 5, 15, 0.95)');
+    cardGrad.addColorStop(0, 'rgba(17, 12, 28, 0.45)');
+    cardGrad.addColorStop(1, 'rgba(8, 5, 15, 0.65)');
     ctx.fillStyle = cardGrad;
     ctx.beginPath();
     ctx.roundRect(25, 20, 750, 210, 16);

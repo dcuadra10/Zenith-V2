@@ -340,13 +340,7 @@ async function showReviewScreen(messageOrInteraction, appState) {
         new ButtonBuilder().setCustomId('app_cancel_all').setLabel('Abort').setStyle(ButtonStyle.Danger)
     );
 
-    let contentStr = '';
-    if (allImageUrls.length > 1) {
-        const extraImages = allImageUrls.slice(1);
-        contentStr = `**Additional Images:**\n${extraImages.join('\n')}`;
-    }
-
-    return await user.send({ content: contentStr || null, embeds: [embed], components: [rowMenu, rowButtons] });
+    return await user.send({ embeds: [embed], components: [rowMenu, rowButtons] });
 }
 
 async function submitApplication(interaction, appState) {
@@ -433,10 +427,7 @@ async function submitApplication(interaction, appState) {
                     pingContent = `🔔 <@&${config.ticketsPingRole}> **New Application Received**`;
                 }
 
-                if (allImageUrls.length > 1) {
-                    const extraImages = allImageUrls.slice(1);
-                    pingContent += `\n**Additional Images:**\n${extraImages.join('\n')}`;
-                }
+
 
                 await adminChannel.send({ content: pingContent, embeds: [adminEmbed], components: [row] }).catch(async () => {
                     await adminChannel.send({ 
@@ -701,10 +692,6 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
     });
 
     payload.content = pingText;
-    if (allImageUrls.length > 1) {
-        const extraImages = allImageUrls.slice(1);
-        payload.content += `\n**Additional Images:**\n${extraImages.join('\n')}`;
-    }
     await ticketChannel.send(payload);
 
     // Only reply to interaction if this is the user opening their own ticket, not an admin approving an application

@@ -130,8 +130,7 @@ async function processAdsSubmission(interaction, amount) {
             
             if (panelMsg) {
                 const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id]);
-                const modConf2 = await db.get(`SELECT leaderboardImageEnabled FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
-                const useImage = modConf2?.leaderboardImageEnabled ? true : false;
+                const useImage = true;
                 
                 const leaderboardEmbed = new EmbedBuilder()
                   .setTitle('🏆 Top Ad Publishers')

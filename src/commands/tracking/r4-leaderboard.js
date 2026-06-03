@@ -81,27 +81,27 @@ module.exports = {
             return { ...r, totalPct };
         }).sort((a, b) => b.totalPct - a.totalPct).slice(0, 15);
 
-        const embed = new EmbedBuilder()
-            .setTitle(`🏆 R4 Activity Leaderboard (${weekId})`)
-            .setColor('#FFD700')
-            .setDescription(`Here are the top performing R4s for the current week based on their overall quota completion.`)
-            .setThumbnail(interaction.guild.iconURL());
-
-        let rankText = '';
+        const entries = [];
         for (let i = 0; i < leaderboard.length; i++) {
             const r = leaderboard[i];
+            let name = `User ${r.userId.slice(-4)}`;
+            try {
+                const member = await interaction.guild.members.fetch(r.userId).catch(() => null);
+                if (member) name = member.displayName || member.user.username;
+            } catch (e) {}
+
             const icon = r.excused ? '🛡️' : (r.totalPct >= 100 ? '✅' : (r.totalPct >= 75 ? '⚠️' : '❌'));
-            const rankEmoji = i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : `**${i + 1}.**`));
-            rankText += `${rankEmoji} <@${r.userId}> — **${r.totalPct}%** ${icon}\n└ Ads: ${r.ads} | Msgs: ${r.messages}\n\n`;
+            entries.push({
+                name: `${name} ${icon}`,
+                value: `${r.totalPct}% (Ads: ${r.ads}/${adQuota} | Msgs: ${r.messages}/${msgQuota})`
+            });
         }
 
-        embed.addFields({ name: 'Leaderboard', value: rankText || 'No data.', inline: false });
-        embed.setFooter({ text: `Quotas: ${adQuota} Ads, ${msgQuota} Msgs` });
-
+        const { generateLeaderboardImage } = require('../../utils/imageGenerator');
         const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
-        const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });
-        embed.setImage('attachment://zenith_bg.png');
+        const buffer = await generateLeaderboardImage(`🏆  R4 Activity Leaderboard (${weekId})`, entries, imagePath);
+        const attachment = new AttachmentBuilder(buffer, { name: 'r4_leaderboard.png' });
 
-        await interaction.editReply({ embeds: [embed], files: [attachment] });
+        await interaction.editReply({ files: [attachment] });
     }
 };

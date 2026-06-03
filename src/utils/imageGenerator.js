@@ -362,4 +362,99 @@ async function generateLeaderboardImage(title, entries, backgroundPath) {
     return canvas.toBuffer('image/png');
 }
 
-module.exports = { generateFamilyTree, generateMafiaHierarchy, generateLeaderboardImage };
+async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPath = null) {
+    const canvas = createCanvas(800, 250);
+    const ctx = canvas.getContext('2d');
+    const path = require('path');
+    const fs = require('fs');
+
+    const defaultBg = path.join(process.cwd(), 'zenith_bg - Copy.png');
+    const bgToUse = backgroundPath || (fs.existsSync(defaultBg) ? defaultBg : null);
+
+    if (bgToUse) {
+        try {
+            const bg = await loadImage(bgToUse);
+            ctx.drawImage(bg, 0, 0, 800, 250);
+        } catch (e) {
+            // Fallback gradient
+            const grad = ctx.createLinearGradient(0, 0, 800, 250);
+            grad.addColorStop(0, '#0f0c29');
+            grad.addColorStop(0.5, '#302b63');
+            grad.addColorStop(1, '#24243e');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 800, 250);
+        }
+    } else {
+        const grad = ctx.createLinearGradient(0, 0, 800, 250);
+        grad.addColorStop(0, '#0f0c29');
+        grad.addColorStop(0.5, '#302b63');
+        grad.addColorStop(1, '#24243e');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 800, 250);
+    }
+
+    // Glass panel overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.beginPath();
+    ctx.roundRect(20, 20, 760, 210, 15);
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(20, 20, 760, 210, 15);
+    ctx.stroke();
+
+    // User Avatar
+    if (avatarUrl) {
+        const img = await getAvatar(avatarUrl);
+        if (img) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(100, 125, 60, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(img, 40, 65, 120, 120);
+            ctx.restore();
+
+            // Avatar border
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(100, 125, 60, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    // Level Up title text
+    const titleGrad = ctx.createLinearGradient(200, 60, 600, 60);
+    titleGrad.addColorStop(0, '#fbbf24');
+    titleGrad.addColorStop(0.5, '#fde68a');
+    titleGrad.addColorStop(1, '#f59e0b');
+    ctx.fillStyle = titleGrad;
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(251, 191, 36, 0.6)';
+    ctx.fillText('LEVEL UP!', 190, 95);
+    ctx.shadowBlur = 0;
+
+    // Congratulations text
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '500 20px sans-serif';
+    const displayName = username.length > 25 ? username.substring(0, 25) + '…' : username;
+    ctx.fillText(`Congratulations, ${displayName}!`, 190, 140);
+
+    // New Level text
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '500 18px sans-serif';
+    ctx.fillText('You just reached', 190, 175);
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText(`Level ${newLevel}`, 335, 177);
+
+    return canvas.toBuffer('image/png');
+}
+
+module.exports = { generateFamilyTree, generateMafiaHierarchy, generateLeaderboardImage, generateLevelUpImage };

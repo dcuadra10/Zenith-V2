@@ -301,27 +301,33 @@ module.exports = {
         if (sub === 'leaderboard') {
             const mafias = await db.all(`SELECT id, name, leaderId, level, vault FROM economy_mafias WHERE guildId = ? ORDER BY level DESC, vault DESC LIMIT 10`, [interaction.guild.id]);
             
-            if (mafias.length === 0) return await interaction.editReply({ content: '🏙️ No mafias founded in this city yet.' });
+            if (mafias.length === 0) return await (interaction.isRepliable() ? interaction.editReply({ content: '🏙️ No mafias founded in this city yet.' }) : null);
 
-            const embed = new EmbedBuilder()
-                .setTitle('🏆 Zenith City — Mafia Leaderboard')
-                .setDescription('The most powerful criminal organizations in the city.')
-                .setColor('#111827')
-                .setTimestamp();
-
+            const entries = [];
             for (let i = 0; i < mafias.length; i++) {
                 const m = mafias[i];
                 const memberCountRes = await db.get(`SELECT COUNT(*) as count FROM mafia_members WHERE mafiaId = ?`, [m.id]);
                 const memberCount = memberCountRes ? memberCountRes.count : 0;
                 
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🔫';
-                embed.addFields({
-                    name: `${medal} ${m.name}`,
-                    value: `👑 Don: <@${m.leaderId}>\n📊 Level: ${m.level}\n💰 Vault: ${m.vault}\n👥 Members: ${memberCount}`
+                let leaderName = `Don ${m.leaderId.slice(-4)}`;
+                try {
+                    const leaderUser = await interaction.client.users.fetch(m.leaderId).catch(() => null);
+                    if (leaderUser) leaderName = leaderUser.username;
+                } catch (e) {}
+
+                entries.push({
+                    name: m.name,
+                    value: `Lvl: ${m.level} • Vault: 💰 ${m.vault.toLocaleString()} • Members: ${memberCount} • Don: ${leaderName}`
                 });
             }
 
-            return await interaction.editReply({ embeds: [embed] });
+            const { generateLeaderboardImage } = require('../../utils/imageGenerator');
+            const path = require('path');
+            const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
+            const buffer = await generateLeaderboardImage('🏆  Zenith City — Mafia Leaderboard', entries, imagePath);
+            const attachment = new AttachmentBuilder(buffer, { name: 'mafia_leaderboard.png' });
+
+            return await (interaction.isRepliable() ? interaction.editReply({ files: [attachment] }) : null);
         }
 
         if (sub === 'apply') {

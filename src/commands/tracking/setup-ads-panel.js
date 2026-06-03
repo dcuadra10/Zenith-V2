@@ -11,8 +11,7 @@ module.exports = {
 
   async execute(interaction) {
     const db = await getDb();
-    const conf = await db.get(`SELECT leaderboardImageEnabled FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
-    const useImage = conf?.leaderboardImageEnabled ? true : false;
+    const useImage = true;
 
     const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id]);
     

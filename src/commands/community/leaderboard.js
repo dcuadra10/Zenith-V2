@@ -25,7 +25,7 @@ module.exports = {
     
     const defaultBgPath = path.join(process.cwd(), 'zenith_bg - Copy.png');
     const background = conf?.levelingBackground || null;
-    const useImage = conf?.leaderboardImageEnabled ? true : false;
+    const useImage = true;
     const bgPath = background || defaultBgPath;
 
     let title = '🏆 Zenith Leaderboard';

@@ -228,22 +228,21 @@ module.exports = {
                             
                             const upChannel = conf.levelupchannel ? message.guild.channels.cache.get(conf.levelupchannel) : message.channel;
                             if (upChannel) {
-                                let title = conf.leveluptitle || '<:zenith_levelup:1510658706763944056> Level Up!';
-                                let desc = conf.levelupmessage || `Congratulations <@${message.author.id}>, you just leveled up to **Level ${currentLevel + 1}**!`;
-                                
-                                const pTitle = title.replace('{user}', `<@${message.author.id}>`)
-                                                    .replace('{level}', currentLevel + 1)
-                                                    .replace('{server}', message.guild.name);
-                                const pDesc = desc.replace('{user}', `<@${message.author.id}>`)
-                                                .replace('{level}', currentLevel + 1)
-                                                .replace('{server}', message.guild.name);
-
-                                const payload = buildMessage(conf.levelupuseembed !== 0, {
-                                    title: pTitle,
-                                    description: pDesc,
-                                    color: conf.levelupcolor || '#FFD700'
-                                });
-                                upChannel.send(payload).catch(() => {});
+                                try {
+                                    const { generateLevelUpImage } = require('../utils/imageGenerator');
+                                    const avatarUrl = message.author.displayAvatarURL({ extension: 'png', size: 256 });
+                                    const bgPath = conf.levelingbackground || null;
+                                    const imageBuffer = await generateLevelUpImage(message.author.username, avatarUrl, currentLevel + 1, bgPath);
+                                    
+                                    const attachment = new AttachmentBuilder(imageBuffer, { name: 'levelup.png' });
+                                    await upChannel.send({
+                                        content: `🎉 <@${message.author.id}> has leveled up!`,
+                                        files: [attachment]
+                                    });
+                                } catch (err) {
+                                    console.error('Error generating levelup image:', err);
+                                    await upChannel.send(`🎉 <@${message.author.id}> has leveled up to **Level ${currentLevel + 1}**!`);
+                                }
                             }
 
                             // Check Role Rewards (if configured)

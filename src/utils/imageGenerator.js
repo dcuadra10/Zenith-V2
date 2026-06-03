@@ -368,42 +368,76 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
     const path = require('path');
     const fs = require('fs');
 
-    const defaultBg = path.join(process.cwd(), 'zenith_bg - Copy.png');
-    const bgToUse = backgroundPath || (fs.existsSync(defaultBg) ? defaultBg : null);
+    // Clean and validate background path to prevent string 'null'/'undefined' issues
+    let bgToUse = null;
+    if (backgroundPath && typeof backgroundPath === 'string' && backgroundPath.toLowerCase() !== 'null' && backgroundPath.toLowerCase() !== 'undefined' && backgroundPath.trim() !== '') {
+        if (backgroundPath.startsWith('http')) {
+            bgToUse = backgroundPath;
+        } else {
+            const resolvedPath = path.resolve(process.cwd(), backgroundPath);
+            if (fs.existsSync(resolvedPath)) {
+                bgToUse = resolvedPath;
+            }
+        }
+    }
+    if (!bgToUse) {
+        const defaultBg = path.join(process.cwd(), 'zenith_bg - Copy.png');
+        if (fs.existsSync(defaultBg)) {
+            bgToUse = defaultBg;
+        }
+    }
 
+    // Draw background image
     if (bgToUse) {
         try {
             const bg = await loadImage(bgToUse);
             ctx.drawImage(bg, 0, 0, 800, 250);
+            
+            // Darken background slightly to increase readability of card details
+            ctx.fillStyle = 'rgba(10, 10, 12, 0.35)';
+            ctx.fillRect(0, 0, 800, 250);
         } catch (e) {
-            // Fallback gradient
+            // Premium fallback gradient
             const grad = ctx.createLinearGradient(0, 0, 800, 250);
-            grad.addColorStop(0, '#0f0c29');
-            grad.addColorStop(0.5, '#302b63');
-            grad.addColorStop(1, '#24243e');
+            grad.addColorStop(0, '#0d0b18');
+            grad.addColorStop(0.5, '#1e1b30');
+            grad.addColorStop(1, '#0e0b16');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, 800, 250);
         }
     } else {
+        // Premium fallback gradient
         const grad = ctx.createLinearGradient(0, 0, 800, 250);
-        grad.addColorStop(0, '#0f0c29');
-        grad.addColorStop(0.5, '#302b63');
-        grad.addColorStop(1, '#24243e');
+        grad.addColorStop(0, '#0d0b18');
+        grad.addColorStop(0.5, '#1e1b30');
+        grad.addColorStop(1, '#0e0b16');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 800, 250);
     }
 
-    // Glass panel overlay
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    // Glass panel overlay with shadow
+    ctx.save();
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    const cardGrad = ctx.createLinearGradient(25, 20, 25, 230);
+    cardGrad.addColorStop(0, 'rgba(17, 12, 28, 0.85)');
+    cardGrad.addColorStop(1, 'rgba(8, 5, 15, 0.95)');
+    ctx.fillStyle = cardGrad;
     ctx.beginPath();
-    ctx.roundRect(20, 20, 760, 210, 15);
+    ctx.roundRect(25, 20, 750, 210, 16);
     ctx.fill();
+    ctx.restore();
 
-    // Border
-    ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
-    ctx.lineWidth = 2;
+    // Border with gold gradient
+    const borderGrad = ctx.createLinearGradient(25, 20, 775, 230);
+    borderGrad.addColorStop(0, 'rgba(251, 191, 36, 0.5)');
+    borderGrad.addColorStop(0.3, 'rgba(251, 191, 36, 0.15)');
+    borderGrad.addColorStop(0.7, 'rgba(217, 119, 6, 0.15)');
+    borderGrad.addColorStop(1, 'rgba(217, 119, 6, 0.4)');
+    ctx.strokeStyle = borderGrad;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.roundRect(20, 20, 760, 210, 15);
+    ctx.roundRect(25, 20, 750, 210, 16);
     ctx.stroke();
 
     // User Avatar
@@ -412,47 +446,90 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
         if (img) {
             ctx.save();
             ctx.beginPath();
-            ctx.arc(100, 125, 60, 0, Math.PI * 2);
+            ctx.arc(110, 125, 55, 0, Math.PI * 2);
             ctx.clip();
-            ctx.drawImage(img, 40, 65, 120, 120);
+            ctx.drawImage(img, 55, 70, 110, 110);
             ctx.restore();
 
-            // Avatar border
+            // Avatar border with glow
+            ctx.save();
             ctx.strokeStyle = '#fbbf24';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 3.5;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.8)';
             ctx.beginPath();
-            ctx.arc(100, 125, 60, 0, Math.PI * 2);
+            ctx.arc(110, 125, 55, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.restore();
         }
     }
 
-    // Level Up title text
-    const titleGrad = ctx.createLinearGradient(200, 60, 600, 60);
+    // Level Up title text with gold gradient
+    const titleGrad = ctx.createLinearGradient(200, 50, 450, 50);
     titleGrad.addColorStop(0, '#fbbf24');
     titleGrad.addColorStop(0.5, '#fde68a');
     titleGrad.addColorStop(1, '#f59e0b');
+    
+    ctx.save();
     ctx.fillStyle = titleGrad;
     ctx.textAlign = 'left';
     ctx.font = 'bold 36px sans-serif';
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = 'rgba(251, 191, 36, 0.6)';
-    ctx.fillText('LEVEL UP!', 190, 95);
-    ctx.shadowBlur = 0;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = 'rgba(251, 191, 36, 0.5)';
+    ctx.fillText('LEVEL UP!', 195, 90);
+    ctx.restore();
 
     // Congratulations text
     ctx.fillStyle = '#ffffff';
-    ctx.font = '500 20px sans-serif';
-    const displayName = username.length > 25 ? username.substring(0, 25) + '…' : username;
-    ctx.fillText(`Congratulations, ${displayName}!`, 190, 140);
+    ctx.font = 'bold 20px sans-serif';
+    const displayName = username.length > 22 ? username.substring(0, 22) + '…' : username;
+    ctx.fillText(`Congratulations, ${displayName}!`, 195, 135);
+
+    // Decorative separator line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(195, 155);
+    ctx.lineTo(520, 155);
+    ctx.stroke();
 
     // New Level text
     ctx.fillStyle = '#9ca3af';
-    ctx.font = '500 18px sans-serif';
-    ctx.fillText('You just reached', 190, 175);
+    ctx.font = '500 17px sans-serif';
+    ctx.fillText('You just reached', 195, 185);
 
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText(`Level ${newLevel}`, 335, 177);
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillText(`Level ${newLevel}`, 340, 185);
+
+    // Level Badge Shield on the Right Side
+    ctx.save();
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = 'rgba(251, 191, 36, 0.4)';
+    
+    // Outer golden ring
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(670, 125, 46, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Inner dark circle
+    ctx.fillStyle = 'rgba(20, 15, 30, 0.85)';
+    ctx.beginPath();
+    ctx.arc(670, 125, 42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    
+    // Badge details
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('NEW RANK', 670, 112);
+    
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.fillText(String(newLevel), 670, 148);
 
     return canvas.toBuffer('image/png');
 }

@@ -278,6 +278,8 @@ function saveCurrentAnswer(appState) {
     return true;
 }
 
+
+
 async function showReviewScreen(messageOrInteraction, appState) {
     const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
     const user = messageOrInteraction.user || messageOrInteraction.author;
@@ -307,6 +309,10 @@ async function showReviewScreen(messageOrInteraction, appState) {
         }
     });
 
+    if (allImageUrls.length > 0) {
+        imageUrl = allImageUrls[0];
+    }
+
     const embed = new EmbedBuilder()
         .setTitle('🔍 Review Your Application')
         .setDescription(summary || 'No answers recorded yet.')
@@ -334,7 +340,6 @@ async function showReviewScreen(messageOrInteraction, appState) {
         new ButtonBuilder().setCustomId('app_cancel_all').setLabel('Abort').setStyle(ButtonStyle.Danger)
     );
 
-    return await user.send({ embeds: [embed], components: [rowMenu, rowButtons] });
     let contentStr = '';
     if (allImageUrls.length > 1) {
         const extraImages = allImageUrls.slice(1);
@@ -399,6 +404,10 @@ async function submitApplication(interaction, appState) {
                     }
                 });
                 
+                if (allImageUrls.length > 0) {
+                    imageUrl = allImageUrls[0];
+                }
+
                 adminEmbed.setDescription(adminEmbed.data.description + '\n\n' + fullAnswersText);
                 if (imageUrl) {
                     adminEmbed.setImage(imageUrl);
@@ -422,6 +431,11 @@ async function submitApplication(interaction, appState) {
                     pingContent = `🔔 ${optionPingRoles} **New Application Received**`;
                 } else if (config.ticketsPingRole) {
                     pingContent = `🔔 <@&${config.ticketsPingRole}> **New Application Received**`;
+                }
+
+                if (allImageUrls.length > 1) {
+                    const extraImages = allImageUrls.slice(1);
+                    pingContent += `\n**Additional Images:**\n${extraImages.join('\n')}`;
                 }
 
                 await adminChannel.send({ content: pingContent, embeds: [adminEmbed], components: [row] }).catch(async () => {
@@ -657,6 +671,9 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
                 inline: false 
             });
         });
+        if (allImageUrls.length > 0) {
+            imageUrl = allImageUrls[0];
+        }
     }
 
     let pingText = `${user}`;
@@ -684,6 +701,10 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
     });
 
     payload.content = pingText;
+    if (allImageUrls.length > 1) {
+        const extraImages = allImageUrls.slice(1);
+        payload.content += `\n**Additional Images:**\n${extraImages.join('\n')}`;
+    }
     await ticketChannel.send(payload);
 
     // Only reply to interaction if this is the user opening their own ticket, not an admin approving an application

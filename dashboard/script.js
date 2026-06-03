@@ -201,7 +201,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (params.get('token') === 'success') {
         const token = params.get('access_token');
         if (token) localStorage.setItem('discord_token', token);
-        window.history.replaceState({}, document.title, '/');
+        window.history.replaceState({}, document.title, '/dashboard.html');
         showScreen('guildScreen');
         fetchGuilds();
     } else if (localStorage.getItem('discord_token') || getCookie('discord_token')) {

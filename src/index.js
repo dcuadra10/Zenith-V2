@@ -226,7 +226,7 @@ app.get('/api/auth/callback', async (req, res) => {
             path: '/',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
-        res.redirect(`/?token=success&access_token=${accessToken}`);
+        res.redirect(`/dashboard.html?token=success&access_token=${accessToken}`);
     } catch (error) {
         console.error('Error en callback Oauth2:', error.response?.data || error.message);
         res.status(500).send('Error durante OAuth2');

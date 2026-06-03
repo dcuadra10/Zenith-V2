@@ -2,15 +2,444 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Zenith Command Center</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith — Premium Discord Command Center</title>
     <link rel="stylesheet" href="style.css?v=2">
     <!-- FontAwesome for standard icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.4.3/css/tom-select.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.4.3/js/tom-select.complete.js"></script>
+    <style>
+        /* Landing Page Custom Styling */
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Hero Glow Grid */
+        .hero-glow-grid {
+            position: absolute;
+            top: -20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100vw;
+            height: 80vh;
+            background: 
+                radial-gradient(circle at 30% 20%, rgba(212, 160, 23, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 70% 30%, rgba(155, 89, 182, 0.08) 0%, transparent 45%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .landing-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Navbar */
+        .landing-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 90px;
+            border-bottom: 1px solid var(--border-soft);
+            margin-bottom: 40px;
+        }
+
+        .brand-logo {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--gold-500);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            text-shadow: var(--glow-primary);
+            transition: var(--transition);
+        }
+
+        .brand-logo:hover {
+            opacity: 0.9;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .nav-link:hover {
+            color: var(--gold-400);
+        }
+
+        .nav-cta-btn {
+            background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-700) 100%);
+            color: #000;
+            border: none;
+            padding: 10px 24px;
+            border-radius: var(--radius-pill);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-decoration: none;
+            box-shadow: var(--glow-primary);
+            transition: var(--transition);
+        }
+
+        .nav-cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 22px rgba(255, 215, 0, 0.5);
+        }
+
+        /* Hero Section */
+        .hero {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 60px 0;
+            gap: 40px;
+        }
+
+        .hero-content {
+            flex: 1.2;
+            max-width: 620px;
+        }
+
+        .hero-badge {
+            background: var(--primary-soft);
+            border: 1px solid var(--border-medium);
+            color: var(--gold-300);
+            padding: 6px 16px;
+            border-radius: var(--radius-pill);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .hero-title {
+            font-size: 3.5rem;
+            line-height: 1.15;
+            margin-bottom: 24px;
+            background: linear-gradient(to right, #ffffff 30%, var(--gold-200) 70%, var(--gold-500) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 20px rgba(0,0,0,0.8);
+            font-weight: 800;
+        }
+
+        .hero-subtitle {
+            font-size: 1.15rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-700) 100%);
+            color: #000;
+            border: none;
+            padding: 16px 36px;
+            border-radius: var(--radius-md);
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: var(--shadow-md), var(--glow-primary);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg), 0 0 25px rgba(255, 215, 0, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-medium);
+            color: var(--text-primary);
+            padding: 15px 36px;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 215, 0, 0.05);
+            border-color: var(--gold-500);
+            transform: translateY(-3px);
+        }
+
+        .hero-preview {
+            flex: 0.9;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Glass Preview Card Mockup */
+        .preview-card {
+            background: rgba(22, 25, 28, 0.7);
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: var(--shadow-xl), 0 0 40px rgba(255, 215, 0, 0.05);
+            backdrop-filter: blur(16px);
+            position: relative;
+            transform: perspective(1000px) rotateY(-10deg) rotateX(10deg);
+            transition: var(--transition);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .preview-card:hover {
+            transform: perspective(1000px) rotateY(0deg) rotateX(0deg) scale(1.02);
+            box-shadow: var(--shadow-xl), 0 0 50px rgba(255, 215, 0, 0.12);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: perspective(1000px) rotateY(-10deg) rotateX(10deg) translateY(0); }
+            50% { transform: perspective(1000px) rotateY(-10deg) rotateX(10deg) translateY(-15px); }
+        }
+
+        .preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-soft);
+            padding-bottom: 12px;
+        }
+
+        .preview-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .preview-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+        }
+        .preview-dot.red { background: #ff5f56; }
+        .preview-dot.yellow { background: #ffbd2e; }
+        .preview-dot.green { background: #27c93f; }
+
+        .preview-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 2px;
+        }
+
+        .mock-console-line {
+            font-family: monospace;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 8px;
+        }
+        .mock-console-label { color: var(--gold-400); }
+        .mock-console-val { color: #fff; }
+
+        /* Features Section */
+        .features-section {
+            padding: 100px 0;
+            border-top: 1px solid var(--border-soft);
+        }
+
+        .section-header {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 60px auto;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .section-desc {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background: rgba(22, 25, 28, 0.4);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-md);
+            padding: 32px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            backdrop-filter: blur(8px);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at top left, rgba(255, 215, 0, 0.04) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--border-medium);
+            background: rgba(22, 25, 28, 0.6);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .feature-icon-container {
+            width: 54px;
+            height: 54px;
+            border-radius: 12px;
+            background: var(--primary-soft);
+            border: 1px solid var(--border-medium);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: var(--gold-500);
+            box-shadow: var(--glow-primary);
+        }
+
+        .feature-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 0;
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .feature-badge {
+            align-self: flex-start;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gold-300);
+        }
+
+        /* Footer */
+        .landing-footer {
+            border-top: 1px solid var(--border-soft);
+            padding: 40px 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 60px;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .footer-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .footer-link:hover {
+            color: var(--gold-500);
+        }
+
+        /* Responsiveness */
+        @media (max-width: 992px) {
+            .hero {
+                flex-direction: column;
+                text-align: center;
+                padding: 40px 0;
+            }
+            .hero-content {
+                max-width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .hero-title {
+                font-size: 2.8rem;
+            }
+            .hero-actions {
+                justify-content: center;
+            }
+            .hero-preview {
+                width: 100%;
+            }
+            .preview-card {
+                transform: none;
+                animation: none;
+            }
+            .preview-card:hover {
+                transform: scale(1.01);
+            }
+            .nav-links {
+                display: none;
+            }
+        }
+    </style>
 </head>
 <body>
+    <div class="hero-glow-grid"></div>
+
     <!-- Floating Sand Motes Background -->
     <div class="motes-container">
         <div class="mote" style="left: 10%; animation-delay: 0s; animation-duration: 22s;"></div>
@@ -19,2039 +448,168 @@
         <div class="mote m2" style="left: 55%; animation-delay: 1s; animation-duration: 30s;"></div>
         <div class="mote" style="left: 70%; animation-delay: 7s; animation-duration: 23s;"></div>
         <div class="mote m2" style="left: 85%; animation-delay: 3s; animation-duration: 27s;"></div>
-        <div class="mote" style="left: 95%; animation-delay: 9s; animation-duration: 26s;"></div>
     </div>
 
-    <!-- Toast Notifications Container -->
-    <div id="toast-container"></div>
-
-    <!-- ============ LOGIN SCREEN ============ -->
-    <div id="loginScreen" class="login-screen">
-        <div class="login-card">
-            <h1><i class="fas fa-crown"></i> Project Zenith</h1>
-            <p>Sign in with your Discord account to verify your administrator permissions and access the command center.</p>
-            <button class="z-btn z-btn-discord z-btn-block" onclick="window.location.href='/api/auth/discord'"><i class="fab fa-discord"></i> Log In with Discord</button>
-        </div>
-    </div>
-
-    <!-- ============ GUILD SELECTOR ============ -->
-    <div id="guildScreen" class="guild-selector" style="display:none;">
-        <div class="guild-selector-box">
-            <h1>Select Kingdom</h1>
-            <p>Access the command console for servers where you have Administrative authority.</p>
-            <div id="guildList" class="guild-grid">
-                <p style="color:var(--text-muted); text-align:center; width:100%;">Connecting to Kingdoms...</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============ LOADING OVERLAY ============ -->
-    <div id="loadingScreen" class="login-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(9,9,11,0.95); z-index:9999; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:20px; backdrop-filter:blur(12px);">
-        <div style="font-size:3rem; color:var(--primary);"><i class="fas fa-circle-notch fa-spin"></i></div>
-        <h2 style="color:#fff; font-weight:600; font-family:'Inter',sans-serif; font-size:1.8rem; margin:0;">Connecting to Kingdom...</h2>
-        <p style="color:var(--text-secondary); font-size:0.95rem; margin:0;">Retrieving channels, configurations, and core systems.</p>
-    </div>
-
-    <!-- ============ DASHBOARD ============ -->
-    <div id="dashboardScreen" class="dashboard-layout" style="display:none;">
-
-        <!-- TOP BAR -->
-        <div class="topbar">
-            <div class="topbar-brand">
-                <h1>ZENITH <span style="font-weight:400; color:var(--text-secondary);">COMMAND</span></h1>
-            </div>
-            <nav class="topbar-nav">
-                <a href="#">Commands</a>
-                <a href="#">Features</a>
-                <a href="#">Discord</a>
-                <a href="#">Dashboard</a>
+    <div class="landing-container">
+        <!-- Navigation Header -->
+        <header class="landing-header">
+            <a href="/" class="brand-logo">
+                <i class="fas fa-crown"></i> ZENITH
+            </a>
+            <nav class="nav-links">
+                <a href="#features" class="nav-link">Features</a>
+                <a href="https://discord.com/oauth2/authorize?client_id=1492555637220180118&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" class="nav-link">Invite</a>
+                <a href="/dashboard.html" class="nav-cta-btn">Access Console</a>
             </nav>
-            <div class="topbar-right">
-                <button class="topbar-invite" onclick="window.open('https://discord.com/oauth2/authorize?client_id=1492555637220180118&permissions=8&integration_type=0&scope=bot+applications.commands', '_blank')">Invite Zenith</button>
-                <div class="topbar-user">
-                    <div class="topbar-user-avatar" id="topbarAvatar">Z</div>
-                    <span id="topbarUsername">Admin</span>
-                    <span class="status-indicator-dot online" id="latencyIndicator" title="Zenith Connection Live"></span>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <i class="fas fa-shield-alt"></i> Zenith Command v2 Live
                 </div>
-                <button class="hamburger-btn" onclick="toggleMobileSidebar()"><i class="fas fa-bars"></i></button>
-            </div>
-        </div>
-
-        <!-- MOBILE SIDEBAR OVERLAY -->
-        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
-
-        <!-- SIDEBAR -->
-        <nav class="sidebar">
-            <div class="sidebar-server" id="sidebarServerCard" onclick="goBackToGuilds()" style="cursor:pointer;">
-                <div class="sidebar-server-avatar" id="sidebarAvatar"></div>
-                <div class="sidebar-server-info">
-                    <h4 id="sidebarGuildName">Loading...</h4>
-                    <span class="connected-badge">ONLINE</span>
+                <h1 class="hero-title">The Ultimate Discord Command Center</h1>
+                <p class="hero-subtitle">
+                    Unleash top-tier gaming systems, interactive XP leveling with canvas templates, automated R4 activity tracking, and intelligent customizable AI agents on your server.
+                </p>
+                <div class="hero-actions">
+                    <a href="https://discord.com/oauth2/authorize?client_id=1492555637220180118&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" class="btn-primary">
+                        <i class="fab fa-discord"></i> Invite to Discord
+                    </a>
+                    <a href="/dashboard.html" class="btn-secondary">
+                        <i class="fas fa-sliders-h"></i> Dashboard Panel
+                    </a>
                 </div>
             </div>
 
-            <div class="sidebar-section">COMMUNITY</div>
-            <div class="sidebar-link active" data-page="overview">
-                <i class="fas fa-home link-icon"></i> Home
-            </div>
-            <div class="sidebar-link" data-page="leveling">
-                <i class="fas fa-star link-icon"></i> Leveling System
-            </div>
-            <div class="sidebar-link" data-page="counting">
-                <i class="fas fa-sort-numeric-up-alt link-icon"></i> Infinite Counting
-            </div>
-            <div class="sidebar-link" data-page="welcome">
-                <i class="fas fa-door-open link-icon"></i> Welcome Gates
-            </div>
-            <div class="sidebar-link" data-page="newkingdom">
-                <i class="fas fa-globe link-icon"></i> New Kingdom
-            </div>
-
-            <div class="sidebar-section">UTILITIES</div>
-
-            <div class="sidebar-link" data-page="tickets">
-                <i class="fas fa-ticket-alt link-icon"></i> Ticket System
-            </div>
-            <div class="sidebar-link" data-page="giveaways">
-                <i class="fas fa-gift link-icon"></i> Giveaway Manager
-            </div>
-            <div class="sidebar-link" data-page="market" style="color:var(--accent-cyan);">
-                <i class="fas fa-shopping-cart link-icon"></i> Market+ System
-            </div>
-            <div class="sidebar-link" data-page="rss" style="color:var(--accent-purple);">
-                <i class="fas fa-shopping-basket link-icon"></i> RSS Buying
-            </div>
-            <div class="sidebar-link" data-page="economy">
-                <i class="fas fa-coins link-icon"></i> Economy System
-            </div>
-            <div class="sidebar-link" data-page="logging">
-                <i class="fas fa-clipboard-list link-icon"></i> Logging
-            </div>
-            <div class="sidebar-link" data-page="serverstats">
-                <i class="fas fa-chart-line link-icon"></i> Server Stats
-            </div>
-            <div class="sidebar-link" data-page="automod">
-                <i class="fas fa-shield-alt link-icon"></i> Auto-Moderation
-            </div>
-            <div class="sidebar-link" data-page="antinuke">
-                <i class="fas fa-radiation link-icon"></i> Anti-Nuke
-            </div>
-            <div class="sidebar-link" data-page="transcripts">
-                <i class="fas fa-scroll link-icon"></i> Transcripts
-            </div>
-            <div class="sidebar-link" data-page="r4tracking">
-                <i class="fas fa-crosshairs link-icon"></i> R4 Tracking
-            </div>
-            <div class="sidebar-link" data-page="autorole">
-                <i class="fas fa-tags link-icon"></i> Auto-Role
-            </div>
-            <div class="sidebar-link" data-page="swearjar">
-                <i class="fas fa-glass-whiskey link-icon"></i> Swear Jar
-            </div>
-
-            <div class="sidebar-link" data-page="aiagents" style="color:var(--accent-purple);">
-                <i class="fas fa-brain link-icon"></i> AI Agents
-            </div>
-
-            <div class="sidebar-footer">
-                <button class="z-btn z-btn-secondary z-btn-block" onclick="goBackToGuilds()"><i class="fas fa-arrow-left"></i> Switch Kingdom</button>
-            </div>
-        </nav>
-
-        <!-- MAIN CONTENT -->
-        <div class="main-content">
-
-            <!-- ===== OVERVIEW ===== -->
-            <section id="page-overview" class="page-section active">
-                <div class="page-header" style="border-bottom: 1px solid var(--border-medium); padding-bottom: 24px;">
-                    <h1>Kingdom Overview</h1>
-                    <p>Live statistics and command center diagnostics.</p>
-                </div>
-
-                <div class="stats-row">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Citizens</div>
-                        <div class="stat-value" id="statHumans">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Automated Bots</div>
-                        <div class="stat-value" id="statBots">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Communications</div>
-                        <div class="stat-value" id="statChannels">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Server Boosts</div>
-                        <div class="stat-value" id="statBoosts">0</div>
-                    </div>
-                </div>
-
-
-            </section>
-
-
-
-            <!-- ===== WELCOME SYSTEM ===== -->
-            <section id="page-welcome" class="page-section">
-                <div class="page-header">
-                    <h1>Welcome Gates</h1>
-                    <p>Configure automated grand entrances for new members.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--primary-soft);color:var(--gold-500);"><i class="fas fa-door-open"></i></div>
-                        <div>
-                            <h3>Entrance Protocol</h3>
-                            <p>Dispatch a customized missive when a user joins.</p>
+            <div class="hero-preview">
+                <div class="preview-card">
+                    <div class="preview-header">
+                        <div class="preview-dots">
+                            <span class="preview-dot red"></span>
+                            <span class="preview-dot yellow"></span>
+                            <span class="preview-dot green"></span>
                         </div>
+                        <div class="preview-title">SYSTEM STATUS</div>
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleWelcome">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="ticket-builder-grid">
-                    <div class="z-card">
-                        <div class="input-row">
-                            <div class="z-input-group">
-                                <label>Welcome Channel</label>
-                                <select class="z-input" id="cfgWelcomeChannel"></select>
-                            </div>
-                            <div class="z-input-group">
-                                <label>Embed Title</label>
-                                <input class="z-input" type="text" id="welcomeTitle" placeholder="e.g. Welcome to {server}...">
-                            </div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <div class="mock-console-line">
+                            <span class="mock-console-label">[SYSTEM]</span>
+                            <span class="mock-console-val">Zenith Core Initialized</span>
                         </div>
-                        <div class="z-input-group">
-                            <label>Embed Message</label>
-                            <textarea class="z-input" id="welcomeMessage" placeholder="Use {user}, {server}, {memberCount} inside..."></textarea>
+                        <div class="mock-console-line">
+                            <span class="mock-console-label">[MODULE]</span>
+                            <span class="mock-console-val">R4 Activity Quota Tracker <span style="color:#2ecc71;">ONLINE</span></span>
                         </div>
-                        <div class="z-input-group">
-                            <label>Aura Color</label>
-                            <div class="color-picker-wrap">
-                                <input type="color" id="welcomeColor" value="#FFD700">
-                                <span style="color:var(--text-muted); font-size:0.9rem;" id="welcomeColorHex">#FFD700</span>
-                            </div>
+                        <div class="mock-console-line">
+                            <span class="mock-console-label">[MODULE]</span>
+                            <span class="mock-console-val">Leveling & Milestone System <span style="color:#2ecc71;">ONLINE</span></span>
                         </div>
-                        <div class="z-input-group">
-                            <label>Image URL (Optional)</label>
-                            <input class="z-input" type="text" id="welcomeImage" placeholder="https://example.com/welcome-banner.png">
+                        <div class="mock-console-line">
+                            <span class="mock-console-label">[MODULE]</span>
+                            <span class="mock-console-val">OpenAI Custom Agent Interface <span style="color:#2ecc71;">ONLINE</span></span>
                         </div>
-                        <div class="toggle-row" style="margin-top:12px;">
-                            <div class="toggle-info"><h4>Use Rich Embed</h4><p>When off, sends a plain text message with image attached.</p></div>
-                            <label class="toggle-switch"><input type="checkbox" id="welcomeUseEmbed" checked><span class="toggle-slider"></span></label>
-                        </div>
-                        <button class="z-btn z-btn-primary" onclick="saveModuleConfig('welcome')" style="margin-top:16px;"><i class="fas fa-save"></i> Deploy Settings</button>
-                    </div>
-
-                    <div class="z-card" style="position:sticky; top:24px;">
-                        <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:#949ba4; margin-bottom:16px; font-family:'Inter',sans-serif;">Welcome Preview</h4>
-                        <div id="welcomeDiscordPreview" style="border-radius:4px; overflow:hidden;">
-                            <div id="welcomePreviewEmbed" style="display:flex;">
-                                <div id="welcomePreviewColorBar" style="width:4px; border-radius:3px 0 0 3px; background:#FFD700; flex-shrink:0;"></div>
-                                <div style="background:#2b2d31; border:1px solid #1e1f22; border-left:none; border-radius:0 4px 4px 0; padding:16px; flex:1;">
-                                    <div id="welcomePreviewTitle" style="font-weight:700; font-size:1rem; color:#f2f3f5; margin-bottom:8px;">Welcome!</div>
-                                    <div id="welcomePreviewDesc" style="font-size:0.85rem; color:#dbdee1; line-height:1.5;">Welcome to the server, {user}!</div>
-                                    <img id="welcomePreviewImage" src="" style="width:100%; border-radius:4px; margin-top:12px; display:none;">
-                                </div>
-                            </div>
-                            <div id="welcomePreviewText" style="color:#dbdee1; font-size:0.9rem; display:none;">
-                                Welcome to the server, {user}!
-                                <img id="welcomePreviewImagePlain" src="" style="width:100%; border-radius:4px; margin-top:8px; display:none;">
-                            </div>
+                        <div class="mock-console-line">
+                            <span class="mock-console-label">[DATABASE]</span>
+                            <span class="mock-console-val">PostgreSQL connection successful</span>
                         </div>
                     </div>
                 </div>
-            </section>
+            </div>
+        </section>
 
-            <!-- ===== LEVELING ===== -->
-            <section id="page-leveling" class="page-section">
-                <div class="page-header">
-                    <h1>Progression System</h1>
-                    <p>Reward active citizens with XP, ranks, and specialized roles.</p>
-                </div>
+        <!-- Features Section -->
+        <section class="features-section" id="features">
+            <div class="section-header">
+                <h2 class="section-title">Built for Elite Guilds & Communities</h2>
+                <p class="section-desc">Packed with fully customizable modular features and a real-time web command center.</p>
+            </div>
 
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-yellow-soft);color:var(--gold-500);"><i class="fas fa-star"></i></div>
-                        <div>
-                            <h3>Experience Engine</h3>
-                            <p>Automate participation tracking via XP algorithms.</p>
-                        </div>
+            <div class="features-grid">
+                <!-- Leveling Card -->
+                <div class="feature-card">
+                    <div class="feature-icon-container">
+                        <i class="fas fa-star"></i>
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleLeveling">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="ticket-builder-grid">
-                    <div class="z-card">
-                        <div class="z-card-header"><h3>Gain Rates</h3></div>
-                        <div class="input-row" style="grid-template-columns: 1fr 1fr 1fr;">
-                            <div class="z-input-group">
-                                <label>XP Base (Min)</label>
-                                <input class="z-input" type="number" id="xpMin" value="5" min="1" max="100">
-                            </div>
-                            <div class="z-input-group">
-                                <label>XP Ceiling (Max)</label>
-                                <input class="z-input" type="number" id="xpMax" value="15" min="1" max="100">
-                            </div>
-                            <div class="z-input-group">
-                                <label>Delay (Seconds)</label>
-                                <input class="z-input" type="number" id="xpCooldown" value="60" min="0">
-                            </div>
-                        </div>
-
-                        <div class="z-input-group" style="margin-top:16px;">
-                            <label>Rank Card Background URL</label>
-                            <input class="z-input" type="text" id="levelingBackground" placeholder="https://example.com/rank-bg.png">
-                            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Customize your server's rank cards with a premium background image.</p>
-                        </div>
-
-                        <div class="z-card-header" style="margin-top:24px;"><h3>Notification Protocol</h3></div>
-                        <div class="z-input-group">
-                            <label>Level-Up Broadcast Channel</label>
-                            <select class="z-input" id="levelUpChannel"></select>
-                        </div>
-                        
-                        <div class="z-card-header" style="margin-top:24px;"><h3>Level-Up Announcement</h3></div>
-                        <div class="input-row">
-                            <div class="z-input-group">
-                                <label>Embed Title</label>
-                                <input class="z-input" type="text" id="levelUpTitle" placeholder="e.g. Level Up!">
-                            </div>
-                            <div class="z-input-group">
-                                <label>Embed Color</label>
-                                <input class="z-input" type="color" id="levelUpColor" value="#FFD700">
-                            </div>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Message</label>
-                            <textarea class="z-input" id="levelUpMessage" placeholder="Use {user}, {level}, {title}..."></textarea>
-                        </div>
-                        <div class="toggle-row">
-                            <div class="toggle-info"><h4>Use Rich Embed</h4><p>Toggle between card and plain text.</p></div>
-                            <label class="toggle-switch"><input type="checkbox" id="levelUpUseEmbed" checked><span class="toggle-slider"></span></label>
-                        </div>
-                        <button class="z-btn z-btn-primary" onclick="saveModuleConfig('leveling')" style="margin-top:16px;"><i class="fas fa-save"></i> Save Engine</button>
-                    </div>
-
-                    <div class="z-card" style="position:sticky; top:24px;">
-                        <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:#949ba4; margin-bottom:16px; font-family:'Inter',sans-serif;">Level-Up Preview</h4>
-                        <div id="levelDiscordPreview" style="border-radius:4px; overflow:hidden;">
-                            <div id="levelPreviewEmbed" style="display:flex;">
-                                <div id="levelPreviewColorBar" style="width:4px; border-radius:3px 0 0 3px; background:#FFD700; flex-shrink:0;"></div>
-                                <div style="background:#2b2d31; border:1px solid #1e1f22; border-left:none; border-radius:0 4px 4px 0; padding:16px; flex:1;">
-                                    <div id="levelPreviewTitle" style="font-weight:700; font-size:1rem; color:#f2f3f5; margin-bottom:8px;">GG!</div>
-                                    <div id="levelPreviewDesc" style="font-size:0.85rem; color:#dbdee1; line-height:1.5;">{user} just reached level **{level}**!</div>
-                                </div>
-                            </div>
-                            <div id="levelPreviewText" style="color:#dbdee1; font-size:0.9rem; display:none;">
-                                {user} just reached level **{level}**!
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Level Milestones -->
-                <div class="z-card">
-                    <div class="z-card-header">
-                        <h3>Rank Milestones</h3>
-                        <button class="z-btn z-btn-secondary" onclick="addLevelMilestone()"><i class="fas fa-plus"></i> Add Rank</button>
-                    </div>
-                    <div style="display:grid; grid-template-columns: 80px 1fr 40px; gap:10px; padding:8px 0; border-bottom:1px solid var(--border-medium); margin-bottom:8px;">
-                        <span style="font-size:0.75rem; text-transform:uppercase; color:var(--gold-600); font-weight:700;">Level</span>
-                        <span style="font-size:0.75rem; text-transform:uppercase; color:var(--gold-600); font-weight:700;">Role Key</span>
-                        <span></span>
-                    </div>
-                    <div id="levelMilestonesList"></div>
-                </div>
-
-                <!-- VIP Multipliers -->
-                <div class="z-card">
-                    <div class="z-card-header">
-                        <h3>Nobility Multipliers</h3>
-                        <button class="z-btn z-btn-secondary" onclick="addVipMultiplier()"><i class="fas fa-plus"></i> Add Mod</button>
-                    </div>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">Only the highest tier multiplier applies.</p>
-                    <div id="vipMultipliersList"></div>
-                </div>
-
-                <div class="z-card">
-                    <div class="z-card-header">
-                        <h3><i class="fas fa-file-import"></i> Backup & Recovery</h3>
-                    </div>
-                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
-                        Restore server leveling progress from external sources. Currently supporting <strong>Lurkr JSON backups</strong>.
+                    <h3 class="feature-name">Dynamic Leveling</h3>
+                    <p class="feature-description">
+                        Award XP for server chats, generate gorgeous canvas level up graphics using custom background images, and automatically assign milestone roles.
                     </p>
-                    <div id="importStatus" style="margin-bottom:12px; font-size:0.9rem; display:none;"></div>
-                    <input type="file" id="levelBackupInput" accept=".json" style="display:none;" onchange="executeLevelImport(this)">
-                    <button class="z-btn z-btn-secondary" onclick="document.getElementById('levelBackupInput').click()">
-                        <i class="fas fa-upload"></i> Import Lurkr Backup
-                    </button>
-                    <button class="z-btn z-btn-danger" onclick="resetAllLevels()" style="margin-left: 8px;">
-                        <i class="fas fa-trash-alt"></i> Reset All Levels
-                    </button>
-                    <p style="font-size:0.75rem; color:var(--accent-yellow); margin-top:10px; font-style:italic;">
-                        <i class="fas fa-exclamation-triangle"></i> This will overwrite current levels for matching users and reset their XP progress to 0.
+                    <span class="feature-badge">Custom Templates</span>
+                </div>
+
+                <!-- R4 Tracking Card -->
+                <div class="feature-card">
+                    <div class="feature-icon-container">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h3 class="feature-name">R4 Activity Tracking</h3>
+                    <p class="feature-description">
+                        Track officer contributions, count weekly messages sent and advertisements published, and sync raw logs straight to Google Sheets.
                     </p>
+                    <span class="feature-badge">Automated Auditing</span>
                 </div>
 
-                <button class="z-btn z-btn-primary" onclick="saveModuleConfig('leveling')"><i class="fas fa-save"></i> Save Engine</button>
-            </section>
-
-            <!-- ===== NEW KINGDOM ===== -->
-            <section id="page-newkingdom" class="page-section">
-                <div class="page-header">
-                    <h1>New Kingdom Tracking</h1>
-                    <p>Monitor and predict the arrival of new realms.</p>
+                <!-- AI Agents Card -->
+                <div class="feature-card">
+                    <div class="feature-icon-container">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h3 class="feature-name">AI Agent Integrations</h3>
+                    <p class="feature-description">
+                        Deploy intelligent customized AI personas to channels, styled with tailored traits, support rules, and fully controlled context turns.
+                    </p>
+                    <span class="feature-badge">OpenAI GPT-4o</span>
                 </div>
 
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:rgba(16, 185, 129, 0.1);color:#10b981;"><i class="fas fa-globe"></i></div>
-                        <div>
-                            <h3>Reino Tracker</h3>
-                            <p>Forward kingdom alerts and predict the next spawn.</p>
-                        </div>
+                <!-- Mafia RPG Card -->
+                <div class="feature-card">
+                    <div class="feature-icon-container">
+                        <i class="fas fa-user-secret"></i>
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleNewKingdom">
-                        <span class="toggle-slider"></span>
-                    </label>
+                    <h3 class="feature-name">Mafia Crime RPG</h3>
+                    <p class="feature-description">
+                        Create syndicates, invest in city sectors, launder dirty money, and export gorgeous Mafia Family Tree hierarchy charts.
+                    </p>
+                    <span class="feature-badge">Text RPG Game</span>
                 </div>
 
-                <div class="z-card">
-                    <div class="z-input-group">
-                        <label>Target Channel (Posting)</label>
-
-                        <select class="z-input" id="newKingdomTargetChannel"></select>
-                        <small style="color:var(--text-muted); font-size:0.75rem;">Channel where the bot will post stats.</small>
+                <!-- Swear Jar Card -->
+                <div class="feature-card">
+                    <div class="feature-icon-container">
+                        <i class="fas fa-biohazard"></i>
                     </div>
-                    <div class="z-input-group">
-                        <label>Ping Role</label>
-                        <select class="z-input" id="newKingdomPingRole"></select>
-                        <small style="color:var(--text-muted); font-size:0.75rem;">Role to notify when a new kingdom appears.</small>
-                    </div>
-                    <button class="z-btn z-btn-primary" onclick="saveModuleConfig('newkingdom')" style="margin-top:16px;"><i class="fas fa-save"></i> Save Tracker Config</button>
-                </div>
-            </section>
-
-            <!-- ===== TICKETS ===== -->
-            <section id="page-tickets" class="page-section">
-                <div class="page-header">
-                    <h1>Support Tickets</h1>
-                    <p>Construct dynamic routing panels for citizen requests.</p>
+                    <h3 class="feature-name">Swear Jar System</h3>
+                    <p class="feature-description">
+                        Detect curse words automatically, charge economic penalties, log moderation entries, and keep a clean server environment.
+                    </p>
+                    <span class="feature-badge">Auto-Moderation</span>
                 </div>
 
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--primary-soft);color:var(--gold-500);"><i class="fas fa-ticket-alt"></i></div>
-                        <div>
-                            <h3>Ticket Dispatch</h3>
-                            <p>Advanced multi-select support infrastructure.</p>
-                        </div>
+                <!-- Custom Console Card -->
+                <div class="feature-card">
+                    <div class="feature-icon-container">
+                        <i class="fas fa-sliders-h"></i>
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleTickets" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card" style="margin-bottom:24px;">
-                    <div class="z-card-header">
-                        <h3>Global Ticket Settings</h3>
-                    </div>
-                    <div class="input-grid">
-                        <div class="input-row">
-                            <div class="z-input-group">
-                                <label>Ticket Category</label>
-                                <select class="z-input" id="cfgTicketCategory"></select>
-                            </div>
-                            <div class="z-input-group">
-                                <label>Transcript Archive Channel</label>
-                                <select class="z-input" id="ticketsTranscriptChannel"></select>
-                            </div>
-                        </div>
-                        <div class="input-row">
-                            <div class="z-input-group">
-                                <label>Max Active Tickets</label>
-                                <input class="z-input" type="number" id="ticketsMaxActive" value="2" min="1" max="10">
-                            </div>
-                            <div class="z-input-group">
-                                <label>Admin Review Channel</label>
-                                <select class="z-input" id="ticketsApprovalChannel"></select>
-                            </div>
-                        </div>
-                    </div>
-                    <button class="z-btn z-btn-primary" onclick="saveModuleConfig('tickets')"><i class="fas fa-save"></i> Save Core</button>
-                </div>
-
-                <!-- Ticket Builder -->
-                <div class="ticket-builder-grid">
-                    <div>
-                        <div class="z-card">
-                            <div class="z-card-header">
-                                <h3>Panel Architect</h3>
-                                <span style="background:var(--gold-800); color:#fff; font-size:0.7rem; padding:4px 8px; border-radius:4px; font-weight:700;">NEW</span>
-                            </div>
-
-                            <!-- Mode Toggle (Full Width) -->
-                            <div class="toggle-row" style="margin:20px 0; background:rgba(255,215,0,0.05); padding:16px; border-radius:8px; border:1px solid rgba(255,215,0,0.1); display:flex; justify-content:space-between; align-items:center;">
-                                <div class="toggle-info">
-                                    <h4 style="color:var(--gold-text); margin-bottom:4px; font-size:0.95rem;">Components V2 (Container)</h4>
-                                    <p style="font-size:0.8rem; color:var(--text-muted);">Use modern modular cards (Discohook style) or classic embeds.</p>
-                                </div>
-                                <label class="toggle-switch"><input type="checkbox" id="panelUseEmbed" onchange="toggleV2Mode()"><span class="toggle-slider"></span></label>
-                            </div>
-
-                            <!-- Channel Selection (Always Visible) -->
-                            <div class="z-input-group" style="margin-bottom:24px;">
-                                <label style="font-size:0.8rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Deployment Channel</label>
-                                <select class="z-input" id="panelChannelId" style="background:rgba(0,0,0,0.2); border-color:var(--border-medium);"></select>
-                            </div>
-
-                            <!-- V2 Modular Editor (Hidden by default) -->
-                            <div id="v2EditorContainer" style="display:none; border-top:1px solid var(--border-medium); padding-top:24px; animation: fadeIn 0.3s ease;">
-                                <div class="z-card-header" style="margin-bottom:20px;">
-                                    <h3 style="font-size:1.1rem;"><i class="fas fa-cubes" style="color:var(--gold-text); margin-right:8px;"></i> Container Components</h3>
-                                    <p style="font-size:0.8rem; color:var(--text-muted);">Build your message structure piece by piece.</p>
-                                </div>
-
-                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:20px; background:rgba(0,0,0,0.1); padding:12px; border-radius:8px; border:1px solid var(--border-medium);">
-                                    <div class="z-input-group">
-                                        <label style="font-size:0.75rem;">Sidebar Color</label>
-                                        <div class="color-picker-wrap">
-                                            <input type="color" id="v2SidebarColor" value="#a855f7" oninput="updatePanelPreview();document.getElementById('v2ColorHex').textContent=this.value;">
-                                            <span style="color:var(--text-muted); font-size:0.8rem;" id="v2ColorHex">#a855f7</span>
-                                        </div>
-                                    </div>
-                                    <div class="z-input-group" style="display:flex; flex-direction:column; justify-content:center;">
-                                        <label style="font-size:0.75rem;">Privacy</label>
-                                        <label style="display:flex; gap:8px; align-items:center; cursor:pointer; font-size:0.85rem; color:var(--text-muted); margin-top:4px;">
-                                            <input type="checkbox" id="v2IsSpoiler" onchange="updatePanelPreview()"> Mark as Spoiler
-                                        </label>
-                                    </div>
-                                </div>
-                                
-                                <div id="v2ComponentsList" style="display:flex; flex-direction:column; gap:16px; margin-bottom:24px;">
-                                    <!-- Components will be rendered here -->
-                                </div>
-
-                                <div style="position:relative;">
-                                    <button class="z-btn z-btn-secondary" style="width:100%; justify-content:center; padding:12px; border:1px dashed var(--gold-800); background:rgba(255,215,0,0.03);" onclick="toggleAddMenu(event)">
-                                        <i class="fas fa-plus-circle"></i> Add New Component
-                                    </button>
-                                    <div id="addComponentMenu" class="z-dropdown-content" style="display:none; position:absolute; bottom:100%; left:0; width:100%; background:#2b2d31; border:1px solid #1e1f22; border-radius:12px; overflow:hidden; z-index:100; margin-bottom:12px; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
-                                        <div class="z-dropdown-item" style="padding:14px;" onclick="addV2Component('text')"><i class="fas fa-align-left" style="width:20px;"></i> Text Display</div>
-                                        <div class="z-dropdown-item" style="padding:14px;" onclick="addV2Component('section')"><i class="fas fa-th-large" style="width:20px;"></i> Section (Text + Thumbnail)</div>
-                                        <div class="z-dropdown-item" style="padding:14px;" onclick="addV2Component('separator')"><i class="fas fa-minus" style="width:20px;"></i> Separator</div>
-                                        <div class="z-dropdown-item" style="padding:14px;" onclick="addV2Component('mediaGallery')"><i class="fas fa-images" style="width:20px;"></i> Media Gallery</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Classic Panel Fields -->
-                            <div id="classicPanelFields" style="animation: fadeIn 0.3s ease;">
-                                <div class="input-row" style="margin-top:0;">
-                                    <div class="z-input-group">
-                                        <label>Panel Header</label>
-                                        <input class="z-input" type="text" id="panelTitle" value="Support Center" placeholder="Command Support" oninput="updatePanelPreview()">
-                                    </div>
-                                    <div class="z-input-group">
-                                        <label>Header Emoji</label>
-                                        <input class="z-input" type="text" id="panelEmoji" placeholder="e.g. 🛠️" oninput="updatePanelPreview()">
-                                    </div>
-                                </div>
-                                <div class="input-row">
-                                    <div class="z-input-group">
-                                        <label>Directives</label>
-                                        <textarea class="z-input" id="panelDescription" style="min-height:100px;" placeholder="Select your inquiry path..." oninput="updatePanelPreview()">Please select a category below to open a ticket...</textarea>
-                                    </div>
-                                    <div class="z-input-group">
-                                        <label>Directive Emoji</label>
-                                        <input class="z-input" type="text" id="panelDescEmoji" placeholder="e.g. 📑" oninput="updatePanelPreview()">
-                                    </div>
-                                </div>
-                                <div class="z-input-group">
-                                    <label>Glow Color</label>
-                                    <div class="color-picker-wrap">
-                                        <input type="color" id="panelColor" value="#FFD700" oninput="updatePanelPreview();document.getElementById('panelColorHex').textContent=this.value;">
-                                        <span style="color:var(--text-muted); font-size:0.9rem;" id="panelColorHex">#FFD700</span>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <div style="margin-top:32px; border-top:1px solid var(--border-medium); padding-top:24px;">
-                                <div class="z-input-group">
-                                    <label>Panel Image URL (Optional)</label>
-                                    <input class="z-input" type="text" id="panelImageUrl" placeholder="https://example.com/panel-banner.png" oninput="updatePanelPreview()">
-                                </div>
-                            </div>
-
-                            <div style="margin-top:32px; border-top:1px solid var(--border-medium); padding-top:24px;">
-                                <div class="z-card-header" style="margin-bottom:12px;">
-                                    <h3>Routing Modules</h3>
-                                </div>
-                                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">Create dropdowns or button arrays (Limit: 5 rows).</p>
-                                <div id="dropdownsContainer" style="margin-bottom:16px;"></div>
-                                <div style="display:flex; gap:12px; margin-top:16px;">
-                                    <button class="z-btn z-btn-secondary" style="flex:1;" onclick="addButtonRow()"><i class="fas fa-plus"></i> Button Matrix</button>
-                                    <button class="z-btn z-btn-secondary" style="flex:1;" onclick="addDropdown()"><i class="fas fa-plus"></i> Selection Menu</button>
-                                </div>
-                            </div>
-
-                            <div style="margin-top:30px; border-top:1px solid var(--border-medium); padding-top:24px;">
-                            <div style="margin-top:30px; border-top:1px solid var(--border-medium); padding-top:24px; display:flex; gap:12px;">
-                                <button class="z-btn z-btn-secondary" style="flex:1;" onclick="clearPanelForm()"><i class="fas fa-undo"></i> Reset Form</button>
-                                <button class="z-btn z-btn-primary" style="flex:2;" onclick="savePanel()"><i class="fas fa-satellite-dish"></i> Compile & Deploy Panel</button>
-                            </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Discord Preview -->
-                    <div style="position:sticky; top:100px;">
-                        <div class="z-card" style="background:#2b2d31; border-color:#1e1f22; padding:20px;">
-                            <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:#949ba4; margin-bottom:16px; font-family:'Inter',sans-serif;">Discord Simulator</h4>
-                            <div id="discordPreview" style="border-radius:4px; overflow:hidden;">
-                                <div style="display:flex;">
-                                    <div id="previewColorBar" style="width:4px; border-radius:3px 0 0 3px; background:#FFD700; flex-shrink:0;"></div>
-                                    <div id="previewContentBlock" style="background:#2b2d31; border:1px solid #1e1f22; border-left:none; border-radius:0 4px 4px 0; padding:16px; flex:1;">
-                                        <div id="previewTitle" style="font-weight:700; font-size:1rem; color:#f2f3f5; margin-bottom:8px;">Command Support</div>
-                                        <div id="previewDesc" style="font-size:0.85rem; color:#dbdee1; line-height:1.5;">Select your inquiry path...</div>
-                                        <img id="previewImage" src="" style="width:100%; border-radius:4px; margin-top:12px; display:none;">
-                                    </div>
-                                </div>
-                                <div id="previewMenus" style="margin-top:10px;">
-                                    <div style="background:#1e1f22; border:1px solid #3f4147; border-radius:4px; padding:10px 14px; font-size:0.85rem; color:#949ba4;">
-                                        Select sequence...
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Active Panels -->
-                <div class="z-card" style="margin-top:32px;">
-                    <div class="z-card-header">
-                        <h3>Deployed Architecture</h3>
-                    </div>
-                    <div id="panelsList">
-                        <div class="empty-state">
-                            <div class="empty-icon"><i class="fas fa-server"></i></div>
-                            <p>No panels deployed yet.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Transcripts -->
-                <div class="z-card" style="margin-top:32px;">
-                    <div class="z-card-header">
-                        <h3>Archival Transcripts</h3>
-                    </div>
-                    <div id="transcriptsList">
-                        <div class="empty-state">
-                            <div class="empty-icon"><i class="fas fa-archive"></i></div>
-                            <p>No records found in the archive.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ===== MARKET+ SYSTEM ===== -->
-            <section id="page-market" class="page-section">
-                <div class="page-header" style="background:var(--accent-cyan); color:black; padding:24px; border-radius:var(--radius-lg); margin-bottom:24px;">
-                    <h1 style="color:black;"><i class="fas fa-shopping-cart"></i> Market+ System</h1>
-                    <p style="color:rgba(0,0,0,0.8); font-weight:600;">Automated Middleman and Account Listing Marketplace.</p>
-                </div>
-
-                <div class="z-card">
-                    <div class="z-card-header">
-                        <h3>Configuration</h3>
-                        <label class="z-toggle">
-                            <input type="checkbox" id="toggleMarket">
-                            <span class="z-toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-                        <div class="z-input-group" style="grid-column: span 2; border-bottom: 1px solid var(--border-medium); padding-bottom: 20px; margin-bottom: 10px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                <label style="margin-bottom:0;">🛒 Market Forum Channels (Price-Based)</label>
-                                <button class="z-btn z-btn-secondary z-btn-sm" onclick="addMarketForumChannel()">+ Add Range</button>
-                            </div>
-                            <p style="color:var(--text-muted); font-size:0.75rem; margin-bottom:12px;">Define which channel to post in based on the account price. The bot will use the first matching range.</p>
-                            <div id="marketForumChannelsList" style="display:flex; flex-direction:column; gap:10px;"></div>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Admin Approval Channel</label>
-                            <select class="z-input" id="marketApprovalChannel"></select>
-                            <small style="color:var(--text-muted); font-size:0.75rem;">Where listings go for manual review.</small>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Owner/Fee Notification Channel</label>
-                            <select class="z-input" id="marketOwnerChannel"></select>
-                            <small style="color:var(--text-muted); font-size:0.75rem;">Where YOU receive 5% fee confirmation buttons.</small>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Middleman Role</label>
-                            <select class="z-input" id="marketMiddlemanRole"></select>
-                            <small style="color:var(--text-muted); font-size:0.75rem;">Role assigned to verified Middlemen.</small>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Market Fee (Seller) %</label>
-                            <input type="number" class="z-input" id="marketFeePct" placeholder="5" value="5">
-                        </div>
-                        <div class="z-input-group">
-                            <label>Middleman Fee (Buyer) %</label>
-                            <input type="number" class="z-input" id="middlemanFeePct" placeholder="5" value="5">
-                        </div>
-                        <div class="z-input-group" style="grid-column: span 2;">
-                            <label>🏦 Market Owner Payment Methods (for Market Fee)</label>
-                            <textarea class="z-input" id="marketPaymentMethods" rows="2" placeholder="PayPal: owner@paypal.com\nWise: owner@wise.com"></textarea>
-                            <small style="color:var(--text-muted); font-size:0.75rem;">These will be shown to the SELLER when they need to pay the Market Fee.</small>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top:30px; border-top:1px solid var(--border-medium); padding-top:20px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                            <h3>🤝 Middleman Payment Methods</h3>
-                            <button class="z-btn z-btn-secondary z-btn-sm" onclick="addMmPaymentMethod()">+ Add Middleman Info</button>
-                        </div>
-                        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">Define specific payment details for each individual Middleman. These will be shown to the BUYER.</p>
-                        <div id="mmPaymentList" style="display:flex; flex-direction:column; gap:10px;"></div>
-                    </div>
-                    
-                    <div style="margin-top:30px; border-top:1px solid var(--border-medium); padding-top:20px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                            <h3>📝 Custom Market Questions</h3>
-                            <div>
-                                <button class="z-btn z-btn-secondary" onclick="loadDefaultMarketQuestions()" style="margin-right: 8px;"><i class="fas fa-download"></i> Load Defaults</button>
-                                <button class="z-btn z-btn-secondary" onclick="addMarketQuestion()">+ Add Question</button>
-                            </div>
-                        </div>
-                        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">Customize what the bot asks when someone sells an account. Leave empty to use the default 18 RoK questions.</p>
-                        <div id="marketQuestionsList" style="display:flex; flex-direction:column; gap:10px;"></div>
-                    </div>
-
-                    <button class="z-btn z-btn-primary" style="margin-top:20px; width:100%;" onclick="saveMarketConfig()">💾 Save Market Config</button>
-                </div>
-            </section>
-
-            <!-- ===== AUTO-MODERATION ===== -->
-            <section id="page-automod" class="page-section">
-                <div class="page-header">
-                    <h1>Security Protocol</h1>
-                    <p>Enforce order via automated suppression logic.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-red-soft);color:var(--accent-red);"><i class="fas fa-shield-alt"></i></div>
-                        <div>
-                            <h3>Moderation Engine</h3>
-                            <p>Protect the realm autonomously.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleAutomod">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card">
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Rapid-Fire Protection</h4><p>Neutralize message floods.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="automodSpam"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Hyperlink Suppression</h4><p>Prohibit unsanctioned gateways.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="automodLinks"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Mass Echo Filter</h4><p>Restrict excessive @ summons.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="automodMentions"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Volume Limiter</h4><p>Prevent ALL-CAPS screaming.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="automodCaps"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Censorship Grid</h4><p>Filter prohibited dialect.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="automodWords"><span class="toggle-slider"></span></label>
-                    </div>
-                </div>
-
-                <div class="z-card">
-                    <div class="z-input-group">
-                        <label>Contraband Lexicon (Comma separated)</label>
-                        <textarea class="z-input" id="automodWordList" placeholder="e.g. slur1, slur2, threat"></textarea>
-                    </div>
-                    <div class="z-input-group">
-                        <label>Summon Ceiling</label>
-                        <input class="z-input" type="number" id="automodMaxMentions" value="5" min="1" max="50">
-                    </div>
-                    <div class="z-input-group">
-                        <label>Incident Log Array</label>
-                        <select class="z-input" id="automodLogChannel"></select>
-                    </div>
-                    <button class="z-btn z-btn-primary" onclick="saveModuleConfig('automod')"><i class="fas fa-save"></i> Save Security Protocol</button>
-                </div>
-            </section>
-
-            <!-- ===== LOGGING ===== -->
-            <section id="page-logging" class="page-section">
-                <div class="page-header">
-                    <h1>Surveillance Matrix</h1>
-                    <p>Monitor all kingdom modifications and incidents.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-cyan-soft);color:var(--accent-cyan);"><i class="fas fa-clipboard-list"></i></div>
-                        <div>
-                            <h3>Event Tracker</h3>
-                            <p>Maintain persistent records of structural changes.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleLogging">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card">
-                    <div class="input-row">
-                        <div class="z-input-group">
-                            <label>Audit Log Channel</label>
-                            <select class="z-input" id="cfgLogChannel"></select>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Master Log Terminal</label>
-                            <select class="z-input" id="loggingChannel"></select>
-                        </div>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Data Amendments</h4><p>Log message modifications.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="logEdits" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Data Erasures</h4><p>Log deleted transmissions.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="logDeletes" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Immigration Traffic</h4><p>Log join, exit, and ban occurrences.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="logMembers" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Rank Revisions</h4><p>Log role adjustments and assignments.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="logRoles" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Sector Edits</h4><p>Log channel structural shifts.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="logChannels" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Voice Activity</h4><p>Log joins, moves, and leaves in voice channels.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="logVoice" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Server Integrity</h4><p>Log server updates (icon, name, splash).</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="logServer" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Invite Tracking</h4><p>Log created and deleted invites.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="logInvites" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('logging')"><i class="fas fa-save"></i> Synchronize Logs</button>
-                </div>
-            </section>
-
-            <!-- ===== AUTO-ROLE ===== -->
-            <section id="page-autorole" class="page-section">
-                <div class="page-header">
-                    <h1>Auto Assignment</h1>
-                    <p>Dictate immediate provisions for newborn citizens.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-pink-soft);color:var(--accent-pink);"><i class="fas fa-tags"></i></div>
-                        <div>
-                            <h3>Identity Provision</h3>
-                            <p>Automatically distribute roles upon entry.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleAutorole">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card">
-                    <div class="z-card-header">
-                        <h3>Automated Roles</h3>
-                        <button class="z-btn z-btn-secondary" onclick="addAutoRole()"><i class="fas fa-plus"></i> Inject Role</button>
-                    </div>
-                    <div id="autoRoleList">
-                        <div class="empty-state">
-                            <div class="empty-icon"><i class="fas fa-tag"></i></div>
-                            <p>No identities queued. Bind an ID below.</p>
-                        </div>
-                    </div>
-                    <div class="z-input-group" style="margin-top:24px;">
-                        <label>Role Key to Dispatch</label>
-                        <select class="z-input" id="autoRoleInput"></select>
-                    </div>
-                    <button class="z-btn z-btn-primary" onclick="saveModuleConfig('autorole')"><i class="fas fa-save"></i> Save Protocols</button>
-                </div>
-            </section>
-
-            <!-- ===== COUNTING ===== -->
-            <section id="page-counting" class="page-section">
-                <div class="page-header">
-                    <h1>Counting Engine</h1>
-                    <p>Initiate community coherence via incremental chains.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-cyan-soft);color:var(--accent-cyan);"><i class="fas fa-sort-numeric-up"></i></div>
-                        <div>
-                            <h3>Sequence Reactor</h3>
-                            <p>Collaborative number stacking. Any error detonates the reactor.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleCounting">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card">
-                    <div class="input-row">
-                        <div class="z-input-group">
-                            <label>Reactor Vector</label>
-                            <select class="z-input" id="countingChannel"></select>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Stack Position</label>
-                            <input class="z-input" type="number" id="countingCurrent" value="0" min="0">
-                        </div>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Dual-Step Tolerance</h4><p>Allow users to step twice consecutively.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="countingSameUser"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Overload Reset</h4><p>Destroy the stack on miscalculation.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="countingReset" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Allow Math</h4><p>Evaluate mathematical equations (e.g. 2+2).</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="countingMath"><span class="toggle-slider"></span></label>
-                    </div>
-                    <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('counting')"><i class="fas fa-save"></i> Lock Sequence</button>
-                </div>
-            </section>
-
-            <!-- ===== SERVER STATS ===== -->
-            <section id="page-serverstats" class="page-section">
-                <div class="page-header">
-                    <h1>Public Statistics</h1>
-                    <p>Broadcast live kingdom metrics via locked voice channels.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-green-soft);color:var(--accent-green);"><i class="fas fa-chart-bar"></i></div>
-                        <div>
-                            <h3>Telemetry Towers</h3>
-                            <p>Display real-time internal census data.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleServerStats">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card">
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Total Census</h4><p>Show overall capacity limits.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="statsTotalMembers" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Active Personnel</h4><p>Show connected entities.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="statsOnline"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Drone Workforce</h4><p>Track automated bots.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="statsBots"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Infrastructure Count</h4><p>Count physical nodes (channels).</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="statsChannels"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="z-input-group" style="margin-top:24px;">
-                        <label>Telemetry Sector (Category ID)</label>
-                        <select class="z-input" id="statsCategoryId"></select>
-                    </div>
-                    <button class="z-btn z-btn-primary" onclick="saveModuleConfig('serverstats')"><i class="fas fa-save"></i> Erect Towers</button>
-                </div>
-            </section>
-
-            <!-- ===== ANTI-NUKE ===== -->
-            <section id="page-antinuke" class="page-section">
-                <div class="page-header">
-                    <h1>Anti-Nuke Vault</h1>
-                    <p>Drastic emergency lockdown procedures representing maximal defense.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-red-soft);color:var(--accent-red);"><i class="fas fa-radiation-alt"></i></div>
-                        <div>
-                            <h3>Doomsday Shielding</h3>
-                            <p>Autonomously rip permissions on hostile thresholds.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleAntinuke">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card">
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Purge Deflection</h4><p>Detect mass exile attacks.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="antinukeBan" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Structural Deflection</h4><p>Detect mass channel erasure.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="antinukeChannel" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Identity Deflection</h4><p>Detect mass role deletion.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="antinukeRole" checked><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="toggle-row">
-                        <div class="toggle-info"><h4>Webhook Saturation</h4><p>Detect hostile API tunneling.</p></div>
-                        <label class="toggle-switch"><input type="checkbox" id="antinukeWebhook"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="input-row" style="margin-top:24px;">
-                        <div class="z-input-group">
-                            <label>Panic Threshold (Per 10s)</label>
-                            <input class="z-input" type="number" id="antinukeThreshold" value="5" min="2" max="20">
-                        </div>
-                        <div class="z-input-group">
-                            <label>Diplomatic Immunity (Select Members)</label>
-                            <select class="z-input" id="antinukeWhitelist" multiple></select>
-                        </div>
-                    </div>
-                    <button class="z-btn z-btn-danger z-btn-block" onclick="saveModuleConfig('antinuke')" style="margin-top:10px;"><i class="fas fa-lock"></i> Arm Defense Grid</button>
-                </div>
-            </section>
-
-            <!-- ===== TRANSCRIPTS ===== -->
-            <section id="page-transcripts" class="page-section">
-                <div class="page-header">
-                    <h1>Ticket Transcripts</h1>
-                    <p>Access historical communication logs for all resolved tickets.</p>
-                </div>
-
-                <div class="z-card">
-                    <div class="z-card-header" style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3><i class="fas fa-history"></i> Log Archives</h3>
-                        <button class="z-btn z-btn-secondary z-btn-sm" onclick="fetchTranscripts()"><i class="fas fa-sync-alt"></i> Refresh</button>
-                    </div>
-                    <div class="table-container">
-                        <table class="z-table">
-                            <thead>
-                                <tr>
-                                    <th>Ticket ID</th>
-                                    <th>Owner ID</th>
-                                    <th>Closed Date</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="transcriptsTableBody">
-                                <tr>
-                                    <td colspan="4" style="text-align:center; padding: 40px; color:var(--text-muted);">No logs found yet.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ===== R4 TRACKING ===== -->
-            <section id="page-r4tracking" class="page-section">
-                <div class="page-header">
-                    <h1>R4 Tracking Protocol</h1>
-                    <p>Monitor quota completions for officers (Ads and Messages).</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-purple-soft);color:var(--accent-purple);"><i class="fas fa-crosshairs"></i></div>
-                        <div>
-                            <h3>R4 Tracker</h3>
-                            <p>Track weekly requirements and excuse specific members.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleR4Tracking">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card">
-                    <div class="z-card-header">
-                        <h3>Tracker Configuration</h3>
-                    </div>
-                    <div class="input-row">
-                        <div class="input-row">
-                            <div class="z-input-group">
-                                <label>Leadership Channel</label>
-                                <select class="z-input" id="cfgLeadershipChannel"></select>
-                            </div>
-                            <div class="z-input-group">
-                                <label>Target Role (Officers)</label>
-                                <select class="z-input" id="r4TrackingRole"></select>
-                            </div>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Google Sheets ID (Export Database)</label>
-                            <input class="z-input" type="text" id="cfgSpreadsheetId" placeholder="1BxiMvs0XRYFgCE9...">
-                        </div>
-                    </div>
-                    <div class="input-row">
-                        <div class="z-input-group">
-                            <label>Weekly Ads Quota</label>
-                            <input class="z-input" type="number" id="r4TrackingAdQuota" value="40" min="1">
-                        </div>
-                        <div class="z-input-group">
-                            <label>Weekly Messages Quota</label>
-                            <input class="z-input" type="number" id="r4TrackingMsgQuota" value="245" min="1">
-                        </div>
-                    </div>
-                    <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('r4tracking')"><i class="fas fa-save"></i> Save Target Limits</button>
-                </div>                <div class="z-card" style="margin-top:32px;">
-                    <div class="z-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                        <h3>Weekly Leaderboard</h3>
-                        <div style="display:flex; align-items:center; gap:12px;">
-                            <label style="font-size:0.85rem; color:var(--text-muted); margin:0;">Week:</label>
-                            <select class="z-input" id="r4WeekFilter" style="width: 160px; padding: 6px 12px; margin-bottom:0;" onchange="renderR4Table()"></select>
-                            <button class="z-btn z-btn-secondary z-btn-sm" onclick="fetchR4Tracking()"><i class="fas fa-sync-alt"></i> Refresh</button>
-                        </div>
-                    </div>
-                    <div class="table-container">
-                        <table class="z-table">
-                            <thead>
-                                <tr>
-                                    <th>Officer</th>
-                                    <th>Week</th>
-                                    <th>Ads</th>
-                                    <th>Messages</th>
-                                    <th>Progress</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="r4TrackingTableBody">
-                                <tr>
-                                    <td colspan="6" style="text-align:center; padding: 40px; color:var(--text-muted);">Loading R4 tracking data...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Transcript Viewer Overlay -->
-            <div id="transcriptOverlay" class="modal-overlay" style="display:none; z-index: 2000;">
-                <div class="modal-content" style="max-width: 900px; height: 80vh; display: flex; flex-direction: column;">
-                    <div class="modal-header">
-                        <h2 id="viewerTicketTitle">Transcript Viewer</h2>
-                        <button class="modal-close" onclick="closeTranscript()">&times;</button>
-                    </div>
-                    <div id="discordChatContainer" class="discord-chat-viewer" style="flex:1; overflow-y:auto; background:#313338; padding:20px; border-radius: 0 0 8px 8px;">
-                        <!-- Styled chat messages go here -->
-                    </div>
+                    <h3 class="feature-name">Command Console</h3>
+                    <p class="feature-description">
+                        Manage welcome embeds, configure channels, toggle features, check live status latency, and export configurations in seconds.
+                    </p>
+                    <span class="feature-badge">Web Control Center</span>
                 </div>
             </div>
+        </section>
 
-            <!-- ===== ECONOMY SYSTEM ===== -->
-            <section id="page-economy" class="page-section">
-                <div class="page-header">
-                    <h1>Economic Infrastructure</h1>
-                    <p>Manage the kingdom's treasury and rewards system.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-gold-soft);color:var(--accent-gold);"><i class="fas fa-coins"></i></div>
-                        <div>
-                            <h3>Treasury Core</h3>
-                            <p>Enable coin rewards for community engagement.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleEconomy">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card">
-                    <div class="z-card-header">
-                        <h3>Reward Parameters</h3>
-                    </div>
-                    <div class="grid-3">
-                        <div class="z-input-group">
-                            <label>Coins per Message</label>
-                            <input class="z-input" type="number" id="ecoCoinsPerMessage" value="1" min="0">
-                        </div>
-                        <div class="z-input-group">
-                            <label>Coins per Ad</label>
-                            <input class="z-input" type="number" id="ecoCoinsPerAd" value="10" min="0">
-                        </div>
-                        <div class="z-input-group">
-                            <label>Coins per Invite</label>
-                            <input class="z-input" type="number" id="ecoCoinsPerInvite" value="50" min="0">
-                        </div>
-                    </div>
-                    <div class="grid-3" style="margin-top:16px;">
-                        <div class="z-input-group">
-                            <label>Coins per Welcome</label>
-                            <input class="z-input" type="number" id="ecoCoinsPerWelcome" value="5" min="0">
-                        </div>
-                        <div class="z-input-group">
-                            <label>Coins per Boost</label>
-                            <input class="z-input" type="number" id="ecoCoinsPerBoost" value="100" min="0">
-                        </div>
-                        <div class="z-input-group">
-                            <label>Coins per Giveaway Win</label>
-                            <input class="z-input" type="number" id="ecoCoinsPerGiveaway" value="200" min="0">
-                        </div>
-                    </div>
-                    <div class="grid-3" style="margin-top:16px;">
-                        <div class="z-input-group">
-                            <label>Coins per VC Minute</label>
-                            <input class="z-input" type="number" id="ecoCoinsPerVCMinute" value="1" min="0">
-                        </div>
-                        <div class="z-input-group">
-                            <label>Welcome Keywords (Comma separated)</label>
-                            <input class="z-input" type="text" id="ecoWelcomeKeywords" placeholder="welcome,bienvenido,bienvenida">
-                        </div>
-                        <div class="z-input-group">
-                            <label>Welcome Alert Channel</label>
-                            <select class="z-input" id="ecoWelcomeNotifyChannel"></select>
-                        </div>
-                    </div>
-                    <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('economy')"><i class="fas fa-save"></i> Synchronize Treasury</button>
-                </div>
-
-                <div class="z-card" style="margin-top:32px;">
-                    <div class="z-card-header" style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3>Shop Inventory</h3>
-                        <button class="z-btn z-btn-secondary z-btn-sm" onclick="openShopAddModal()"><i class="fas fa-plus"></i> Manufacture Item</button>
-                    </div>
-                    <div class="table-container">
-                        <table class="z-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Type</th>
-                                    <th>Price</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="shopTableBody">
-                                <tr>
-                                    <td colspan="5" style="text-align:center; padding: 40px; color:var(--text-muted);">No items in inventory.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ===== AUTO-ROLE ===== -->
-            <section id="page-autorole" class="page-section">
-                <div class="page-header">
-                    <h1>Auto-Role Assignment</h1>
-                    <p>Assign specific roles to citizens immediately upon entry.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-pink-soft);color:var(--accent-pink);"><i class="fas fa-user-tag"></i></div>
-                        <div>
-                            <h3>Identification Protocol</h3>
-                            <p>Automatically provision roles for new members.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleAutorole">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-card">
-                    <div class="z-input-group">
-                        <label>Roles to Assign (Comma separated IDs)</label>
-                        <select class="z-input" id="autoroleIds" multiple size="4"></select>
-                    </div>
-                    <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('autorole')"><i class="fas fa-save"></i> Save Protocols</button>
-                </div>
-            </section>
-
-            <!-- ===== SWEAR JAR ===== -->
-            <section id="page-swearjar" class="page-section">
-                <div class="page-header">
-                    <h1>Swear Jar</h1>
-                    <p>Contribute to the kingdom's treasury whenever prohibited dialect is used.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-yellow-soft);color:var(--accent-yellow);"><i class="fas fa-glass-whiskey"></i></div>
-                        <div>
-                            <h3>Profanity Tax</h3>
-                            <p>Automate fines for using restricted terminology.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleSwearJar">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="ticket-builder-grid">
-                    <div class="z-card">
-                        <div class="z-input-group">
-                            <label>Swear Jar Log Channel</label>
-                            <select class="z-input" id="swearJarChannel"></select>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Trigger Words (Comma separated)</label>
-                            <textarea class="z-input" id="swearJarWords" placeholder="e.g. word1, word2, word3"></textarea>
-                            <small style="color:var(--text-muted);">Leave empty to use global AutoMod word list.</small>
-                        </div>
-                        <div class="toggle-row">
-                            <div class="toggle-info"><h4>Mention Citizen</h4><p>Ping the user when they contribute to the jar.</p></div>
-                            <label class="toggle-switch"><input type="checkbox" id="swearJarPing" checked><span class="toggle-slider"></span></label>
-                        </div>
-
-                        <div class="z-card-header" style="margin-top:24px;"><h3>Jar Contribution Alert</h3></div>
-                        <div class="input-row">
-                            <div class="z-input-group">
-                                <label>Embed Title</label>
-                                <input class="z-input" type="text" id="swearJarTitle" placeholder="e.g. Swear Jar Contribution!">
-                            </div>
-                            <div class="z-input-group">
-                                <label>Embed Color</label>
-                                <input class="z-input" type="color" id="swearJarColor" value="#FFD700">
-                            </div>
-                        </div>
-                        <div class="z-input-group">
-                            <label>Message</label>
-                            <textarea class="z-input" id="swearJarMessage" placeholder="Use {user}, {word}, {fines}..."></textarea>
-                        </div>
-                        
-                        <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('swearjar')"><i class="fas fa-save"></i> Establish Jar</button>
-                    </div>
-
-                    <div class="z-card" style="position:sticky; top:24px;">
-                        <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:#949ba4; margin-bottom:16px; font-family:'Inter',sans-serif;">Jar Alert Preview</h4>
-                        <div id="swearDiscordPreview" style="border-radius:4px; overflow:hidden;">
-                            <div style="display:flex;">
-                                <div id="swearPreviewColorBar" style="width:4px; border-radius:3px 0 0 3px; background:#FFD700; flex-shrink:0;"></div>
-                                <div style="background:#2b2d31; border:1px solid #1e1f22; border-left:none; border-radius:0 4px 4px 0; padding:16px; flex:1;">
-                                    <div id="swearPreviewTitle" style="font-weight:700; font-size:1rem; color:#f2f3f5; margin-bottom:8px;">Swear Jar!</div>
-                                    <div id="swearPreviewDesc" style="font-size:0.85rem; color:#dbdee1; line-height:1.5;">{user} just added a coin to the jar!</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ===== RSS BUYING ===== -->
-            <section id="page-rss" class="page-section">
-                <div class="page-header">
-                    <h1>RSS Buying & Stock Management</h1>
-                    <p>Configure RSS seller role, tax rates, ticket routing category, view collective stocks, and deploy interactive panels.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-purple-soft);color:var(--accent-purple);"><i class="fas fa-shopping-basket"></i></div>
-                        <div>
-                            <h3>RSS Module Enabled</h3>
-                            <p>Toggle the automated Resource Purchase & Stock Management systems.</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggleRss">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="ticket-builder-grid">
-                    <div class="z-card">
-                        <div class="z-card-header">
-                            <h3>RSS Configuration Settings</h3>
-                        </div>
-                        <div class="input-grid">
-                            <div class="input-row">
-                                <div class="z-input-group">
-                                    <label>RSS Seller Role</label>
-                                    <select class="z-input" id="rssSellerRole"></select>
-                                </div>
-                                <div class="z-input-group">
-                                    <label>Ticket Routing Category</label>
-                                    <select class="z-input" id="rssCategory"></select>
-                                </div>
-                            </div>
-                            <div class="input-row">
-                                <div class="z-input-group">
-                                    <label>Tax Rate Percentage (%)</label>
-                                    <input class="z-input" type="number" id="rssTaxRate" value="10" min="0" max="100">
-                                </div>
-                            </div>
-                        </div>
-                        <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('rss')"><i class="fas fa-save"></i> Save RSS Config</button>
-                    </div>
-
-                    <!-- Joint Stock Status Metric Cards -->
-                    <div class="z-card">
-                        <div class="z-card-header" style="display:flex; justify-content:space-between; align-items:center;">
-                            <h3>📦 Joint Collective Stocks</h3>
-                            <button class="z-btn z-btn-secondary z-btn-sm" onclick="fetchRssCollectiveStock()"><i class="fas fa-sync-alt"></i> Refresh</button>
-                        </div>
-                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">Collective stock of all verified RSS sellers with the active role in the server. (Individual stocks remain private)</p>
-                        <div class="stats-row" style="grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 0; display: grid;">
-                            <div class="stat-card" style="padding: 16px; min-width: auto; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                                <div class="stat-label" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;"><i class="fas fa-wheat-alt" style="color:#f59e0b;"></i> Food</div>
-                                <div class="stat-value" id="rssStockFood" style="font-size: 1.5rem; margin-top: 6px;">0</div>
-                            </div>
-                            <div class="stat-card" style="padding: 16px; min-width: auto; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                                <div class="stat-label" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;"><i class="fas fa-tree" style="color:#10b981;"></i> Wood</div>
-                                <div class="stat-value" id="rssStockWood" style="font-size: 1.5rem; margin-top: 6px;">0</div>
-                            </div>
-                            <div class="stat-card" style="padding: 16px; min-width: auto; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                                <div class="stat-label" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;"><i class="fas fa-mountain" style="color:#9ca3af;"></i> Stone</div>
-                                <div class="stat-value" id="rssStockStone" style="font-size: 1.5rem; margin-top: 6px;">0</div>
-                            </div>
-                            <div class="stat-card" style="padding: 16px; min-width: auto; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                                <div class="stat-label" style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;"><i class="fas fa-coins" style="color:#eab308;"></i> Gold</div>
-                                <div class="stat-value" id="rssStockGold" style="font-size: 1.5rem; margin-top: 6px;">0</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Panel Deployment Card -->
-                <div class="z-card" style="margin-top: 32px;">
-                    <div class="z-card-header">
-                        <h3>🔌 Interactive Discord Panel Deployment</h3>
-                    </div>
-                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:20px;">Deploy purchasing or stock control panel interfaces to specific text channels in your kingdom.</p>
-                    <div class="input-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div class="z-input-group">
-                            <label>Target Discord Channel</label>
-                            <select class="z-input" id="rssDeployChannel"></select>
-                        </div>
-                        <div class="z-input-group" style="display:flex; align-items:flex-end; gap:12px; margin-bottom:4px;">
-                            <button class="z-btn z-btn-primary" style="flex:1; justify-content:center; padding: 12px;" onclick="deployRssPanel('buy')"><i class="fas fa-shopping-cart"></i> Deploy Buy RSS Panel</button>
-                            <button class="z-btn z-btn-secondary" style="flex:1; justify-content:center; background:var(--accent-purple-soft); color:#d8b4fe; border-color:#a855f7; padding: 12px;" onclick="deployRssPanel('stock')"><i class="fas fa-boxes"></i> Deploy Stock Panel</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ===== GIVEAWAYS MODULE ===== -->
-            <section id="page-giveaways" class="page-section">
-                <div class="page-header">
-                    <h1>Giveaways</h1>
-                    <p>Configure the internal giveaway system to allow specific roles to run the /giveaway command, set log channels, and automatically reward economy coins to winners.</p>
-                </div>
-
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-red-soft);color:var(--accent-red);"><i class="fas fa-gift"></i></div>
-                        <div>
-                            <h3>Giveaways Configuration</h3>
-                            <p>Control who can manage giveaways and what rewards they offer.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="ticket-builder-grid">
-                    <div class="z-card">
-                        <div class="z-card-header">
-                            <h3>Manager & Logging Settings</h3>
-                        </div>
-                        <div class="input-grid">
-                            <div class="input-row">
-                                <div class="z-input-group">
-                                    <label>Manager Role</label>
-                                    <select class="z-input" id="giveawaysManagerRole"></select>
-                                    <small style="color:var(--text-muted); font-size:0.75rem;">Allows this role to use the /giveaway command (Admins always have access).</small>
-                                </div>
-                                <div class="z-input-group">
-                                    <label>Giveaways Log Channel</label>
-                                    <select class="z-input" id="giveawaysLogChannel"></select>
-                                    <small style="color:var(--text-muted); font-size:0.75rem;">Where to send start/end/reroll announcements.</small>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="z-card-header" style="margin-top:24px;">
-                            <h3>Economy Integration</h3>
-                        </div>
-                        <div class="input-row">
-                            <div class="toggle-row" style="flex:1;">
-                                <div class="toggle-info">
-                                    <h4>Reward Coins to Winners</h4>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="giveawaysEcoReward">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                            <div class="z-input-group" style="flex:1;">
-                                <label>Coins Per Winner</label>
-                                <input class="z-input" type="number" id="giveawaysEcoCoins" value="200" min="0">
-                            </div>
-                        </div>
-
-                        <button class="z-btn z-btn-primary" style="margin-top:24px;" onclick="saveModuleConfig('giveaways')"><i class="fas fa-save"></i> Save Giveaway Settings</button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ===== AI AGENTS SYSTEM ===== -->
-            <section id="page-aiagents" class="page-section">
-                <div class="page-header">
-                    <h1>AI Agents & Characters</h1>
-                    <p>Deploy interactive AI personalities in your kingdom. Configure them as welcome hosts, chat companions, or RAG-based support agents.</p>
-                </div>
-
-                <!-- Global AI Activation Header -->
-                <div class="module-header">
-                    <div class="module-header-info">
-                        <div class="module-icon" style="background:var(--accent-pink-soft);color:var(--accent-pink);"><i class="fas fa-brain"></i></div>
-                        <div>
-                            <h3>AI Core Configuration</h3>
-                            <p>Configure your server's custom OpenAI API credentials and character templates.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Master Switch Card -->
-                <div class="z-card" style="border-color:var(--accent-pink); background:rgba(155, 89, 182, 0.05); margin-bottom: 24px;">
-                    <div class="toggle-row" style="border-bottom:none; padding:0;">
-                        <div class="toggle-info">
-                            <h3 style="color:var(--text-primary); font-family:'Inter',sans-serif; margin-bottom:4px; font-size:1.15rem; font-weight:700;"><i class="fas fa-power-off" style="color:var(--accent-pink); margin-right:8px;"></i> AI Master System (Master Power)</h3>
-                            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0;">Fully enable or disable the entire AI agents system on this server while keeping your configuration intact.</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="aiEnabled" checked onchange="toggleAISubsections()">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="ticket-builder-grid">
-                    <!-- Left Side: Config Form -->
-                    <div style="display:flex; flex-direction:column; gap:24px;">
-                        
-                        <!-- Custom Bot Hosting Card -->
-                        <div class="z-card" id="customBotCard" style="border-color:var(--accent-purple);">
-                            <div class="z-card-header" style="margin-bottom: 12px;">
-                                <h3 style="display:flex; align-items:center; gap:8px;"><i class="fas fa-robot" style="color:var(--accent-purple);"></i> Your AI Bot Agents</h3>
-                                <span style="background:var(--accent-purple); color:#fff; font-size:0.65rem; padding:3px 8px; border-radius:4px; font-weight:700; letter-spacing:0.5px;">PREMIUM</span>
-                            </div>
-                            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:16px;">Deploy and configure multiple independent AI Agents on this server. Each agent runs under its own Discord Bot token client.</p>
-
-                            <!-- LIST OF ACTIVE AGENTS -->
-                            <label style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#949ba4; margin-bottom:8px; display:block; font-weight:600;">Configured Agents List</label>
-                            <div id="customBotsList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
-                                <!-- Dynamically populated list of bots -->
-                            </div>
-
-                            <!-- BUTTON TO ADD NEW AGENT -->
-                            <button class="z-btn z-btn-secondary" style="width:100%; margin-bottom:16px;" onclick="addNewAIAgent()"><i class="fas fa-plus"></i> Add New AI Agent...</button>
-                        </div>
-
-                        <!-- Core AI Configurations -->
-                        <div class="z-card" id="aiAgentConfigFields">
-                            <div class="z-input-group">
-                                <label>Discord Bot Token</label>
-                                <input class="z-input" type="password" id="customBotToken" placeholder="Paste your bot token here" style="margin-bottom:8px;">
-                                <small style="color:var(--text-muted); font-size:0.72rem; display:block;">Get this from the <a href="https://discord.com/developers/applications" target="_blank" style="color:var(--accent-purple);">Discord Developer Portal</a>.</small>
-                            </div>
-
-                            <div class="grid-2">
-                                <div class="z-input-group">
-                                    <label>AI Provider</label>
-                                    <select class="z-input" id="aiProvider">
-                                        <option value="openai">OpenAI (GPT-4o mini)</option>
-                                        <option value="claude">Claude (Sonnet 3.5)</option>
-                                    </select>
-                                </div>
-                                <div class="z-input-group">
-                                    <label>API Key (OpenAI / Claude)</label>
-                                    <input class="z-input" type="password" id="aiOpenaiApiKey" placeholder="e.g. sk-proj-... or sk-ant-...">
-                                </div>
-                            </div>
-                        <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block; margin-bottom:12px;">Your key is encrypted and securely stored. We only use it to power this server's custom bot interactions.</small>
-
-                        <div class="z-card-header" style="margin-top:24px;">
-                            <h3>Character Profile</h3>
-                        </div>
-
-                        <div class="z-input-group">
-                            <label>Character Template Preset</label>
-                            <select class="z-input" id="aiPresetSelect" onchange="applyAIPreset()">
-                                <option value="custom">Custom Character...</option>
-                                <option value="tony_soprano">Tony Soprano (Mafia Boss)</option>
-                                <option value="gandalf">Gandalf (Wise Wizard)</option>
-                                <option value="sarcastic_bot">Sarcastic Assistant (Dry Humor)</option>
-                            </select>
-                        </div>
-
-                        <!-- Custom Character AI Research Block -->
-                        <div id="aiCustomCharacterContainer" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-medium); padding: 16px; border-radius: var(--radius-md); margin-top: 16px; margin-bottom: 16px; display: none;">
-                            <div class="z-input-group" style="margin-bottom: 0;">
-                                <label style="font-size: 0.8rem; font-weight: 600; color: var(--gold-500); text-transform: uppercase;">Research Character Name</label>
-                                <div style="display: flex; gap: 12px; margin-top: 6px;">
-                                    <input class="z-input" type="text" id="aiCustomCharacterInput" placeholder="e.g. Jack Sparrow, Walter White, Batman..." style="margin-bottom: 0;">
-                                    <button class="z-btn z-btn-primary" type="button" id="aiResearchBtn" onclick="runAIResearch()" style="background: #e91e63; border-color: #e91e63; white-space: nowrap;">
-                                        <i class="fas fa-search-plus"></i> AI Research
-                                    </button>
-                                </div>
-                                <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
-                                    Type any character name. Zenith AI will search their traits and automatically construct a premium personality profile.
-                                </small>
-                            </div>
-                        </div>
-
-                        <!-- Response Language / Language Mode Selection -->
-                        <div class="z-input-group">
-                            <label>Response Language</label>
-                            <select class="z-input" id="aiLanguageMode" onchange="updateAISimulator()">
-                                <option value="en">English Only (Default)</option>
-                                <option value="auto">Adapt to User (Automatic)</option>
-                                <option value="es">Spanish Only (Español)</option>
-                                <option value="fr">French Only (Français)</option>
-                                <option value="de">German Only (Deutsch)</option>
-                                <option value="pt">Portuguese Only (Português)</option>
-                            </select>
-                            <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
-                                Choose the language the bot uses to respond. English is the official default. "Adapt to User" matches each user's language dynamically.
-                            </small>
-                        </div>
-
-                        <div class="z-input-group">
-                            <label>Agent Display Name</label>
-                            <input class="z-input" type="text" id="aiCharacterName" placeholder="e.g. Tony Soprano">
-                        </div>
-
-                        <div class="z-input-group">
-                            <label>Character Traits & Prompt Instructions</label>
-                            <textarea class="z-input" id="aiCharacterTraits" style="min-height: 180px;" placeholder="Describe how your character speaks, their history, likes, dislikes, and specific phrasing constraints..."></textarea>
-                        </div>
-
-                        <!-- WELCOME CONFIGS -->
-                        <div class="z-card-header" style="margin-top:32px;">
-                            <h3>Welcome Host</h3>
-                        </div>
-                        <div class="toggle-row">
-                            <div class="toggle-info">
-                                <h4>Active Greeting Gate</h4>
-                                <p>Welcome new citizens in character when they enter the server.</p>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="aiWelcomeEnabled" onchange="toggleAISubsections()">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div class="z-input-group" id="aiWelcomeChannelGroup" style="margin-top:16px;">
-                            <label>Greeting Channel</label>
-                            <select class="z-input" id="aiWelcomeChannel"></select>
-                        </div>
-                        <div class="z-input-group" id="aiWelcomeMessageGroup" style="margin-top:16px;">
-                            <label>Welcome Message Template</label>
-                            <textarea class="z-input" id="aiWelcomeMessage" style="min-height: 80px;" placeholder="e.g. Welcome to our kingdom {user}! Read #rules and have fun!"></textarea>
-                            <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">
-                                Type the base welcome message template. The AI Agent will read this and rewrite it in its own tone, personality, and style! Supports `{user}`, `{server}`, and `{memberCount}` placeholders.
-                            </small>
-                        </div>
-                        <!-- Welcome Host Custom Character Overrides -->
-                        <div class="grid-2" style="margin-top:16px;">
-                            <div class="z-input-group">
-                                <label>Welcome Host Display Name (Optional)</label>
-                                <input class="z-input" type="text" id="aiWelcomeCharacterName" placeholder="e.g. Welcome Host">
-                            </div>
-                        </div>
-                        <div class="z-input-group" style="margin-top:12px;">
-                            <label>Welcome Host Traits & Instructions (Optional)</label>
-                            <textarea class="z-input" id="aiWelcomeCharacterTraits" style="min-height: 80px;" placeholder="Describe specific instructions for this welcome agent. If left blank, falls back to the global profile."></textarea>
-                        </div>
-
-
-                        <!-- CHAT CONFIGS -->
-                        <div class="z-card-header" style="margin-top:32px;">
-                            <h3>Conversational Chat</h3>
-                        </div>
-                        <div class="toggle-row">
-                            <div class="toggle-info">
-                                <h4>Enable Conversation Channels</h4>
-                                <p>Allow the bot to chat when mentioned or inside designated text channels.</p>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="aiChatEnabled" onchange="toggleAISubsections()">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div class="z-input-group" id="aiChatChannelsGroup" style="margin-top:16px;">
-                            <label>Conversational Channels</label>
-                            <select class="z-input" id="aiChatChannels" multiple></select>
-                        </div>
-                        <!-- Conversational Chat Custom Character Overrides -->
-                        <div class="grid-2" style="margin-top:16px;">
-                            <div class="z-input-group">
-                                <label>Chat Agent Display Name (Optional)</label>
-                                <input class="z-input" type="text" id="aiChatCharacterName" placeholder="e.g. Chat Agent">
-                            </div>
-                        </div>
-                        <div class="z-input-group" style="margin-top:12px;">
-                            <label>Chat Agent Traits & Instructions (Optional)</label>
-                            <textarea class="z-input" id="aiChatCharacterTraits" style="min-height: 80px;" placeholder="Describe specific instructions for this conversational agent. If left blank, falls back to the global profile."></textarea>
-                        </div>
-
-
-                        <!-- BOT TO BOT CHATS & COOLDOWN -->
-                        <div class="toggle-row">
-                            <div class="toggle-info">
-                                <h4>Bot-to-Bot Conversational Loop</h4>
-                                <p>Allow multiple custom bots in the same channel to talk to each other.</p>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="aiBotToBotChatEnabled" onchange="toggleAISubsections()">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div id="aiBotToBotLimitGroup" style="margin-top:16px;">
-                            <div class="z-input-group">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                    <label style="margin-bottom:0;">Maximum Consecutive Turns</label>
-                                    <span id="aiMaxTurnsVal" style="color:var(--gold-500); font-weight:700;">5 turns</span>
-                                </div>
-                                <input type="range" id="aiMaxBotTurns" min="2" max="20" value="5" class="z-input" style="padding:0; background:transparent;" oninput="updateAITurnsLabel(this.value)">
-                                <small style="color:var(--text-muted); font-size:0.72rem; margin-top:8px; display:block; line-height:1.4;">
-                                    ⚠️ **Cost Protection**: Once the turn limit is reached, a **5-minute cooldown** pause will trigger to protect your API keys.
-                                    <br>
-                                    🚀 **Human Priority**: Any message sent by a human user immediately resets the counter to 0 and wakes the bot up, greeting the user!
-                                </small>
-                            </div>
-                        </div>
-
-                        <!-- SUPPORT & RAG CONFIGS -->
-                        <div class="z-card-header" style="margin-top:32px;">
-                            <h3>RAG Support Agent</h3>
-                        </div>
-                        <div class="toggle-row">
-                            <div class="toggle-info">
-                                <h4>Enable AI Q&A Support</h4>
-                                <p>Resolve server questions dynamically using FAQs and Server Rules channels as a context knowledge base.</p>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="aiSupportEnabled" onchange="toggleAISubsections()">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div id="aiSupportFieldsGroup" style="margin-top:16px;">
-                            <div class="z-input-group">
-                                <label>Support Channel</label>
-                                <select class="z-input" id="aiSupportChannel"></select>
-                            </div>
-                            <div class="z-input-group">
-                                <label>Knowledge Base Channels</label>
-                                <select class="z-input" id="aiSupportKnowledgeChannels" multiple></select>
-                                <small style="color:var(--text-muted); font-size:0.72rem; margin-top:4px; display:block;">Select channels (e.g. #rules, #faq) the AI scans to retrieve factual context for answering users.</small>
-                            </div>
-                            <!-- RAG Support Agent Custom Character Overrides -->
-                            <div class="grid-2" style="margin-top:16px;">
-                                <div class="z-input-group">
-                                    <label>Support Agent Display Name (Optional)</label>
-                                    <input class="z-input" type="text" id="aiSupportCharacterName" placeholder="e.g. Support Agent">
-                                </div>
-                            </div>
-                            <div class="z-input-group" style="margin-top:12px;">
-                                <label>Support Agent Traits & Instructions (Optional)</label>
-                                <textarea class="z-input" id="aiSupportCharacterTraits" style="min-height: 80px;" placeholder="Describe specific instructions for this support agent. If left blank, falls back to the global profile."></textarea>
-                            </div>
-                        </div>
-
-                        <button class="z-btn z-btn-primary" style="margin-top:32px; width: 100%;" onclick="saveAIAgentConfig()"><i class="fas fa-save"></i> Deploy AI Agent settings</button>
-                    </div>
-                </div>
-
-                    <!-- Right Side: Immersive Chat Preview -->
-                    <div class="z-card" style="position:sticky; top:24px;">
-                        <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:#949ba4; margin-bottom:20px; font-family:'Inter',sans-serif;">Agent Dialogue Simulator</h4>
-                        
-                        <div style="background:#2b2d31; border:1px solid #1e1f22; border-radius:var(--radius-md); padding:20px; min-height:300px; display:flex; flex-direction:column; justify-content:space-between;">
-                            <div class="discord-chat-viewer" id="aiChatPreviewContainer">
-                                <!-- Simulated Discord Messages -->
-                                <div class="discord-message">
-                                    <div class="discord-avatar" style="background:#5865F2;">U</div>
-                                    <div class="discord-content">
-                                        <span style="color:#fff; font-weight:600; font-size:0.9rem;">Citizen</span>
-                                        <span style="color:#949ba4; font-size:0.75rem; margin-left:8px;">Today at 12:00 PM</span>
-                                        <p style="color:#dbdee1; font-size:0.9rem; margin-top:4px;" id="aiSimUserMessage">Hello! Who are you?</p>
-                                    </div>
-                                </div>
-
-                                <div class="discord-message" style="margin-top:12px;">
-                                    <div class="discord-avatar" style="background:var(--gold-700);" id="aiSimAvatar">T</div>
-                                    <div class="discord-content">
-                                        <span style="color:var(--gold-500); font-weight:600; font-size:0.9rem;" id="aiSimBotName">Tony Soprano</span>
-                                        <span style="background:#5865F2; color:#fff; font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:6px; font-weight:700; vertical-align:middle;">BOT</span>
-                                        <span style="color:#949ba4; font-size:0.75rem; margin-left:8px;">Today at 12:00 PM</span>
-                                        <p style="color:#dbdee1; font-size:0.9rem; margin-top:4px;" id="aiSimBotResponse">Who am I? I'm Tony Soprano! The guy running things here. So watch your manners, alright?</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="border-top:1px solid rgba(255,255,255,0.05); padding-top:16px; margin-top:20px; font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
-                                <i class="fas fa-info-circle"></i>
-                                <span>Preview updates automatically based on the selected Template.</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-        </div><!-- end main-content -->
-
+        <!-- Footer -->
+        <footer class="landing-footer">
+            <div class="footer-links">
+                <a href="#features" class="footer-link">Features</a>
+                <a href="https://discord.com/oauth2/authorize?client_id=1492555637220180118&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" class="footer-link">Invite Bot</a>
+                <a href="/dashboard.html" class="footer-link">Control Center</a>
+            </div>
+            <p>&copy; 2026 Zenith Global Systems. All rights reserved.</p>
+        </footer>
     </div>
-
-    <!-- SAVE BAR NOTIFICATION -->
-    <div id="saveBar" class="save-bar">
-        <div class="save-bar-content">
-            <div class="save-bar-text">
-                <i class="fas fa-exclamation-circle"></i>
-                <span>You have unsaved changes!</span>
-            </div>
-            <div class="save-bar-actions">
-                <button class="z-btn z-btn-secondary" onclick="revertChanges()"><i class="fas fa-undo"></i> Revert</button>
-                <button class="z-btn z-btn-primary" onclick="saveCurrentPage()"><i class="fas fa-save"></i> Save Changes</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL FOR SHOP ITEM MANAGEMENT -->
-    <div id="shopAddModal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); z-index:2000; align-items:center; justify-content:center;">
-        <div class="z-card" style="width:100%; max-width:500px; border:1px solid var(--border-medium);">
-            <div class="z-card-header">
-                <h3 id="shopModalTitle">Manufacture Item</h3>
-                <button style="background:transparent; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;" onclick="closeModal('shopAddModal')">&times;</button>
-            </div>
-            
-            <div class="z-input-group">
-                <label>Item Name</label>
-                <input class="z-input" type="text" id="shopItemName" placeholder="e.g. VIP Access">
-            </div>
-            <div class="z-input-group">
-                <label>Price (Coins)</label>
-                <input class="z-input" type="number" id="shopItemPrice" value="100" min="0">
-            </div>
-            <div class="z-input-group">
-                <label>Description</label>
-                <textarea class="z-input" id="shopItemDesc" placeholder="What does this item do?"></textarea>
-            </div>
-            <div class="z-input-group">
-                <label>Type</label>
-                <select class="z-input" id="shopItemType" onchange="toggleShopRoleInput()">
-                    <option value="role">Role Reward</option>
-                    <option value="item">Custom Item</option>
-                </select>
-            </div>
-            <div class="z-input-group" id="shopRoleInputGroup">
-                <label>Target Role</label>
-                <select class="z-input" id="shopItemRole"></select>
-            </div>
-
-            <button class="z-btn z-btn-primary z-btn-block" style="margin-top:20px;" onclick="saveShopItem()"><i class="fas fa-check"></i> Register Item</button>
-        </div>
-    </div>
-
-    <!-- MODAL FOR PANEL COMPONENT SETTINGS -->
-    <div id="optionSettingsModal" class="modal-overlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); z-index:2000; align-items:center; justify-content:center;">
-        <div class="z-card" style="width:100%; max-width:600px; max-height:90vh; overflow-y:auto; border:1px solid var(--border-medium);">
-            <div class="z-card-header">
-                <h3>Option Matrix <span id="modalOptionTitle" style="color:var(--gold-500);"></span></h3>
-                <button style="background:transparent; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;" onclick="closeModal('optionSettingsModal')">&times;</button>
-            </div>
-            
-            <div class="input-row">
-                <div class="z-input-group">
-                    <label>Resolution Action</label>
-                    <select class="z-input" id="modalSystemType">
-                        <option value="ticket">Spin up Ticket Channel</option>
-                        <option value="role">Dispatch Role</option>
-                        <option value="verification">Verification Gateway</option>
-                    </select>
-                </div>
-                <div class="z-input-group">
-                    <label>Channel Node Prefix</label>
-                    <input class="z-input" type="text" id="modalChannelPrefix" placeholder="Default: ticket">
-                </div>
-                <div class="z-input-group">
-                    <label>Parent Category</label>
-                    <select class="z-input" id="modalCategoryId"></select>
-                </div>
-                <div class="z-input-group">
-                    <label>Option Emoji</label>
-                    <input class="z-input" type="text" id="modalOptionEmoji" placeholder="e.g. 🎫 or <:id>">
-                </div>
-            </div>
-
-            <div class="input-row">
-                <div class="z-input-group">
-                    <label>Assigned Guard (select roles)</label>
-                    <select class="z-input" id="modalStaffRoles" multiple size="3"></select>
-                </div>
-                <div class="z-input-group">
-                    <label>Pings on Spin-up</label>
-                    <select class="z-input" id="modalPingRoles" multiple size="3"></select>
-                </div>
-            </div>
-
-            <div class="z-input-group">
-                <label>Welcome Description (Inside Ticket)</label>
-                <textarea class="z-input" id="modalEmbedDesc" placeholder="Initial prompt inside the created channel..."></textarea>
-            </div>
-
-            <div class="z-input-group">
-                <label>Image URL (Optional)</label>
-                <input class="z-input" type="text" id="modalImageUrl" placeholder="https://example.com/ticket-banner.png">
-            </div>
-            <div class="toggle-row" style="margin-top:4px; margin-bottom:12px;">
-                <div class="toggle-info"><h4>Use Rich Embed</h4><p>When off, sends plain text with image attached (Component V2).</p></div>
-                <label class="toggle-switch"><input type="checkbox" id="modalUseEmbed" checked><span class="toggle-slider"></span></label>
-            </div>
-
-            <div class="z-card-header" style="margin-top:20px; border-top:1px solid var(--border-subtle); padding-top:20px;">
-                <h3>Pre-Flight Quiz</h3>
-                <button class="z-btn z-btn-secondary" onclick="addModalQuestion()" style="font-size:0.8rem; padding:8px 16px;"><i class="fas fa-plus"></i> Add Mod</button>
-            </div>
-            
-            <div class="z-input-group">
-                <label>Question Delivery Method</label>
-                <select class="z-input" id="modalQuestionDelivery">
-                    <option value="modal">Discord Modal (On Button Click)</option>
-                    <option value="dm">Direct Messages (DMs)</option>
-                    <option value="ticket">Inside Ticket Channel</option>
-                </select>
-            </div>
-
-            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Questions asked before/during channeling.</p>
-            <div id="modalQuestionsContainer" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;"></div>
-
-            <button class="z-btn z-btn-primary z-btn-block" onclick="saveOptionSettings()"><i class="fas fa-check"></i> Validate Payload</button>
-        </div>
-    </div>
-
-    <!-- R4 Excuse Modal -->
-    <div id="r4ExcuseModal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); z-index:2000; align-items:center; justify-content:center;">
-        <div class="modal-content" style="max-width: 500px; width:90%; display: flex; flex-direction: column; background: rgba(30, 30, 40, 0.95); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); backdrop-filter: blur(12px); color: #fff; padding: 24px;">
-            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-subtle); padding-bottom:12px; margin-bottom:16px;">
-                <h2 id="r4ExcuseModalTitle" style="font-size:1.25rem; font-weight:700; margin:0;">Exonerate Officer</h2>
-                <button class="modal-close" onclick="closeModal('r4ExcuseModal')" style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer; line-height:1;">&times;</button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="r4ExcuseUserId">
-                <input type="hidden" id="r4ExcuseWeekId">
-                <p id="r4ExcuseModalSubtitle" style="font-size:0.9rem; color:var(--text-muted); margin-bottom:16px;">Set an excuse for this officer to bypass their activity limits.</p>
-                
-                <div class="toggle-row" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); padding:12px; border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
-                    <div>
-                        <h4 style="margin:0; font-size:0.95rem; font-weight:600;">Status: Excused</h4>
-                        <p style="margin:0; font-size:0.75rem; color:var(--text-muted);">Exempt this officer from the weekly activity check.</p>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="r4ExcuseToggle" onchange="toggleR4ExcuseInput()">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="z-input-group" id="r4ExcuseReasonGroup" style="margin-bottom:20px;">
-                    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Excuse Reason</label>
-                    <input class="z-input" type="text" id="r4ExcuseReason" placeholder="e.g. Vacation, Sick leave, Exam week..." style="width:100%; box-sizing:border-box;">
-                </div>
-                <div class="z-input-group" id="r4ExcuseDurationGroup" style="margin-bottom:20px; display:none;">
-                    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Excuse Duration (Weeks)</label>
-                    <select class="z-input" id="r4ExcuseDuration" style="width:100%; box-sizing:border-box; background: rgba(30,30,40,0.9); border: 1px solid var(--border-subtle); color: #fff; padding: 10px; border-radius: var(--radius-md);">
-                        <option value="1">1 Week</option>
-                        <option value="2">2 Weeks</option>
-                        <option value="3">3 Weeks</option>
-                        <option value="4">4 Weeks</option>
-                        <option value="6">6 Weeks</option>
-                        <option value="8">8 Weeks</option>
-                        <option value="12">12 Weeks</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px;">
-                <button class="z-btn z-btn-secondary" onclick="closeModal('r4ExcuseModal')">Cancel</button>
-                <button class="z-btn z-btn-success" onclick="saveR4Excuse()"><i class="fas fa-check"></i> Save Excuse</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Transcript Overlay Modal -->
-    <div id="transcriptOverlay" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(10px); z-index:3000; align-items:center; justify-content:center;">
-        <div class="modal-content" style="width:90%; max-width:850px; height:85vh; display:flex; flex-direction:column; position:relative; background:rgba(18, 18, 24, 0.95); border:1px solid var(--border-medium); border-radius:var(--radius-lg); box-shadow:var(--shadow-xl), 0 0 30px rgba(255, 215, 0, 0.08); backdrop-filter:blur(20px); color:#fff; overflow:hidden;">
-            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-medium); padding:20px 24px; background:rgba(232, 185, 74, 0.03); flex-shrink:0; padding-right:70px;">
-                <h2 id="viewerTicketTitle" style="font-size:1.25rem; font-weight:700; margin:0; display:flex; align-items:center; gap:10px; font-family:'Cinzel', serif; color:var(--gold-500);">
-                    <i class="fas fa-scroll" style="color:var(--gold-500);"></i> Viewing Transcript
-                </h2>
-                <div onclick="closeTranscript()" style="position:absolute; top:18px; right:24px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); color:var(--text-muted); cursor:pointer; transition:var(--transition); z-index:10;" onmouseover="this.style.color='var(--gold-500)'; this.style.borderColor='var(--gold-500)'; this.style.background='rgba(255,215,0,0.05)'; this.style.boxShadow='0 0 10px rgba(255,215,0,0.2)';" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='rgba(255,255,255,0.08)'; this.style.background='rgba(255,255,255,0.03)'; this.style.boxShadow='none';">
-                    <i class="fas fa-times" style="font-size: 1rem;"></i>
-                </div>
-            </div>
-            <div id="discordChatContainer" class="discord-chat-viewer" style="flex:1; overflow-y:auto; padding:24px; background:#1e1f22; display:flex; flex-direction:column; gap:16px;">
-                <!-- Messages parsed by renderTranscript will go here -->
-            </div>
-            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:12px; padding:16px 24px; border-top:1px solid var(--border-subtle); background:rgba(0,0,0,0.2); flex-shrink:0;">
-                <button class="z-btn z-btn-secondary" style="padding:10px 20px; font-size:0.85rem;" onclick="closeTranscript()">Close Archive</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Injecting simple JS functionality to handle modals -->
-    <script>
-        function closeModal(id) {
-            const el = document.getElementById(id);
-            if (el) {
-                el.classList.remove('active');
-                el.style.display = 'none';
-            }
-        }
-    </script>
-    <script src="script.js?v=20260529v5"></script>
 </body>
 </html>

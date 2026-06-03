@@ -45,6 +45,13 @@
         </div>
     </div>
 
+    <!-- ============ LOADING OVERLAY ============ -->
+    <div id="loadingScreen" class="login-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(9,9,11,0.95); z-index:9999; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:20px; backdrop-filter:blur(12px);">
+        <div style="font-size:3rem; color:var(--primary);"><i class="fas fa-circle-notch fa-spin"></i></div>
+        <h2 style="color:#fff; font-weight:600; font-family:'Inter',sans-serif; font-size:1.8rem; margin:0;">Connecting to Kingdom...</h2>
+        <p style="color:var(--text-secondary); font-size:0.95rem; margin:0;">Retrieving channels, configurations, and core systems.</p>
+    </div>
+
     <!-- ============ DASHBOARD ============ -->
     <div id="dashboardScreen" class="dashboard-layout" style="display:none;">
 

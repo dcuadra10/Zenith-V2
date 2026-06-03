@@ -187,10 +187,12 @@ function animateValue(el, start, end, duration) {
 
 // ===== SCREEN MANAGEMENT =====
 function showScreen(id) {
-    ['loginScreen', 'guildScreen', 'dashboardScreen'].forEach(s => {
-        document.getElementById(s).style.display = 'none';
+    ['loginScreen', 'guildScreen', 'dashboardScreen', 'loadingScreen'].forEach(s => {
+        const el = document.getElementById(s);
+        if (el) el.style.display = 'none';
     });
-    document.getElementById(id).style.display = '';
+    const target = document.getElementById(id);
+    if (target) target.style.display = id === 'dashboardScreen' ? '' : 'flex';
 }
 
 // ===== INIT =====
@@ -322,9 +324,10 @@ function selectGuild(guild) {
     // Topbar user
     document.getElementById('topbarUsername').textContent = guild.owner ? 'Owner' : 'Admin';
 
-    showScreen('dashboardScreen');
+    showScreen('loadingScreen');
     localStorage.setItem('zenith_last_guild', JSON.stringify(guild));
     loadDashboardData().then(() => {
+        showScreen('dashboardScreen');
         const draft = restoreDraft(guild.id);
         if (draft) setTimeout(() => applyDraft(draft), 500);
     });

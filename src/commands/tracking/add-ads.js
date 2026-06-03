@@ -29,12 +29,15 @@ async function processAdsSubmission(interaction, amount) {
         );
 
         // --- R4 TRACKING (ADS) ---
-        const modConf = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
-        if (modConf) {
-            const isSqlite = !process.env.DATABASE_URL || process.env.DB_TYPE === 'sqlite';
-            const isEnabled = modConf.r4trackingenabled || isSqlite;
+        const rawModConf = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
+        if (rawModConf) {
+            const modConf = Object.keys(rawModConf).reduce((acc, key) => {
+                acc[key.toLowerCase()] = rawModConf[key];
+                return acc;
+            }, {});
+            const isEnabled = !!modConf.r4trackingenabled;
             const roleId = modConf.r4trackingrole ? modConf.r4trackingrole.replace(/[^0-9]/g, '') : null;
-            const hasRole = isSqlite || !roleId || (interaction.member && interaction.member.roles && interaction.member.roles.cache.has(roleId));
+            const hasRole = !roleId || (interaction.member && interaction.member.roles && interaction.member.roles.cache.has(roleId));
 
             if (isEnabled && hasRole) {
                 const weekId = getISOWeekString();

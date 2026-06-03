@@ -2,11 +2,61 @@ const { getDb } = require('../config/database');
 const { getISOWeekString, isWeekWithinExcuse } = require('../utils/dateHelpers');
 const { exportR4WeeklyData } = require('../utils/googleSheetsConnector');
 
+async function ensureR4BaselineRecords(client, db) {
+    try {
+        const configs = await db.all(`SELECT guildId, r4TrackingRole, r4TrackingEnabled FROM module_configs`);
+        for (const rawConf of configs) {
+            const conf = Object.keys(rawConf).reduce((acc, key) => {
+                acc[key.toLowerCase()] = rawConf[key];
+                return acc;
+            }, {});
+
+            if (!conf.r4trackingenabled || !conf.r4trackingrole) continue;
+
+            const guildId = conf.guildid;
+            const r4RoleId = conf.r4trackingrole.replace(/[^0-9]/g, '');
+            if (!r4RoleId) continue;
+
+            let guild = null;
+            try {
+                guild = await client.guilds.fetch(guildId);
+            } catch (e) {
+                continue;
+            }
+
+            if (!guild) continue;
+
+            const weekId = getISOWeekString();
+
+            try {
+                await guild.members.fetch();
+                const membersWithRole = guild.members.cache.filter(m => m.roles.cache.has(r4RoleId));
+                for (const [memberId, member] of membersWithRole) {
+                    if (member.user.bot) continue;
+                    await db.run(
+                        `INSERT INTO r4_tracking (userId, guildId, weekId, messages, ads, excused, isProcessed)
+                         VALUES (?, ?, ?, 0, 0, 0, 0)
+                         ON CONFLICT(userId, guildId, weekId) DO NOTHING`,
+                        [memberId, guildId, weekId]
+                    );
+                }
+            } catch (e) {
+                console.error(`[R4Tracker] Error inserting baseline for guild ${guildId}:`, e.message);
+            }
+        }
+    } catch (err) {
+        console.error('[R4Tracker] Error in ensureR4BaselineRecords:', err);
+    }
+}
+
 module.exports = (client) => {
-    // Run every hour to check for past weeks that haven't been processed
-    setInterval(async () => {
+    const runTracker = async () => {
         try {
             const db = await getDb();
+            
+            // Populates/ensures R4 role members have a tracking entry for this week
+            await ensureR4BaselineRecords(client, db);
+
             const currentWeekId = getISOWeekString();
 
             // Find all records that are from previous weeks and haven't been processed
@@ -129,5 +179,12 @@ module.exports = (client) => {
         } catch (error) {
             console.error('Error in R4 Tracker Cron Job:', error);
         }
-    }, 60 * 60 * 1000); // 1 hour
+    };
+
+    if (client.isReady()) {
+        runTracker();
+    } else {
+        client.once('ready', () => runTracker());
+    }
+    setInterval(runTracker, 60 * 60 * 1000); // 1 hour
 };

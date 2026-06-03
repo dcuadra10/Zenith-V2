@@ -11,13 +11,22 @@ module.exports = {
         await interaction.deferReply();
 
         const db = await getDb();
-        const conf = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
+        const rawConf = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
 
-        if (!conf || !conf.r4TrackingEnabled) {
+        if (!rawConf) {
             return interaction.editReply('❌ The R4 Tracking module is currently disabled for this server.');
         }
 
-        const roleId = conf.r4TrackingRole ? conf.r4TrackingRole.replace(/[^0-9]/g, '') : null;
+        const conf = Object.keys(rawConf).reduce((acc, key) => {
+            acc[key.toLowerCase()] = rawConf[key];
+            return acc;
+        }, {});
+
+        if (!conf.r4trackingenabled) {
+            return interaction.editReply('❌ The R4 Tracking module is currently disabled for this server.');
+        }
+
+        const roleId = conf.r4trackingrole ? conf.r4trackingrole.replace(/[^0-9]/g, '') : null;
         if (roleId && !interaction.member.roles.cache.has(roleId)) {
             return interaction.editReply('❌ You do not have the required officer role to view the R4 Tracking Leaderboard.');
         }
@@ -70,8 +79,8 @@ module.exports = {
             return interaction.editReply(`No R4 activity recorded yet for the current week (${weekId}).`);
         }
 
-        const adQuota = conf.r4TrackingAdQuota || 40;
-        const msgQuota = conf.r4TrackingMsgQuota || 245;
+        const adQuota = conf.r4trackingadquota || 40;
+        const msgQuota = conf.r4trackingmsgquota || 245;
 
         // Calculate progress percentage and sort
         const leaderboard = finalRecords.map(r => {

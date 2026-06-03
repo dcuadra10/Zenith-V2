@@ -3907,3 +3907,108 @@ async function saveAIAgentConfig() {
         showToast('❌ Server error saving configuration', true);
     }
 }
+
+// ===== LEVELING BACKUP & RECOVERY =====
+async function executeLevelImport(input) {
+    if (!activeGuild) return;
+    const file = input.files[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById('importStatus');
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = 'var(--text-muted)';
+        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reading backup file...';
+    }
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            let levels = [];
+            if (Array.isArray(data)) {
+                levels = data;
+            } else if (data && Array.isArray(data.levels)) {
+                levels = data.levels;
+            } else if (data && typeof data === 'object') {
+                levels = Object.entries(data).map(([userId, val]) => {
+                    const level = typeof val === 'object' ? (val.level !== undefined ? val.level : val.lvl) : val;
+                    return { userId, level: parseInt(level) || 0 };
+                });
+            }
+
+            if (levels.length === 0) {
+                throw new Error('No valid levels data found in the backup file.');
+            }
+
+            const formattedLevels = levels.map(item => {
+                const userId = item.userId || item.user_id || item.id || item.userID;
+                const level = item.level !== undefined ? item.level : (item.lvl !== undefined ? item.lvl : item.levelNumber);
+                return { userId, level: parseInt(level) || 0 };
+            }).filter(item => item.userId && !isNaN(item.level));
+
+            if (formattedLevels.length === 0) {
+                throw new Error('No valid user levels could be parsed from the file.');
+            }
+
+            if (statusEl) {
+                statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Uploading and syncing ${formattedLevels.length} records...`;
+            }
+
+            const res = await apiFetch(`/levels/import/${activeGuild.id}`, {
+                method: 'POST',
+                body: JSON.stringify({ levels: formattedLevels })
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                if (statusEl) {
+                    statusEl.style.color = 'var(--accent-green)';
+                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i> Successfully imported ${result.count} users' levels and synchronized milestones!`;
+                }
+                showToast('✅ Level Backup Imported Successfully!');
+            } else {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to import levels config.');
+            }
+        } catch (err) {
+            console.error('Error importing levels:', err);
+            if (statusEl) {
+                statusEl.style.color = 'var(--accent-red)';
+                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${err.message}`;
+            }
+            showToast('❌ Level Import Failed', true);
+        } finally {
+            input.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+
+async function resetAllLevels() {
+    if (!activeGuild) return;
+    if (!confirm('⚠️ Are you absolutely sure you want to RESET ALL LEVELS for all users in this server? This will wipe their XP to 0 and remove any milestone roles. This action CANNOT be undone.')) {
+        return;
+    }
+
+    try {
+        const res = await apiFetch(`/levels/reset/${activeGuild.id}`, {
+            method: 'POST'
+        });
+
+        if (res.ok) {
+            showToast('✅ All levels and XP reset successfully!');
+            const statusEl = document.getElementById('importStatus');
+            if (statusEl) {
+                statusEl.style.display = 'block';
+                statusEl.style.color = 'var(--accent-yellow)';
+                statusEl.innerHTML = '<i class="fas fa-trash-alt"></i> All levels and progression have been completely reset.';
+            }
+        } else {
+            const err = await res.json();
+            showToast('❌ Error: ' + (err.error || 'Failed to reset levels'), true);
+        }
+    } catch(e) {
+        showToast('❌ Server error resetting levels', true);
+    }
+}

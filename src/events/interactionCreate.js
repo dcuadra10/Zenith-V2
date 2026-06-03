@@ -20,6 +20,94 @@ module.exports = {
         }
 
         console.log(`[INTERACTION] Type: ${interaction.type}, Name: ${interaction.commandName || interaction.customId}, User: ${interaction.user.tag}`);
+        
+        if (interaction.guildId) {
+            const db = await getDb();
+            const confRaw = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+            const conf = confRaw ? Object.keys(confRaw).reduce((acc, key) => {
+                acc[key.toLowerCase()] = confRaw[key];
+                return acc;
+            }, {}) : {};
+
+            const cmdName = interaction.commandName;
+            const customId = interaction.customId || '';
+
+            let requiredModule = null;
+            let moduleNameFriendly = '';
+
+            const economyCommands = ['work', 'rob', 'pay', 'jail', 'shop', 'buy', 'bank', 'stocks', 'mafia', 'businesses', 'influence', 'jobs', 'balance', 'eco-admin'];
+            const levelingCommands = ['rank', 'leaderboard'];
+            const rssCommands = ['rss-stock', 'rss-tax', 'rss-buy-setup', 'rss-stock-setup'];
+            const r4Commands = ['add-ads', 'r4-leaderboard', 'r4-stats', 'setup-ads-panel'];
+            const giveawayCommands = ['giveaway'];
+            const aiCommands = ['ai-agent'];
+            const marketCommands = ['market-setup'];
+
+            if (interaction.isChatInputCommand()) {
+                if (economyCommands.includes(cmdName)) {
+                    requiredModule = 'ecoenabled';
+                    moduleNameFriendly = 'Economy';
+                } else if (levelingCommands.includes(cmdName)) {
+                    requiredModule = 'levelingenabled';
+                    moduleNameFriendly = 'Leveling System';
+                } else if (rssCommands.includes(cmdName)) {
+                    requiredModule = 'rssenabled';
+                    moduleNameFriendly = 'RSS Buying';
+                } else if (r4Commands.includes(cmdName)) {
+                    requiredModule = 'r4trackingenabled';
+                    moduleNameFriendly = 'R4 Tracking';
+                } else if (giveawayCommands.includes(cmdName)) {
+                    requiredModule = 'giveawaysenabled';
+                    moduleNameFriendly = 'Giveaways';
+                } else if (aiCommands.includes(cmdName)) {
+                    requiredModule = 'chatenabled';
+                    moduleNameFriendly = 'AI Agents';
+                } else if (marketCommands.includes(cmdName)) {
+                    requiredModule = 'marketenabled';
+                    moduleNameFriendly = 'Market+';
+                }
+            } else {
+                if (customId.startsWith('market_') || customId.startsWith('modal_market_')) {
+                    requiredModule = 'marketenabled';
+                    moduleNameFriendly = 'Market+';
+                } else if (customId.startsWith('rss_') || customId.startsWith('modal_rss_')) {
+                    requiredModule = 'rssenabled';
+                    moduleNameFriendly = 'RSS Buying';
+                } else if (customId.startsWith('ticket_panel_') || customId.startsWith('start_app_') || customId.startsWith('app_choice_') || customId === 'app_finalize_submit' || customId === 'app_cancel_all' || customId === 'app_edit_select' || customId.startsWith('claim_ticket_') || customId.startsWith('close_ticket_') || customId.startsWith('admin_app_approve_') || customId.startsWith('admin_app_decline_') || customId.startsWith('modal_ticket_app_') || customId.startsWith('admin_app_decline_modal_')) {
+                    requiredModule = 'ticketsenabled';
+                    moduleNameFriendly = 'Ticket System';
+                } else if (customId === 'btn_register_ads' || customId === 'modal_register_ads') {
+                    requiredModule = 'r4trackingenabled';
+                    moduleNameFriendly = 'R4 Tracking';
+                } else if (customId.startsWith('bank_upgrade_')) {
+                    requiredModule = 'ecoenabled';
+                    moduleNameFriendly = 'Economy';
+                }
+            }
+
+            if (requiredModule) {
+                let isEnabled = false;
+                if (requiredModule === 'marketenabled') {
+                    const marketConfig = await db.get(`SELECT marketEnabled FROM market_configs WHERE guildId = ?`, [interaction.guildId]);
+                    isEnabled = !!(marketConfig && marketConfig.marketEnabled);
+                } else if (requiredModule === 'chatenabled') {
+                    const aiConfig = await db.get(`SELECT enabled FROM ai_agent_configs WHERE guildId = ? AND clientId = ?`, [interaction.guildId, interaction.client.user.id]);
+                    isEnabled = !aiConfig || aiConfig.enabled !== 0;
+                } else {
+                    isEnabled = !!conf[requiredModule];
+                }
+
+                if (!isEnabled) {
+                    const disabledMsg = `❌ The **${moduleNameFriendly}** module is currently disabled in this server. An administrator can enable it in the Zenith Command Center.`;
+                    if (interaction.replied || interaction.deferred) {
+                        return await interaction.followUp({ content: disabledMsg, ephemeral: true }).catch(() => {});
+                    } else {
+                        return await interaction.reply({ content: disabledMsg, ephemeral: true }).catch(() => {});
+                    }
+                }
+            }
+        }
+
         if (interaction.isChatInputCommand()) {
             const commandName = interaction.commandName;
             

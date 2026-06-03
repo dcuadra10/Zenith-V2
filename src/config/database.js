@@ -453,6 +453,7 @@ async function createDbInstance() {
                 rssTaxRate REAL DEFAULT 10,
                 rssCategory TEXT,
                 -- Giveaways
+                giveawaysEnabled INTEGER DEFAULT 0,
                 giveawaysManagerRole TEXT,
                 giveawaysLogChannel TEXT,
                 giveawaysEcoReward INTEGER DEFAULT 0,
@@ -786,7 +787,7 @@ async function createDbInstance() {
             'newKingdomEnabled INTEGER DEFAULT 0', 'newKingdomSourceChannel TEXT', 'newKingdomTargetChannel TEXT', 'newKingdomPingRole TEXT',
             'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
             'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT',
-            'giveawaysManagerRole TEXT', 'giveawaysLogChannel TEXT', 'giveawaysEcoReward INTEGER DEFAULT 0', 'giveawaysEcoCoins INTEGER DEFAULT 200'
+            'giveawaysEnabled INTEGER DEFAULT 0', 'giveawaysManagerRole TEXT', 'giveawaysLogChannel TEXT', 'giveawaysEcoReward INTEGER DEFAULT 0', 'giveawaysEcoCoins INTEGER DEFAULT 200'
         ];
         for (const col of ticketCols) {
             try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN ${col}`); } catch (e) {}
@@ -1044,6 +1045,7 @@ async function initializeSchema() {
             rssTaxRate REAL DEFAULT 10,
             rssCategory TEXT,
             -- Giveaways
+            giveawaysEnabled INTEGER DEFAULT 0,
             giveawaysManagerRole TEXT,
             giveawaysLogChannel TEXT,
             giveawaysEcoReward INTEGER DEFAULT 0,

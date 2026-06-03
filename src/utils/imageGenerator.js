@@ -259,7 +259,7 @@ async function generateLeaderboardImage(title, entries, backgroundPath) {
         }
     }
     if (!bgToUse) {
-        const defaultBg = path.join(process.cwd(), 'zenith_bg - Copy.png');
+        const defaultBg = path.join(__dirname, '..', '..', 'zenith_bg - Copy.png');
         if (fs.existsSync(defaultBg)) {
             bgToUse = defaultBg;
         }
@@ -412,7 +412,7 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
         }
     }
     if (!bgToUse) {
-        const defaultBg = path.join(process.cwd(), 'zenith_bg - Copy.png');
+        const defaultBg = path.join(__dirname, '..', '..', 'zenith_bg - Copy.png');
         if (fs.existsSync(defaultBg)) {
             bgToUse = defaultBg;
         }

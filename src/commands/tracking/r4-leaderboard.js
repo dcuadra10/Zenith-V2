@@ -107,7 +107,7 @@ module.exports = {
         }
 
         const { generateLeaderboardImage } = require('../../utils/imageGenerator');
-        const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
+        const imagePath = path.join(__dirname, '..', '..', '..', 'zenith_bg - Copy.png');
         const buffer = await generateLeaderboardImage(`🏆  R4 Activity Leaderboard (${weekId})`, entries, imagePath);
         const attachment = new AttachmentBuilder(buffer, { name: 'r4_leaderboard.png' });
 

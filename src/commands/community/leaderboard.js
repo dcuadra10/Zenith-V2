@@ -63,7 +63,7 @@ module.exports = {
     const type = interaction.options.getString('type') || 'levels';
     const conf = await db.get(`SELECT levelingBackground, leaderboardImageEnabled FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
     
-    const defaultBgPath = path.join(process.cwd(), 'zenith_bg - Copy.png');
+    const defaultBgPath = path.join(__dirname, '..', '..', '..', 'zenith_bg - Copy.png');
     const background = conf?.levelingBackground || null;
     const useImage = true;
     const bgPath = background || defaultBgPath;

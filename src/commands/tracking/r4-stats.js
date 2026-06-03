@@ -84,7 +84,7 @@ module.exports = {
 
         embed.setFooter({ text: 'Quotas are combined. You can compensate one with the other.' });
 
-        const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
+        const imagePath = path.join(__dirname, '..', '..', '..', 'zenith_bg - Copy.png');
         const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });
         embed.setImage('attachment://zenith_bg.png');
 

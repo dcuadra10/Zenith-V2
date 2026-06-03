@@ -15,7 +15,7 @@ module.exports = {
 
     const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id]);
     
-    const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
+    const imagePath = path.join(__dirname, '..', '..', '..', 'zenith_bg - Copy.png');
     const files = [];
     let leaderboardEmbed = null;
 

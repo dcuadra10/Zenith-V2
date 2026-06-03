@@ -484,8 +484,9 @@ async function loadDashboardData() {
     // Reset current data to avoid showing stale info from previous guild
     currentGuildChannels = [];
     currentGuildRoles = [];
+    currentGuildMembers = [];
 
-    // Fetch channels and roles
+    // Fetch channels, roles, and members first and block until dropdowns are populated
     try {
         const [chanRes, roleRes, membersRes] = await Promise.all([
             apiFetch(`/guild/${gid}/channels`),
@@ -496,10 +497,13 @@ async function loadDashboardData() {
         if (roleRes.ok) currentGuildRoles = await roleRes.json();
         if (membersRes.ok) currentGuildMembers = await membersRes.json();
         
-        // Populate all dropdowns
+        // Populate all dropdowns (this will create options for new server)
         populateAllDropdowns();
-    } catch (e) { console.error('Error fetching guild data:', e); }
+    } catch (e) { 
+        console.error('Error fetching guild data:', e); 
+    }
 
+    // Now that the dropdown options are populated, fetch and set the configurations
     // Stats
     try {
         const res = await apiFetch(`/guild/${gid}/stats`);
@@ -529,24 +533,24 @@ async function loadDashboardData() {
         const mods = await res.json();
         loadModuleToggles(mods);
         
-        // Populate new customization fields
-        setVal('levelUpTitle', mods.levelUpTitle || '?? Level Up!');
+        // Populate customization fields
+        setVal('levelUpTitle', mods.levelUpTitle || '🎉 Level Up!');
         setVal('levelUpMessage', mods.levelUpMessage || '{user} just reached level **{level}**!');
         setVal('levelUpColor', mods.levelUpColor || '#FFD700');
         setCheck('levelUpUseEmbed', mods.levelUpUseEmbed !== undefined ? mods.levelUpUseEmbed : true);
         setVal('levelingBackground', mods.levelingBackground || '');
         
-        setVal('swearJarTitle', mods.swearJarTitle || '?? Swear Jar Contribution!');
+        setVal('swearJarTitle', mods.swearJarTitle || '🤬 Swear Jar Contribution!');
         setVal('swearJarMessage', mods.swearJarMessage || '{user} just added a coin to the jar for using prohibited dialect: `{word}`');
         setVal('swearJarColor', mods.swearJarColor || '#FFD700');
         
-        // Update all previews initially
+        // Update previews
         updateWelcomePreview();
         updateLevelingPreview();
         updateSwearJarPreview();
     } catch (e) { console.error(e); }
 
-    // Panels
+    // Panels and other features
     fetchPanels();
     fetchTranscripts();
     fetchGiveaways();
@@ -763,7 +767,7 @@ function loadModuleToggles(mods) {
     if (!mods) return;
     // Welcome
     setCheck('toggleWelcome', mods.welcomeEnabled);
-    setVal('welcomeChannelCfg', mods.welcomeChannel);
+    setVal('cfgWelcomeChannel', mods.welcomeChannel);
     setVal('welcomeTitle', mods.welcomeEmbedTitle);
     setVal('welcomeMessage', mods.welcomeEmbedDesc);
     if (mods.welcomeColor) {

@@ -2,6 +2,46 @@ const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discor
 const { getDb } = require('../../config/database');
 const path = require('path');
 
+function formatCompact(value) {
+    if (value === undefined || value === null) return '0';
+    const num = BigInt(value);
+    const absNum = num < 0n ? -num : num;
+    const sign = num < 0n ? '-' : '';
+
+    if (absNum < 1000n) {
+        return sign + absNum.toString();
+    }
+    
+    const suffixes = [
+        { value: 1_000n, symbol: 'K' },
+        { value: 1_000_000n, symbol: 'M' },
+        { value: 1_000_000_000n, symbol: 'B' },
+        { value: 1_000_000_000_000n, symbol: 'T' },
+        { value: 1_000_000_000_000_000n, symbol: 'Q' }
+    ];
+    
+    let matched = suffixes[0];
+    for (let i = 1; i < suffixes.length; i++) {
+        if (absNum >= suffixes[i].value) {
+            matched = suffixes[i];
+        } else {
+            break;
+        }
+    }
+    
+    const temp = (absNum * 100n) / matched.value;
+    const integerPart = temp / 100n;
+    const decimalPart = temp % 100n;
+    
+    let decimalStr = decimalPart.toString().padStart(2, '0');
+    if (decimalStr.endsWith('0')) decimalStr = decimalStr.slice(0, -1);
+    if (decimalStr === '0') {
+        return sign + integerPart.toString() + matched.symbol;
+    }
+    
+    return sign + integerPart.toString() + '.' + decimalStr + matched.symbol;
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('leaderboard')
@@ -87,11 +127,11 @@ module.exports = {
                     const member = await interaction.guild.members.fetch(u.userId).catch(() => null);
                     if (member) name = member.displayName || member.user.username;
                 } catch (e) {}
-                entries.push({ name, value: `🪙 ${u.total.toLocaleString()}` });
+                entries.push({ name, value: `🪙 ${formatCompact(u.total)}` });
             }
         } else {
             embedDesc = processedUsers.length > 0
-                ? processedUsers.map((u, i) => `**${i + 1}.** <@${u.userId}> - **🪙 ${u.total.toLocaleString()}** (Cash: ${u.balance.toLocaleString()}, Bank: ${u.bank.toLocaleString()})`).join('\n')
+                ? processedUsers.map((u, i) => `**${i + 1}.** <@${u.userId}> - **🪙 ${formatCompact(u.total)}** (Cash: ${formatCompact(u.balance)}, Bank: ${formatCompact(u.bank)})`).join('\n')
                 : 'No economy data found.';
         }
     } 

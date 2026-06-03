@@ -721,8 +721,8 @@ module.exports = {
                     const applicantUser = await interaction.client.users.fetch(pending.userId);
                     if (applicantUser) {
                         const embed = new EmbedBuilder()
-                            .setTitle('✅ Application Approved')
-                            .setDescription(`Congratulations! Your application for **${opt.label || 'Application'}** has been approved.\n\nA ticket channel has been opened for you here: ${ticketChannel}`)
+                            .setTitle('✅ Application Processed')
+                            .setDescription(`Your application for **${opt.label || 'Application'}** has been processed.\n\nA ticket channel has been opened for you here: ${ticketChannel}`)
                             .setColor('#22c55e')
                             .setTimestamp();
                         await applicantUser.send({ embeds: [embed] });

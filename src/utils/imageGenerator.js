@@ -942,7 +942,7 @@ async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entrie
     const cards = [
         { label: '⚡ STATUS', val: 'Active & Syncing', valColor: '#10b981' },
         { label: '📅 CURRENT WEEK', val: currentWeek, valColor: '#fbbf24' },
-        { label: '🎯 WEEKLY TARGET', val: `${weeklyTarget} Ads / Off`, valColor: '#60a5fa' }
+        { label: '🎯 WEEKLY TARGET', val: `${weeklyTarget} Ads / Officer`, valColor: '#60a5fa' }
     ];
 
     cards.forEach((c, idx) => {

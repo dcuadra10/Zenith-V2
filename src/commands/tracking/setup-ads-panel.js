@@ -90,7 +90,7 @@ module.exports = {
           .setStyle(ButtonStyle.Primary),
       );
 
-    const payload = { embeds: leaderboardEmbed ? [leaderboardEmbed, embed] : [embed], components: [row], files };
+    const payload = { embeds: leaderboardEmbed ? [leaderboardEmbed] : [], components: [row], files };
     
     // Delete any existing panel in this channel to prevent duplicates
     try {
@@ -98,7 +98,7 @@ module.exports = {
         const oldPanel = existing.find(m => 
             m.author.id === interaction.client.user.id && 
             m.components.length > 0 &&
-            m.embeds.some(e => e.title?.includes('Ad Tracking Center'))
+            m.components[0].components.some(c => c.customId === 'btn_register_ads')
         );
         if (oldPanel) await oldPanel.delete().catch(() => {});
     } catch (e) {}

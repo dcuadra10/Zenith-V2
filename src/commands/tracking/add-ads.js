@@ -127,7 +127,7 @@ async function processAdsSubmission(interaction, amount) {
             const panelMsg = recentMessages.find(m => 
                 m.author.id === interaction.client.user.id && 
                 m.components.length > 0 &&
-                m.embeds.some(e => e.title?.includes('Ad Tracking Center'))
+                m.components[0].components.some(c => c.customId === 'btn_register_ads')
             );
             
             if (panelMsg) {
@@ -176,10 +176,8 @@ async function processAdsSubmission(interaction, amount) {
                     leaderboardEmbed.setThumbnail('attachment://zenith_bg.png');
                 }
 
-                // Keep the second embed (the panel instructions) as is
-                const panelEmbed = panelMsg.embeds.find(e => e.title?.includes('Ad Tracking Center')) || panelMsg.embeds[0];
                 await panelMsg.edit({ 
-                    embeds: leaderboardEmbed ? [leaderboardEmbed, EmbedBuilder.from(panelEmbed)] : [EmbedBuilder.from(panelEmbed)], 
+                    embeds: leaderboardEmbed ? [leaderboardEmbed] : [], 
                     files 
                 });
             }

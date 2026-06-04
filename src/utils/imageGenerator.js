@@ -804,7 +804,7 @@ async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entrie
         ctx.fillRect(0, 0, 900, 900);
     }
 
-    const premiumFont = '"Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif';
+    const premiumFont = 'Segoe UI';
 
     // ==========================================
     // TOP PANEL: LEADERBOARD OF THE WEEK

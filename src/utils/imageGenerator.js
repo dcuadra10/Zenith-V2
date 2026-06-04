@@ -744,7 +744,7 @@ async function generateAdTrackingInfoImage(currentWeek, weeklyTarget, background
 }
 
 async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entries, backgroundPath = null) {
-    const canvas = createCanvas(1600, 650);
+    const canvas = createCanvas(900, 1200);
     const ctx = canvas.getContext('2d');
     const path = require('path');
     const fs = require('fs');
@@ -768,59 +768,75 @@ async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entrie
         }
     }
 
-    // Load and draw background image
+    // Load and draw background image with cover scaling
     if (bgToUse) {
         try {
             const bg = await loadImage(bgToUse);
-            ctx.drawImage(bg, 0, 0, 1600, 650);
+            const imgRatio = bg.width / bg.height;
+            const canvasRatio = 900 / 1200;
+            let sx, sy, sw, sh;
+            if (imgRatio > canvasRatio) {
+                sh = bg.height;
+                sw = bg.height * canvasRatio;
+                sx = (bg.width - sw) / 2;
+                sy = 0;
+            } else {
+                sw = bg.width;
+                sh = bg.width / canvasRatio;
+                sx = 0;
+                sy = (bg.height - sh) / 2;
+            }
+            ctx.drawImage(bg, sx, sy, sw, sh, 0, 0, 900, 1200);
         } catch (e) {
-            const grad = ctx.createLinearGradient(0, 0, 0, 650);
+            const grad = ctx.createLinearGradient(0, 0, 0, 1200);
             grad.addColorStop(0, '#0f0c29');
             grad.addColorStop(0.5, '#302b63');
             grad.addColorStop(1, '#24243e');
             ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, 1600, 650);
+            ctx.fillRect(0, 0, 900, 1200);
         }
     } else {
-        const grad = ctx.createLinearGradient(0, 0, 0, 650);
+        const grad = ctx.createLinearGradient(0, 0, 0, 1200);
         grad.addColorStop(0, '#0f0c29');
         grad.addColorStop(0.5, '#302b63');
         grad.addColorStop(1, '#24243e');
         ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 1600, 650);
+        ctx.fillRect(0, 0, 900, 1200);
     }
 
+    const premiumFont = '"Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif';
+
     // ==========================================
-    // LEFT PANEL: AD TRACKING CENTER INFO
+    // TOP PANEL: AD TRACKING CENTER INFO
     // ==========================================
     // Dark glass overlay panel
     ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.beginPath();
-    ctx.roundRect(40, 30, 720, 590, 20);
+    ctx.roundRect(40, 30, 820, 530, 20);
     ctx.fill();
 
     // Border glow
     ctx.strokeStyle = 'rgba(88, 101, 242, 0.4)'; // Blue tracking theme border
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.roundRect(40, 30, 720, 590, 20);
+    ctx.roundRect(40, 30, 820, 530, 20);
     ctx.stroke();
 
     // Title: AD TRACKING CENTER
-    const titleGradLeft = ctx.createLinearGradient(150, 60, 650, 60);
+    const titleGradLeft = ctx.createLinearGradient(150, 60, 750, 60);
     titleGradLeft.addColorStop(0, '#818cf8');
     titleGradLeft.addColorStop(0.5, '#c084fc');
     titleGradLeft.addColorStop(1, '#a78bfa');
     ctx.fillStyle = titleGradLeft;
     ctx.textAlign = 'center';
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = `bold 32px ${premiumFont}`;
     ctx.shadowBlur = 10;
     ctx.shadowColor = 'rgba(129, 140, 248, 0.5)';
-    ctx.fillText('📊 AD TRACKING CENTER', 400, 85);
+    ctx.fillText('📊 AD TRACKING CENTER', 450, 85);
     ctx.shadowBlur = 0;
 
-    // Decorative separator line (Left)
-    const lineGradLeft = ctx.createLinearGradient(100, 115, 700, 115);
+    // Decorative separator line (Top)
+    const lineGradLeft = ctx.createLinearGradient(100, 115, 800, 115);
     lineGradLeft.addColorStop(0, 'transparent');
     lineGradLeft.addColorStop(0.3, 'rgba(129, 140, 248, 0.5)');
     lineGradLeft.addColorStop(0.7, 'rgba(129, 140, 248, 0.5)');
@@ -829,42 +845,42 @@ async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entrie
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(100, 115);
-    ctx.lineTo(700, 115);
+    ctx.lineTo(800, 115);
     ctx.stroke();
 
     // Subtitle description text
     ctx.fillStyle = '#dbdee1';
-    ctx.font = '500 16px sans-serif';
+    ctx.font = `500 16px ${premiumFont}`;
     ctx.textAlign = 'center';
-    ctx.fillText('Welcome to the Zenith Tracking Center.', 400, 155);
-    ctx.fillText('Log your completed ads to sync progress with Google Sheets.', 400, 182);
+    ctx.fillText('Welcome to the Zenith Tracking Center.', 450, 155);
+    ctx.fillText('Log your completed ads to sync progress with Google Sheets.', 450, 182);
 
     // Guidelines Box
     ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
     ctx.beginPath();
-    ctx.roundRect(80, 220, 640, 130, 12);
+    ctx.roundRect(80, 220, 740, 130, 12);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.roundRect(80, 220, 640, 130, 12);
+    ctx.roundRect(80, 220, 740, 130, 12);
     ctx.stroke();
 
     // Guidelines Title & Items
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 15px sans-serif';
+    ctx.font = `bold 15px ${premiumFont}`;
     ctx.textAlign = 'left';
     ctx.fillText('GUIDELINES:', 105, 252);
 
     ctx.fillStyle = '#e5e7eb';
-    ctx.font = '500 15px sans-serif';
+    ctx.font = `500 15px ${premiumFont}`;
     ctx.fillText('• Submissions must be genuine, accurate, and verifiable.', 105, 285);
     ctx.fillText('• Progress is dynamically counted towards your weekly R4 quota.', 105, 312);
 
-    // Metric Cards at the bottom (Left)
-    const cardWidth = 200;
+    // Metric Cards at the bottom (Top Panel)
+    const cardWidth = 230;
     const cardHeight = 90;
-    const gap = 20;
+    const gap = 25;
     const startX = 80;
     const cardY = 385;
 
@@ -891,47 +907,48 @@ async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entrie
 
         // Label
         ctx.fillStyle = '#9ca3af';
-        ctx.font = 'bold 11px sans-serif';
+        ctx.font = `bold 11px ${premiumFont}`;
         ctx.textAlign = 'center';
         ctx.fillText(c.label, x + cardWidth / 2, cardY + 32);
 
         // Value
         ctx.fillStyle = c.valColor;
-        ctx.font = 'bold 14px sans-serif';
+        ctx.font = `bold 14px ${premiumFont}`;
         ctx.fillText(c.val, x + cardWidth / 2, cardY + 60);
     });
 
+
     // ==========================================
-    // RIGHT PANEL: LEADERBOARD OF THE WEEK
+    // BOTTOM PANEL: LEADERBOARD OF THE WEEK
     // ==========================================
     // Dark glass overlay panel
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.beginPath();
-    ctx.roundRect(840, 30, 720, 590, 20);
+    ctx.roundRect(40, 590, 820, 580, 20);
     ctx.fill();
 
     // Border glow
     ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.roundRect(840, 30, 720, 590, 20);
+    ctx.roundRect(40, 590, 820, 580, 20);
     ctx.stroke();
 
     // Title with gold gradient
-    const titleGradRight = ctx.createLinearGradient(950, 60, 1450, 60);
+    const titleGradRight = ctx.createLinearGradient(250, 620, 650, 620);
     titleGradRight.addColorStop(0, '#fbbf24');
     titleGradRight.addColorStop(0.5, '#fde68a');
     titleGradRight.addColorStop(1, '#f59e0b');
     ctx.fillStyle = titleGradRight;
     ctx.textAlign = 'center';
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = `bold 32px ${premiumFont}`;
     ctx.shadowBlur = 12;
     ctx.shadowColor = 'rgba(251, 191, 36, 0.5)';
-    ctx.fillText('🏆 LEADERBOARD OF THE WEEK', 1200, 85);
+    ctx.fillText('🏆 LEADERBOARD OF THE WEEK', 450, 645);
     ctx.shadowBlur = 0;
 
-    // Decorative separator line (Right)
-    const lineGradRight = ctx.createLinearGradient(900, 115, 1500, 115);
+    // Decorative separator line (Bottom)
+    const lineGradRight = ctx.createLinearGradient(100, 675, 800, 675);
     lineGradRight.addColorStop(0, 'transparent');
     lineGradRight.addColorStop(0.3, 'rgba(251, 191, 36, 0.5)');
     lineGradRight.addColorStop(0.7, 'rgba(251, 191, 36, 0.5)');
@@ -939,15 +956,15 @@ async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entrie
     ctx.strokeStyle = lineGradRight;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(900, 115);
-    ctx.lineTo(1500, 115);
+    ctx.moveTo(100, 675);
+    ctx.lineTo(800, 675);
     ctx.stroke();
 
     // Medal colors and labels
     const medalColors = ['#fbbf24', '#c0c0c0', '#cd7f32'];
 
     // Render entries
-    const startY = 150;
+    const startY = 710;
     const rowHeight = 44;
     const maxEntries = Math.min(entries.length, 10);
 
@@ -959,50 +976,50 @@ async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entrie
         if (i < 3) {
             ctx.fillStyle = `rgba(251, 191, 36, ${0.08 - i * 0.02})`;
             ctx.beginPath();
-            ctx.roundRect(860, y - 5, 680, 38, 8);
+            ctx.roundRect(80, y - 5, 740, 38, 8);
             ctx.fill();
         }
 
         // Rank number
         ctx.textAlign = 'left';
-        ctx.font = 'bold 20px sans-serif';
+        ctx.font = `bold 20px ${premiumFont}`;
         if (i < 3) {
             ctx.fillStyle = medalColors[i];
             ctx.shadowBlur = 8;
             ctx.shadowColor = medalColors[i];
-            ctx.fillText(`#${i + 1}`, 880, y + 22);
+            ctx.fillText(`#${i + 1}`, 100, y + 22);
             ctx.shadowBlur = 0;
         } else {
             ctx.fillStyle = '#9ca3af';
-            ctx.font = 'bold 18px sans-serif';
-            ctx.fillText(`#${i + 1}`, 880, y + 22);
+            ctx.font = `bold 18px ${premiumFont}`;
+            ctx.fillText(`#${i + 1}`, 100, y + 22);
         }
 
         // Username
         ctx.fillStyle = i < 3 ? '#ffffff' : '#d1d5db';
-        ctx.font = i < 3 ? 'bold 18px sans-serif' : '500 17px sans-serif';
-        const displayName = entry.name.length > 22 ? entry.name.substring(0, 22) + '…' : entry.name;
-        ctx.fillText(displayName, 930, y + 22);
+        ctx.font = i < 3 ? `bold 18px ${premiumFont}` : `500 17px ${premiumFont}`;
+        const displayName = entry.name.length > 25 ? entry.name.substring(0, 25) + '…' : entry.name;
+        ctx.fillText(displayName, 150, y + 22);
 
         // Value (right-aligned)
         ctx.textAlign = 'right';
         ctx.fillStyle = i < 3 ? '#fde68a' : '#9ca3af';
-        ctx.font = i < 3 ? 'bold 18px sans-serif' : '500 17px sans-serif';
-        ctx.fillText(entry.value, 1520, y + 22);
+        ctx.font = i < 3 ? `bold 18px ${premiumFont}` : `500 17px ${premiumFont}`;
+        ctx.fillText(entry.value, 800, y + 22);
     }
 
     if (entries.length === 0) {
         ctx.textAlign = 'center';
         ctx.fillStyle = '#6b7280';
-        ctx.font = 'italic 18px sans-serif';
-        ctx.fillText('The board is currently vacant. Be the first!', 1200, 320);
+        ctx.font = `italic 18px ${premiumFont}`;
+        ctx.fillText('The board is currently vacant. Be the first!', 450, 880);
     }
 
     // Branding watermark
     ctx.fillStyle = 'rgba(148, 163, 184, 0.2)';
-    ctx.font = 'bold 11px sans-serif';
+    ctx.font = `bold 11px ${premiumFont}`;
     ctx.textAlign = 'right';
-    ctx.fillText('Zenith Global Tracking Systems', 1540, 608);
+    ctx.fillText('Zenith Global Tracking Systems', 820, 1158);
 
     return canvas.toBuffer('image/png');
 }

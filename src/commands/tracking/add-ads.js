@@ -126,19 +126,15 @@ async function processAdsSubmission(interaction, amount) {
             const recentMessages = await interaction.channel.messages.fetch({ limit: 30 });
             const panelMsg = recentMessages.find(m => 
                 m.author.id === interaction.client.user.id && 
-                m.embeds.length >= 2 && 
-                m.embeds[0]?.title?.includes('Top Ad Publishers') &&
-                m.components.length > 0
+                m.components.length > 0 &&
+                m.embeds.some(e => e.title?.includes('Ad Tracking Center'))
             );
             
             if (panelMsg) {
                 const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id]);
                 const useImage = true;
                 
-                const leaderboardEmbed = new EmbedBuilder()
-                  .setTitle('🏆 Top Ad Publishers')
-                  .setColor('#FFD700');
-
+                let leaderboardEmbed = null;
                 const imagePath = path.join(process.cwd(), 'zenith_bg - Copy.png');
                 const files = [];
 
@@ -146,25 +142,32 @@ async function processAdsSubmission(interaction, amount) {
                     const { generateLeaderboardImage } = require('../../utils/imageGenerator');
                     const entries = [];
                     for (const u of topUsers) {
-                        let name = `User ${u.userId.slice(-4)}`;
+                        const uid = u.userId || u.userid;
+                        if (!uid) continue;
+                        let name = `User ${uid.slice(-4)}`;
                         try {
-                            const member = await interaction.guild.members.fetch(u.userId).catch(() => null);
+                            const member = await interaction.guild.members.fetch(uid).catch(() => null);
                             if (member) name = member.displayName || member.user.username;
                         } catch (e) {}
-                        entries.push({ name, value: `${u.totalAds} ads` });
+                        entries.push({ name, value: `${u.totalAds ?? u.totalads ?? 0} ads` });
                     }
                     const buffer = await generateLeaderboardImage('🏆  Leaderboard of the Week', entries, imagePath);
                     const imgAttachment = new AttachmentBuilder(buffer, { name: 'leaderboard.png' });
                     files.push(imgAttachment);
-                    leaderboardEmbed.setImage('attachment://leaderboard.png');
                 } else {
+                    leaderboardEmbed = new EmbedBuilder()
+                      .setTitle('🏆 Top Ad Publishers')
+                      .setColor('#FFD700');
+
                     if (!topUsers || topUsers.length === 0) {
                         leaderboardEmbed.setDescription('🏆 **Leaderboard of the Week**\n\n*The board is currently vacant. Be the first to register an ad and secure the top spot!*');
                     } else {
                         let desc = '🏆 **Leaderboard of the Week**\n\n';
                         topUsers.forEach((u, i) => {
+                            const uid = u.userId || u.userid;
+                            const totalAds = u.totalAds ?? u.totalads ?? 0;
                             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅';
-                            desc += `${medal} <@${u.userId}> ── **${u.totalAds}** ads\n`;
+                            desc += `${medal} <@${uid}> ── **${totalAds}** ads\n`;
                         });
                         leaderboardEmbed.setDescription(desc);
                     }
@@ -174,8 +177,11 @@ async function processAdsSubmission(interaction, amount) {
                 }
 
                 // Keep the second embed (the panel instructions) as is
-                const panelEmbed = panelMsg.embeds[1];
-                await panelMsg.edit({ embeds: [leaderboardEmbed, EmbedBuilder.from(panelEmbed)], files });
+                const panelEmbed = panelMsg.embeds.find(e => e.title?.includes('Ad Tracking Center')) || panelMsg.embeds[0];
+                await panelMsg.edit({ 
+                    embeds: leaderboardEmbed ? [leaderboardEmbed, EmbedBuilder.from(panelEmbed)] : [EmbedBuilder.from(panelEmbed)], 
+                    files 
+                });
             }
         } catch (err) {
             console.error('Failed to update leaderboard panel:', err);

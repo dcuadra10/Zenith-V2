@@ -537,10 +537,6 @@ async function loadDashboardData() {
         loadModuleToggles(mods);
         
         // Populate customization fields
-        setVal('levelUpTitle', mods.levelUpTitle || '🎉 Level Up!');
-        setVal('levelUpMessage', mods.levelUpMessage || '{user} just reached level **{level}**!');
-        setVal('levelUpColor', mods.levelUpColor || '#FFD700');
-        setCheck('levelUpUseEmbed', mods.levelUpUseEmbed !== undefined ? mods.levelUpUseEmbed : true);
         setVal('levelingBackground', mods.levelingBackground || '');
         
         setVal('swearJarTitle', mods.swearJarTitle || '🤬 Swear Jar Contribution!');
@@ -549,7 +545,6 @@ async function loadDashboardData() {
         
         // Update previews
         updateWelcomePreview();
-        updateLevelingPreview();
         updateSwearJarPreview();
     } catch (e) { console.error(e); }
 
@@ -786,10 +781,6 @@ function loadModuleToggles(mods) {
     setVal('xpMax', mods.xpMax ?? 15);
     setVal('xpCooldown', mods.xpCooldown ?? 60);
     setVal('levelUpChannel', mods.levelUpChannel);
-    setVal('levelUpTitle', mods.levelUpTitle);
-    setVal('levelUpMessage', mods.levelUpMessage);
-    setVal('levelUpColor', mods.levelUpColor);
-    setCheck('levelUpUseEmbed', mods.levelUpUseEmbed === undefined || mods.levelUpUseEmbed === null ? true : !!mods.levelUpUseEmbed);
     setVal('levelingBackground', mods.levelingBackground);
     setCheck('leaderboardImageEnabled', mods.leaderboardImageEnabled);
     // Tickets
@@ -991,10 +982,6 @@ async function saveModuleConfig(moduleName) {
         xpMax: parseInt(getVal('xpMax')) || 15,
         xpCooldown: parseInt(getVal('xpCooldown')) || 60,
         levelUpChannel: getVal('levelUpChannel'),
-        levelUpTitle: getVal('levelUpTitle'),
-        levelUpMessage: getVal('levelUpMessage'),
-        levelUpColor: getVal('levelUpColor'),
-        levelUpUseEmbed: getCheck('levelUpUseEmbed'),
         levelingBackground: getVal('levelingBackground'),
         leaderboardImageEnabled: getCheck('leaderboardImageEnabled'),
         // Tickets
@@ -1489,27 +1476,7 @@ function updateWelcomePreview() {
     }
 }
 
-function updateLevelingPreview() {
-    const title = getVal('levelUpTitle') || 'GG!';
-    const desc = getVal('levelUpMessage') || '{user} just reached level **{level}**!';
-    const color = getVal('levelUpColor') || '#FFD700';
-    const useEmbed = getCheck('levelUpUseEmbed');
 
-    const embedWrap = document.getElementById('levelPreviewEmbed');
-    const textWrap = document.getElementById('levelPreviewText');
-
-    if (useEmbed) {
-        embedWrap.style.display = 'flex';
-        textWrap.style.display = 'none';
-        document.getElementById('levelPreviewColorBar').style.background = color;
-        document.getElementById('levelPreviewTitle').innerHTML = formatDiscordText(title);
-        document.getElementById('levelPreviewDesc').innerHTML = formatDiscordText(desc);
-    } else {
-        embedWrap.style.display = 'none';
-        textWrap.style.display = 'block';
-        textWrap.innerHTML = formatDiscordText(desc);
-    }
-}
 
 function updateSwearJarPreview() {
     const title = getVal('swearJarTitle') || 'Swear Jar Contribution!';
@@ -1525,7 +1492,6 @@ function updateSwearJarPreview() {
 document.addEventListener('DOMContentLoaded', () => {
     const ids = [
         'welcomeTitle', 'welcomeMessage', 'welcomeColor', 'welcomeImage', 'welcomeUseEmbed',
-        'levelUpTitle', 'levelUpMessage', 'levelUpColor', 'levelUpUseEmbed',
         'swearJarTitle', 'swearJarMessage', 'swearJarColor',
         'panelTitle', 'panelEmoji', 'panelDescription', 'panelDescEmoji', 'panelColor', 'panelImageUrl', 'panelUseEmbed',
         'v2SidebarColor', 'v2IsSpoiler'
@@ -1536,7 +1502,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const ev = el.type === 'checkbox' || el.type === 'color' ? 'change' : 'input';
         el.addEventListener(ev, () => {
             if (id.startsWith('welcome')) updateWelcomePreview();
-            if (id.startsWith('level')) updateLevelingPreview();
             if (id.startsWith('swear')) updateSwearJarPreview();
             if (id.startsWith('panel')) updatePanelPreview();
         });

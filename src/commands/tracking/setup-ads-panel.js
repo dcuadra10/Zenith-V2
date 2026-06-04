@@ -25,22 +25,19 @@ module.exports = {
 
         const entries = [];
         for (const u of topUsers) {
-            let name = `User ${u.userId.slice(-4)}`;
+            const uid = u.userId || u.userid;
+            if (!uid) continue;
+            let name = `User ${uid.slice(-4)}`;
             try {
-                const member = await interaction.guild.members.fetch(u.userId).catch(() => null);
+                const member = await interaction.guild.members.fetch(uid).catch(() => null);
                 if (member) name = member.displayName || member.user.username;
             } catch (e) {}
-            entries.push({ name, value: `${u.totalAds} ads` });
+            entries.push({ name, value: `${u.totalAds ?? u.totalads ?? 0} ads` });
         }
 
         const buffer = await generateLeaderboardImage('🏆  Leaderboard of the Week', entries, imagePath);
         const imgAttachment = new AttachmentBuilder(buffer, { name: 'leaderboard.png' });
         files.push(imgAttachment);
-
-        leaderboardEmbed = new EmbedBuilder()
-            .setTitle('🏆 Top Ad Publishers')
-            .setColor('#FFD700')
-            .setImage('attachment://leaderboard.png');
     } else {
         // --- CLASSIC MODE: Text embed ---
         leaderboardEmbed = new EmbedBuilder()
@@ -52,8 +49,10 @@ module.exports = {
         } else {
             let desc = '🏆 **Leaderboard of the Week**\n\n';
             topUsers.forEach((u, i) => {
+                const uid = u.userId || u.userid;
+                const totalAds = u.totalAds ?? u.totalads ?? 0;
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅';
-                desc += `${medal} <@${u.userId}> ── **${u.totalAds}** ads\n`;
+                desc += `${medal} <@${uid}> ── **${totalAds}** ads\n`;
             });
             leaderboardEmbed.setDescription(desc);
         }
@@ -91,16 +90,15 @@ module.exports = {
           .setStyle(ButtonStyle.Primary),
       );
 
-    const payload = { embeds: [leaderboardEmbed, embed], components: [row], files };
+    const payload = { embeds: leaderboardEmbed ? [leaderboardEmbed, embed] : [embed], components: [row], files };
     
     // Delete any existing panel in this channel to prevent duplicates
     try {
         const existing = await interaction.channel.messages.fetch({ limit: 30 });
         const oldPanel = existing.find(m => 
             m.author.id === interaction.client.user.id && 
-            m.embeds.length >= 2 && 
-            m.embeds[0]?.title?.includes('Top Ad Publishers') &&
-            m.components.length > 0
+            m.components.length > 0 &&
+            m.embeds.some(e => e.title?.includes('Ad Tracking Center'))
         );
         if (oldPanel) await oldPanel.delete().catch(() => {});
     } catch (e) {}

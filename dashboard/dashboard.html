@@ -288,73 +288,36 @@
                     </label>
                 </div>
 
-                <div class="ticket-builder-grid">
-                    <div class="z-card">
-                        <div class="z-card-header"><h3>Gain Rates</h3></div>
-                        <div class="input-row" style="grid-template-columns: 1fr 1fr 1fr;">
-                            <div class="z-input-group">
-                                <label>XP Base (Min)</label>
-                                <input class="z-input" type="number" id="xpMin" value="5" min="1" max="100">
-                            </div>
-                            <div class="z-input-group">
-                                <label>XP Ceiling (Max)</label>
-                                <input class="z-input" type="number" id="xpMax" value="15" min="1" max="100">
-                            </div>
-                            <div class="z-input-group">
-                                <label>Delay (Seconds)</label>
-                                <input class="z-input" type="number" id="xpCooldown" value="60" min="0">
-                            </div>
-                        </div>
-
-                        <div class="z-input-group" style="margin-top:16px;">
-                            <label>Rank Card Background URL</label>
-                            <input class="z-input" type="text" id="levelingBackground" placeholder="https://example.com/rank-bg.png">
-                            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Customize your server's rank cards with a premium background image.</p>
-                        </div>
-
-                        <div class="z-card-header" style="margin-top:24px;"><h3>Notification Protocol</h3></div>
+                <div class="z-card">
+                    <div class="z-card-header"><h3>Gain Rates</h3></div>
+                    <div class="input-row" style="grid-template-columns: 1fr 1fr 1fr;">
                         <div class="z-input-group">
-                            <label>Level-Up Broadcast Channel</label>
-                            <select class="z-input" id="levelUpChannel"></select>
-                        </div>
-                        
-                        <div class="z-card-header" style="margin-top:24px;"><h3>Level-Up Announcement</h3></div>
-                        <div class="input-row">
-                            <div class="z-input-group">
-                                <label>Embed Title</label>
-                                <input class="z-input" type="text" id="levelUpTitle" placeholder="e.g. Level Up!">
-                            </div>
-                            <div class="z-input-group">
-                                <label>Embed Color</label>
-                                <input class="z-input" type="color" id="levelUpColor" value="#FFD700">
-                            </div>
+                            <label>XP Base (Min)</label>
+                            <input class="z-input" type="number" id="xpMin" value="5" min="1" max="100">
                         </div>
                         <div class="z-input-group">
-                            <label>Message</label>
-                            <textarea class="z-input" id="levelUpMessage" placeholder="Use {user}, {level}, {title}..."></textarea>
+                            <label>XP Ceiling (Max)</label>
+                            <input class="z-input" type="number" id="xpMax" value="15" min="1" max="100">
                         </div>
-                        <div class="toggle-row">
-                            <div class="toggle-info"><h4>Use Rich Embed</h4><p>Toggle between card and plain text.</p></div>
-                            <label class="toggle-switch"><input type="checkbox" id="levelUpUseEmbed" checked><span class="toggle-slider"></span></label>
+                        <div class="z-input-group">
+                            <label>Delay (Seconds)</label>
+                            <input class="z-input" type="number" id="xpCooldown" value="60" min="0">
                         </div>
-                        <button class="z-btn z-btn-primary" onclick="saveModuleConfig('leveling')" style="margin-top:16px;"><i class="fas fa-save"></i> Save Engine</button>
                     </div>
 
-                    <div class="z-card" style="position:sticky; top:24px;">
-                        <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:#949ba4; margin-bottom:16px; font-family:'Inter',sans-serif;">Level-Up Preview</h4>
-                        <div id="levelDiscordPreview" style="border-radius:4px; overflow:hidden;">
-                            <div id="levelPreviewEmbed" style="display:flex;">
-                                <div id="levelPreviewColorBar" style="width:4px; border-radius:3px 0 0 3px; background:#FFD700; flex-shrink:0;"></div>
-                                <div style="background:#2b2d31; border:1px solid #1e1f22; border-left:none; border-radius:0 4px 4px 0; padding:16px; flex:1;">
-                                    <div id="levelPreviewTitle" style="font-weight:700; font-size:1rem; color:#f2f3f5; margin-bottom:8px;">GG!</div>
-                                    <div id="levelPreviewDesc" style="font-size:0.85rem; color:#dbdee1; line-height:1.5;">{user} just reached level **{level}**!</div>
-                                </div>
-                            </div>
-                            <div id="levelPreviewText" style="color:#dbdee1; font-size:0.9rem; display:none;">
-                                {user} just reached level **{level}**!
-                            </div>
-                        </div>
+                    <div class="z-input-group" style="margin-top:16px;">
+                        <label>Rank Card Background URL</label>
+                        <input class="z-input" type="text" id="levelingBackground" placeholder="https://example.com/rank-bg.png">
+                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Customize your server's rank cards with a premium background image.</p>
                     </div>
+
+                    <div class="z-card-header" style="margin-top:24px;"><h3>Notification Protocol</h3></div>
+                    <div class="z-input-group">
+                        <label>Level-Up Broadcast Channel</label>
+                        <select class="z-input" id="levelUpChannel"></select>
+                    </div>
+                    
+                    <button class="z-btn z-btn-primary" onclick="saveModuleConfig('leveling')" style="margin-top:16px;"><i class="fas fa-save"></i> Save Engine</button>
                 </div>
 
                 <!-- Level Milestones -->

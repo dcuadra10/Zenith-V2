@@ -743,4 +743,268 @@ async function generateAdTrackingInfoImage(currentWeek, weeklyTarget, background
     return canvas.toBuffer('image/png');
 }
 
-module.exports = { generateFamilyTree, generateMafiaHierarchy, generateLeaderboardImage, generateLevelUpImage, generateAdTrackingInfoImage };
+async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entries, backgroundPath = null) {
+    const canvas = createCanvas(1600, 650);
+    const ctx = canvas.getContext('2d');
+    const path = require('path');
+    const fs = require('fs');
+
+    // Clean and validate background path
+    let bgToUse = null;
+    if (backgroundPath && typeof backgroundPath === 'string' && backgroundPath.toLowerCase() !== 'null' && backgroundPath.toLowerCase() !== 'undefined' && backgroundPath.trim() !== '') {
+        if (backgroundPath.startsWith('http')) {
+            bgToUse = backgroundPath;
+        } else {
+            const resolvedPath = path.resolve(process.cwd(), backgroundPath);
+            if (fs.existsSync(resolvedPath)) {
+                bgToUse = resolvedPath;
+            }
+        }
+    }
+    if (!bgToUse) {
+        const defaultBg = path.join(__dirname, '..', '..', 'zenith_bg - Copy.png');
+        if (fs.existsSync(defaultBg)) {
+            bgToUse = defaultBg;
+        }
+    }
+
+    // Load and draw background image
+    if (bgToUse) {
+        try {
+            const bg = await loadImage(bgToUse);
+            ctx.drawImage(bg, 0, 0, 1600, 650);
+        } catch (e) {
+            const grad = ctx.createLinearGradient(0, 0, 0, 650);
+            grad.addColorStop(0, '#0f0c29');
+            grad.addColorStop(0.5, '#302b63');
+            grad.addColorStop(1, '#24243e');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 1600, 650);
+        }
+    } else {
+        const grad = ctx.createLinearGradient(0, 0, 0, 650);
+        grad.addColorStop(0, '#0f0c29');
+        grad.addColorStop(0.5, '#302b63');
+        grad.addColorStop(1, '#24243e');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1600, 650);
+    }
+
+    // ==========================================
+    // LEFT PANEL: AD TRACKING CENTER INFO
+    // ==========================================
+    // Dark glass overlay panel
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.beginPath();
+    ctx.roundRect(40, 30, 720, 590, 20);
+    ctx.fill();
+
+    // Border glow
+    ctx.strokeStyle = 'rgba(88, 101, 242, 0.4)'; // Blue tracking theme border
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.roundRect(40, 30, 720, 590, 20);
+    ctx.stroke();
+
+    // Title: AD TRACKING CENTER
+    const titleGradLeft = ctx.createLinearGradient(150, 60, 650, 60);
+    titleGradLeft.addColorStop(0, '#818cf8');
+    titleGradLeft.addColorStop(0.5, '#c084fc');
+    titleGradLeft.addColorStop(1, '#a78bfa');
+    ctx.fillStyle = titleGradLeft;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(129, 140, 248, 0.5)';
+    ctx.fillText('📊 AD TRACKING CENTER', 400, 85);
+    ctx.shadowBlur = 0;
+
+    // Decorative separator line (Left)
+    const lineGradLeft = ctx.createLinearGradient(100, 115, 700, 115);
+    lineGradLeft.addColorStop(0, 'transparent');
+    lineGradLeft.addColorStop(0.3, 'rgba(129, 140, 248, 0.5)');
+    lineGradLeft.addColorStop(0.7, 'rgba(129, 140, 248, 0.5)');
+    lineGradLeft.addColorStop(1, 'transparent');
+    ctx.strokeStyle = lineGradLeft;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(100, 115);
+    ctx.lineTo(700, 115);
+    ctx.stroke();
+
+    // Subtitle description text
+    ctx.fillStyle = '#dbdee1';
+    ctx.font = '500 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Welcome to the Zenith Tracking Center.', 400, 155);
+    ctx.fillText('Log your completed ads to sync progress with Google Sheets.', 400, 182);
+
+    // Guidelines Box
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.beginPath();
+    ctx.roundRect(80, 220, 640, 130, 12);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(80, 220, 640, 130, 12);
+    ctx.stroke();
+
+    // Guidelines Title & Items
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('GUIDELINES:', 105, 252);
+
+    ctx.fillStyle = '#e5e7eb';
+    ctx.font = '500 15px sans-serif';
+    ctx.fillText('• Submissions must be genuine, accurate, and verifiable.', 105, 285);
+    ctx.fillText('• Progress is dynamically counted towards your weekly R4 quota.', 105, 312);
+
+    // Metric Cards at the bottom (Left)
+    const cardWidth = 200;
+    const cardHeight = 90;
+    const gap = 20;
+    const startX = 80;
+    const cardY = 385;
+
+    const cards = [
+        { label: '⚡ STATUS', val: 'Active & Syncing', valColor: '#10b981' },
+        { label: '📅 CURRENT WEEK', val: currentWeek, valColor: '#fbbf24' },
+        { label: '🎯 WEEKLY TARGET', val: `${weeklyTarget} Ads / Off`, valColor: '#60a5fa' }
+    ];
+
+    cards.forEach((c, idx) => {
+        const x = startX + idx * (cardWidth + gap);
+
+        // Glass card background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.beginPath();
+        ctx.roundRect(x, cardY, cardWidth, cardHeight, 10);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x, cardY, cardWidth, cardHeight, 10);
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(c.label, x + cardWidth / 2, cardY + 32);
+
+        // Value
+        ctx.fillStyle = c.valColor;
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(c.val, x + cardWidth / 2, cardY + 60);
+    });
+
+    // ==========================================
+    // RIGHT PANEL: LEADERBOARD OF THE WEEK
+    // ==========================================
+    // Dark glass overlay panel
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.beginPath();
+    ctx.roundRect(840, 30, 720, 590, 20);
+    ctx.fill();
+
+    // Border glow
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.roundRect(840, 30, 720, 590, 20);
+    ctx.stroke();
+
+    // Title with gold gradient
+    const titleGradRight = ctx.createLinearGradient(950, 60, 1450, 60);
+    titleGradRight.addColorStop(0, '#fbbf24');
+    titleGradRight.addColorStop(0.5, '#fde68a');
+    titleGradRight.addColorStop(1, '#f59e0b');
+    ctx.fillStyle = titleGradRight;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = 'rgba(251, 191, 36, 0.5)';
+    ctx.fillText('🏆 LEADERBOARD OF THE WEEK', 1200, 85);
+    ctx.shadowBlur = 0;
+
+    // Decorative separator line (Right)
+    const lineGradRight = ctx.createLinearGradient(900, 115, 1500, 115);
+    lineGradRight.addColorStop(0, 'transparent');
+    lineGradRight.addColorStop(0.3, 'rgba(251, 191, 36, 0.5)');
+    lineGradRight.addColorStop(0.7, 'rgba(251, 191, 36, 0.5)');
+    lineGradRight.addColorStop(1, 'transparent');
+    ctx.strokeStyle = lineGradRight;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(900, 115);
+    ctx.lineTo(1500, 115);
+    ctx.stroke();
+
+    // Medal colors and labels
+    const medalColors = ['#fbbf24', '#c0c0c0', '#cd7f32'];
+
+    // Render entries
+    const startY = 150;
+    const rowHeight = 44;
+    const maxEntries = Math.min(entries.length, 10);
+
+    for (let i = 0; i < maxEntries; i++) {
+        const entry = entries[i];
+        const y = startY + i * rowHeight;
+
+        // Row highlight for top 3
+        if (i < 3) {
+            ctx.fillStyle = `rgba(251, 191, 36, ${0.08 - i * 0.02})`;
+            ctx.beginPath();
+            ctx.roundRect(860, y - 5, 680, 38, 8);
+            ctx.fill();
+        }
+
+        // Rank number
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 20px sans-serif';
+        if (i < 3) {
+            ctx.fillStyle = medalColors[i];
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = medalColors[i];
+            ctx.fillText(`#${i + 1}`, 880, y + 22);
+            ctx.shadowBlur = 0;
+        } else {
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText(`#${i + 1}`, 880, y + 22);
+        }
+
+        // Username
+        ctx.fillStyle = i < 3 ? '#ffffff' : '#d1d5db';
+        ctx.font = i < 3 ? 'bold 18px sans-serif' : '500 17px sans-serif';
+        const displayName = entry.name.length > 22 ? entry.name.substring(0, 22) + '…' : entry.name;
+        ctx.fillText(displayName, 930, y + 22);
+
+        // Value (right-aligned)
+        ctx.textAlign = 'right';
+        ctx.fillStyle = i < 3 ? '#fde68a' : '#9ca3af';
+        ctx.font = i < 3 ? 'bold 18px sans-serif' : '500 17px sans-serif';
+        ctx.fillText(entry.value, 1520, y + 22);
+    }
+
+    if (entries.length === 0) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#6b7280';
+        ctx.font = 'italic 18px sans-serif';
+        ctx.fillText('The board is currently vacant. Be the first!', 1200, 320);
+    }
+
+    // Branding watermark
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.2)';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Zenith Global Tracking Systems', 1540, 608);
+
+    return canvas.toBuffer('image/png');
+}
+
+module.exports = { generateFamilyTree, generateMafiaHierarchy, generateLeaderboardImage, generateLevelUpImage, generateAdTrackingInfoImage, generateAdTrackingCombinedImage };

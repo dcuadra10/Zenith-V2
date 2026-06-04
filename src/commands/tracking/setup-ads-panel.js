@@ -21,8 +21,8 @@ module.exports = {
     let infoEmbed = null;
 
     if (useImage) {
-        // --- IMAGE MODE: Leaderboard baked into canvas ---
-        const { generateLeaderboardImage, generateAdTrackingInfoImage } = require('../../utils/imageGenerator');
+        // --- IMAGE MODE: Leaderboard + Info baked side-by-side in 1 canvas ---
+        const { generateAdTrackingCombinedImage } = require('../../utils/imageGenerator');
 
         const entries = [];
         for (const u of topUsers) {
@@ -36,15 +36,10 @@ module.exports = {
             entries.push({ name, value: `${u.totalAds ?? u.totalads ?? 0} ads` });
         }
 
-        const buffer = await generateLeaderboardImage('🏆  Leaderboard of the Week', entries, imagePath);
-        const imgAttachment = new AttachmentBuilder(buffer, { name: 'leaderboard.png' });
-        files.push(imgAttachment);
-
-        // Generate tracking info image
         const currentWeekId = getISOWeekString();
-        const infoBuffer = await generateAdTrackingInfoImage(currentWeekId, 40, imagePath);
-        const infoAttachment = new AttachmentBuilder(infoBuffer, { name: 'info.png' });
-        files.push(infoAttachment);
+        const buffer = await generateAdTrackingCombinedImage(currentWeekId, 40, entries, imagePath);
+        const imgAttachment = new AttachmentBuilder(buffer, { name: 'panel.png' });
+        files.push(imgAttachment);
     } else {
         // --- CLASSIC MODE: Text embed ---
         leaderboardEmbed = new EmbedBuilder()

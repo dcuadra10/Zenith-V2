@@ -140,7 +140,7 @@ async function processAdsSubmission(interaction, amount) {
                 const files = [];
 
                 if (useImage) {
-                    const { generateLeaderboardImage, generateAdTrackingInfoImage } = require('../../utils/imageGenerator');
+                    const { generateAdTrackingCombinedImage } = require('../../utils/imageGenerator');
                     const entries = [];
                     for (const u of topUsers) {
                         const uid = u.userId || u.userid;
@@ -152,16 +152,12 @@ async function processAdsSubmission(interaction, amount) {
                         } catch (e) {}
                         entries.push({ name, value: `${u.totalAds ?? u.totalads ?? 0} ads` });
                     }
-                    const buffer = await generateLeaderboardImage('🏆  Leaderboard of the Week', entries, imagePath);
-                    const imgAttachment = new AttachmentBuilder(buffer, { name: 'leaderboard.png' });
-                    files.push(imgAttachment);
 
-                    // Generate info image
                     const { getISOWeekString } = require('../../utils/dateHelpers');
                     const currentWeekId = getISOWeekString();
-                    const infoBuffer = await generateAdTrackingInfoImage(currentWeekId, 40, imagePath);
-                    const infoAttachment = new AttachmentBuilder(infoBuffer, { name: 'info.png' });
-                    files.push(infoAttachment);
+                    const buffer = await generateAdTrackingCombinedImage(currentWeekId, 40, entries, imagePath);
+                    const imgAttachment = new AttachmentBuilder(buffer, { name: 'panel.png' });
+                    files.push(imgAttachment);
                 } else {
                     leaderboardEmbed = new EmbedBuilder()
                       .setTitle('🏆 Top Ad Publishers')

@@ -34,7 +34,7 @@ function buildColumnMap(cols) {
         'automodWordList', 'automodMaxMentions', 'automodLogChannel',
         'loggingEnabled', 'loggingChannel', 'logEdits', 'logDeletes', 'logMembers', 'logRoles', 'logChannels', 'logBans',
         'autoroleEnabled', 'autoroleIds',
-        'countingEnabled', 'countingChannel', 'countingCurrent', 'countingSameUser', 'countingReset', 'countingMath', 'countingLastUser',
+        'countingEnabled', 'countingChannel', 'countingCurrent', 'countingSameUser', 'countingReset', 'countingMath', 'countingLastUser', 'countingEmoji', 'countingEmojiFail',
         'serverStatsEnabled', 'statsTotalMembers', 'statsOnline', 'statsBots', 'statsChannels', 'statsCategoryId',
         'antinukeEnabled', 'antinukeBan', 'antinukeChannel', 'antinukeRole', 'antinukeWebhook', 'antinukeThreshold', 'antinukeWhitelist',
         'r4TrackingEnabled', 'r4TrackingRole', 'r4TrackingAdQuota', 'r4TrackingMsgQuota',
@@ -398,6 +398,8 @@ async function createDbInstance() {
                 countingReset INTEGER DEFAULT 1,
                 countingMath INTEGER DEFAULT 0,
                 countingLastUser TEXT,
+                countingEmoji TEXT DEFAULT '✅',
+                countingEmojiFail TEXT DEFAULT '❌',
                 -- Server Stats
                 serverStatsEnabled INTEGER DEFAULT 0,
                 statsTotalMembers INTEGER DEFAULT 1,
@@ -787,7 +789,8 @@ async function createDbInstance() {
             'newKingdomEnabled INTEGER DEFAULT 0', 'newKingdomSourceChannel TEXT', 'newKingdomTargetChannel TEXT', 'newKingdomPingRole TEXT',
             'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
             'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT',
-            'giveawaysEnabled INTEGER DEFAULT 0', 'giveawaysManagerRole TEXT', 'giveawaysLogChannel TEXT', 'giveawaysEcoReward INTEGER DEFAULT 0', 'giveawaysEcoCoins INTEGER DEFAULT 200'
+            'giveawaysEnabled INTEGER DEFAULT 0', 'giveawaysManagerRole TEXT', 'giveawaysLogChannel TEXT', 'giveawaysEcoReward INTEGER DEFAULT 0', 'giveawaysEcoCoins INTEGER DEFAULT 200',
+            'countingEmoji TEXT DEFAULT \'✅\'', 'countingEmojiFail TEXT DEFAULT \'❌\''
         ];
         for (const col of ticketCols) {
             try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN ${col}`); } catch (e) {}
@@ -989,6 +992,8 @@ async function initializeSchema() {
             countingReset INTEGER DEFAULT 1,
             countingMath INTEGER DEFAULT 0,
             countingLastUser TEXT,
+            countingEmoji TEXT DEFAULT '✅',
+            countingEmojiFail TEXT DEFAULT '❌',
             -- Server Stats
             serverStatsEnabled INTEGER DEFAULT 0,
             statsTotalMembers INTEGER DEFAULT 1,
@@ -1214,7 +1219,8 @@ async function initializeSchema() {
             'levelingBackground TEXT', 'leaderboardImageEnabled INTEGER DEFAULT 0',
             'newKingdomEnabled INTEGER DEFAULT 0', 'newKingdomSourceChannel TEXT', 'newKingdomTargetChannel TEXT', 'newKingdomPingRole TEXT',
             'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
-            'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT'
+            'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT',
+            'countingEmoji TEXT DEFAULT \'✅\'', 'countingEmojiFail TEXT DEFAULT \'❌\''
         ],
         economy_mafias: [
             'taxRate REAL DEFAULT 0.05', 'vault BIGINT DEFAULT 0', 'upgrades TEXT DEFAULT \'[]\'',

@@ -161,6 +161,13 @@ module.exports = {
                 const isCorrectNum = (num === conf.countingcurrent + 1);
                 const isSameUser = (message.author.id === conf.countinglastuser);
 
+                const resolveEmoji = (emojiStr) => {
+                    if (!emojiStr) return null;
+                    const match = emojiStr.match(/<?a?:?([^:]+):(\d+)>?/);
+                    if (match) return match[2];
+                    return emojiStr.trim();
+                };
+
                 if (isCorrectNum && !conf.countingsameuser && isSameUser) {
                     // Right number, but counting twice in a row (Warning, no reset)
                     await message.delete().catch(() => {});
@@ -172,12 +179,12 @@ module.exports = {
                 }
                 else if (isCorrectNum) {
                     // Right number, valid user (Proceed)
-                    await message.react('✅').catch(() => {});
+                    await message.react(resolveEmoji(conf.countingemoji) || '✅').catch(() => {});
                     await db.run(`UPDATE module_configs SET countingcurrent = ?, countinglastuser = ? WHERE guildid = ?`, [num, message.author.id, message.guild.id]);
                 } 
                 else if (conf.countingreset) {
                     // Wrong number triggers nuclear reset
-                    await message.react('❌').catch(() => {});
+                    await message.react(resolveEmoji(conf.countingemojifail) || '❌').catch(() => {});
                     const resetEmbed = new EmbedBuilder()
                         .setTitle("💥 Sequence Detonated!")
                         .setDescription(`**<@${message.author.id}>** ruined the sequence by putting \`${num}\`!\n\nThe stack has been reset to **0**. Start again from \`1\`.`)

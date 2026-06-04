@@ -1245,7 +1245,7 @@ app.post('/api/modules/:guildId', authenticateToken, async (req, res) => {
             'automodWordList', 'automodMaxMentions', 'automodLogChannel',
             'loggingEnabled', 'loggingChannel', 'logEdits', 'logDeletes', 'logMembers', 'logRoles', 'logChannels', 'logBans', 'logVoice', 'logServer', 'logInvites',
             'autoroleEnabled', 'autoroleIds',
-            'countingEnabled', 'countingChannel', 'countingCurrent', 'countingSameUser', 'countingReset', 'countingMath',
+            'countingEnabled', 'countingChannel', 'countingCurrent', 'countingSameUser', 'countingReset', 'countingMath', 'countingEmoji', 'countingEmojiFail',
             'serverStatsEnabled', 'statsTotalMembers', 'statsOnline', 'statsBots', 'statsChannels', 'statsCategoryId',
             'antinukeEnabled', 'antinukeBan', 'antinukeChannel', 'antinukeRole', 'antinukeWebhook', 'antinukeThreshold', 'antinukeWhitelist',
             'r4TrackingEnabled', 'r4TrackingRole', 'r4TrackingAdQuota', 'r4TrackingMsgQuota',

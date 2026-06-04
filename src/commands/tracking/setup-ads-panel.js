@@ -10,6 +10,7 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
     const db = await getDb();
     const useImage = true;
 
@@ -105,6 +106,6 @@ module.exports = {
     } catch (e) {}
     
     await interaction.channel.send(payload);
-    await interaction.reply({ content: 'Panel deployed successfully.', ephemeral: true });
+    await interaction.editReply({ content: 'Panel deployed successfully.' });
   }
 };

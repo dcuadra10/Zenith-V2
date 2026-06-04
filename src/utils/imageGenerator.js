@@ -412,9 +412,17 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
         }
     }
     if (!bgToUse) {
-        const defaultBg = path.join(__dirname, '..', '..', 'zenith_bg - Copy.png');
-        if (fs.existsSync(defaultBg)) {
-            bgToUse = defaultBg;
+        const possiblePaths = [
+            path.join(__dirname, '..', '..', 'zenith_bg - Copy.png'),
+            path.join(process.cwd(), 'zenith_bg - Copy.png'),
+            path.resolve(process.cwd(), 'zenith_bg - Copy.png'),
+            'zenith_bg - Copy.png'
+        ];
+        for (const p of possiblePaths) {
+            if (p && fs.existsSync(p)) {
+                bgToUse = p;
+                break;
+            }
         }
     }
 
@@ -428,6 +436,7 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
             ctx.fillStyle = 'rgba(10, 10, 12, 0.35)';
             ctx.fillRect(0, 0, 800, 250);
         } catch (e) {
+            console.error('[LevelUp Image] Failed to load background image:', e);
             // Premium fallback gradient
             const grad = ctx.createLinearGradient(0, 0, 800, 250);
             grad.addColorStop(0, '#0d0b18');

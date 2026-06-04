@@ -18,10 +18,11 @@ module.exports = {
     const imagePath = path.join(__dirname, '..', '..', '..', 'zenith_bg - Copy.png');
     const files = [];
     let leaderboardEmbed = null;
+    let infoEmbed = null;
 
     if (useImage) {
         // --- IMAGE MODE: Leaderboard baked into canvas ---
-        const { generateLeaderboardImage } = require('../../utils/imageGenerator');
+        const { generateLeaderboardImage, generateAdTrackingInfoImage } = require('../../utils/imageGenerator');
 
         const entries = [];
         for (const u of topUsers) {
@@ -38,6 +39,12 @@ module.exports = {
         const buffer = await generateLeaderboardImage('🏆  Leaderboard of the Week', entries, imagePath);
         const imgAttachment = new AttachmentBuilder(buffer, { name: 'leaderboard.png' });
         files.push(imgAttachment);
+
+        // Generate tracking info image
+        const currentWeekId = getISOWeekString();
+        const infoBuffer = await generateAdTrackingInfoImage(currentWeekId, 40, imagePath);
+        const infoAttachment = new AttachmentBuilder(infoBuffer, { name: 'info.png' });
+        files.push(infoAttachment);
     } else {
         // --- CLASSIC MODE: Text embed ---
         leaderboardEmbed = new EmbedBuilder()
@@ -60,26 +67,25 @@ module.exports = {
         const attachment = new AttachmentBuilder(imagePath, { name: 'zenith_bg.png' });
         files.push(attachment);
         leaderboardEmbed.setThumbnail('attachment://zenith_bg.png');
+
+        const currentWeekId = getISOWeekString();
+        infoEmbed = new EmbedBuilder()
+          .setTitle('📊 Ad Tracking Center')
+          .setDescription(
+            'Welcome to the **Zenith Tracking Center**.\n\n' +
+            'Click the **Register Ads** button below to log your completed ads. Submissions are processed, archived in our **Google Sheets**, and queued for leadership evaluation.\n\n' +
+            '**Guidelines:**\n' +
+            '• Submissions must be genuine.\n' +
+            '• Progress is dynamically counted towards your weekly R4 quota.'
+          )
+          .addFields(
+            { name: '⚡ Status', value: '🟢 Active & Syncing', inline: true },
+            { name: '📅 Current Week', value: `\`${currentWeekId}\``, inline: true },
+            { name: '🎯 Weekly Target', value: '`40 Ads / Officer`', inline: true }
+          )
+          .setColor('#5865F2')
+          .setFooter({ text: 'Zenith Global Tracking Systems' });
     }
-
-    const currentWeekId = getISOWeekString();
-
-    const embed = new EmbedBuilder()
-      .setTitle('📊 Ad Tracking Center')
-      .setDescription(
-        'Welcome to the **Zenith Tracking Center**.\n\n' +
-        'Click the **Register Ads** button below to log your completed ads. Submissions are processed, archived in our **Google Sheets**, and queued for leadership evaluation.\n\n' +
-        '**Guidelines:**\n' +
-        '• Submissions must be genuine.\n' +
-        '• Progress is dynamically counted towards your weekly R4 quota.'
-      )
-      .addFields(
-        { name: '⚡ Status', value: '🟢 Active & Syncing', inline: true },
-        { name: '📅 Current Week', value: `\`${currentWeekId}\``, inline: true },
-        { name: '🎯 Weekly Target', value: '`40 Ads / Officer`', inline: true }
-      )
-      .setColor('#5865F2')
-      .setFooter({ text: 'Zenith Global Tracking Systems' });
 
     const row = new ActionRowBuilder()
       .addComponents(
@@ -90,7 +96,7 @@ module.exports = {
           .setStyle(ButtonStyle.Primary),
       );
 
-    const payload = { embeds: leaderboardEmbed ? [leaderboardEmbed] : [], components: [row], files };
+    const payload = { embeds: leaderboardEmbed ? [leaderboardEmbed, infoEmbed] : [], components: [row], files };
     
     // Delete any existing panel in this channel to prevent duplicates
     try {

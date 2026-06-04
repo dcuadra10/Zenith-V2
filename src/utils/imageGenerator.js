@@ -592,4 +592,155 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
     return canvas.toBuffer('image/png');
 }
 
-module.exports = { generateFamilyTree, generateMafiaHierarchy, generateLeaderboardImage, generateLevelUpImage };
+async function generateAdTrackingInfoImage(currentWeek, weeklyTarget, backgroundPath = null) {
+    const canvas = createCanvas(900, 420);
+    const ctx = canvas.getContext('2d');
+    const path = require('path');
+    const fs = require('fs');
+
+    // Clean and validate background path
+    let bgToUse = null;
+    if (backgroundPath && typeof backgroundPath === 'string' && backgroundPath.toLowerCase() !== 'null' && backgroundPath.toLowerCase() !== 'undefined' && backgroundPath.trim() !== '') {
+        if (backgroundPath.startsWith('http')) {
+            bgToUse = backgroundPath;
+        } else {
+            const resolvedPath = path.resolve(process.cwd(), backgroundPath);
+            if (fs.existsSync(resolvedPath)) {
+                bgToUse = resolvedPath;
+            }
+        }
+    }
+    if (!bgToUse) {
+        const defaultBg = path.join(__dirname, '..', '..', 'zenith_bg - Copy.png');
+        if (fs.existsSync(defaultBg)) {
+            bgToUse = defaultBg;
+        }
+    }
+
+    // Load and draw background image
+    if (bgToUse) {
+        try {
+            const bg = await loadImage(bgToUse);
+            ctx.drawImage(bg, 0, 0, 900, 420);
+        } catch (e) {
+            const grad = ctx.createLinearGradient(0, 0, 0, 420);
+            grad.addColorStop(0, '#0f0c29');
+            grad.addColorStop(0.5, '#302b63');
+            grad.addColorStop(1, '#24243e');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 900, 420);
+        }
+    } else {
+        const grad = ctx.createLinearGradient(0, 0, 0, 420);
+        grad.addColorStop(0, '#0f0c29');
+        grad.addColorStop(0.5, '#302b63');
+        grad.addColorStop(1, '#24243e');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 900, 420);
+    }
+
+    // Dark glass overlay panel
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.beginPath();
+    ctx.roundRect(40, 25, 820, 370, 20);
+    ctx.fill();
+
+    // Border glow
+    ctx.strokeStyle = 'rgba(88, 101, 242, 0.4)'; // Blue tracking theme border
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.roundRect(40, 25, 820, 370, 20);
+    ctx.stroke();
+
+    // Title: AD TRACKING CENTER
+    const titleGrad = ctx.createLinearGradient(200, 50, 700, 50);
+    titleGrad.addColorStop(0, '#818cf8');
+    titleGrad.addColorStop(0.5, '#c084fc');
+    titleGrad.addColorStop(1, '#a78bfa');
+    ctx.fillStyle = titleGrad;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 30px sans-serif';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(129, 140, 248, 0.5)';
+    ctx.fillText('📊 AD TRACKING CENTER', 450, 75);
+    ctx.shadowBlur = 0;
+
+    // Subtitle description text (wrapped)
+    ctx.fillStyle = '#dbdee1';
+    ctx.font = '500 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Welcome to the Zenith Tracking Center. Log your completed ads below.', 450, 115);
+    ctx.fillText('Submissions are processed, archived in Google Sheets, and evaluated weekly.', 450, 138);
+
+    // Guidelines Box
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.beginPath();
+    ctx.roundRect(80, 165, 740, 90, 10);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(80, 165, 740, 90, 10);
+    ctx.stroke();
+
+    // Guidelines Title & Items
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('GUIDELINES:', 100, 192);
+
+    ctx.fillStyle = '#e5e7eb';
+    ctx.font = '500 14px sans-serif';
+    ctx.fillText('• Submissions must be genuine and verifiable.', 100, 218);
+    ctx.fillText('• Progress is dynamically counted towards your weekly R4 quota.', 100, 240);
+
+    // Metric Cards at the bottom
+    const cardWidth = 230;
+    const cardHeight = 75;
+    const gap = 25;
+    const startX = 80;
+    const cardY = 285;
+
+    const cards = [
+        { label: '⚡ STATUS', val: 'Active & Syncing', valColor: '#10b981' },
+        { label: '📅 CURRENT WEEK', val: currentWeek, valColor: '#fbbf24' },
+        { label: '🎯 WEEKLY TARGET', val: `${weeklyTarget} Ads / Officer`, valColor: '#60a5fa' }
+    ];
+
+    cards.forEach((c, idx) => {
+        const x = startX + idx * (cardWidth + gap);
+
+        // Glass card background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.beginPath();
+        ctx.roundRect(x, cardY, cardWidth, cardHeight, 10);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x, cardY, cardWidth, cardHeight, 10);
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(c.label, x + cardWidth / 2, cardY + 28);
+
+        // Value
+        ctx.fillStyle = c.valColor;
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(c.val, x + cardWidth / 2, cardY + 53);
+    });
+
+    // Branding watermark
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.2)';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Zenith Global Tracking Systems', 820, 380);
+
+    return canvas.toBuffer('image/png');
+}
+
+module.exports = { generateFamilyTree, generateMafiaHierarchy, generateLeaderboardImage, generateLevelUpImage, generateAdTrackingInfoImage };

@@ -469,7 +469,7 @@ module.exports = {
                         const { formatRssAmount } = require('../commands/economy/rss-stock');
                         const taxEmbed = new EmbedBuilder()
                             .setTitle(`🧾 Tax Payment Reminder (${taxRatePct}%)`)
-                            .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **${taxRatePct}% tax** is due on all resources sold.`)
+                            .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **${taxRatePct}% tax** is due on all resources sold.\n\n⚠️ **Action Required:** Please send the required tax resources to the guild bank, and send a Direct Message with screenshot evidence to <@1211770249200795734>. They will verify and update your pending taxes.`)
                             .addFields(
                                 { name: 'Transaction ID', value: `\`${tx.id}\``, inline: false },
                                 { name: '🌾 Food Sold', value: `${formatRssAmount(food1)} (Tax: **${formatRssAmount(Math.floor(food1 * taxMultiplier))}**)`, inline: true },
@@ -543,7 +543,7 @@ module.exports = {
                             const { formatRssAmount } = require('../commands/economy/rss-stock');
                             const taxEmbed = new EmbedBuilder()
                                 .setTitle(`🧾 Tax Payment Reminder (${taxRatePct}%)`)
-                                .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **${taxRatePct}% tax** is due on all resources sold.`)
+                                .setDescription(`A transaction in which you participated has been completed. In accordance with server regulations, a **${taxRatePct}% tax** is due on all resources sold.\n\n⚠️ **Action Required:** Please send the required tax resources to the guild bank, and send a Direct Message with screenshot evidence to <@1211770249200795734>. They will verify and update your pending taxes.`)
                                 .addFields(
                                     { name: 'Transaction ID', value: `\`${tx.id}\``, inline: false },
                                     { name: '🌾 Food Sold', value: `${formatRssAmount(food2)} (Tax: **${formatRssAmount(Math.floor(food2 * taxMultiplier))}**)`, inline: true },

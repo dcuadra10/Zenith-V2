@@ -1193,11 +1193,33 @@ app.get('/api/modules/:guildId', authenticateToken, async (req, res) => {
         const configRaw = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [req.params.guildId]);
         if (!configRaw) return res.json({});
         
-        // Normalize keys to lowercase for the dashboard
-        const config = Object.keys(configRaw).reduce((acc, key) => {
-            acc[key.toLowerCase()] = configRaw[key];
-            return acc;
-        }, {});
+        const fields = [
+            'welcomeEnabled', 'welcomeChannel', 'welcomeEmbedTitle', 'welcomeEmbedDesc', 'welcomeColor', 'welcomeImage', 'welcomeUseEmbed',
+            'levelingEnabled', 'xpMin', 'xpMax', 'xpCooldown', 'levelUpChannel', 'roleRewards',
+            'levelUpTitle', 'levelUpMessage', 'levelUpColor', 'levelUpUseEmbed', 'levelingBackground', 'leaderboardImageEnabled',
+            'ticketsEnabled', 'ticketsMaxActive', 'ticketsTranscriptChannel', 'ticketCategoryId', 'ticketsApprovalChannel',
+            'automodEnabled', 'automodSpam', 'automodLinks', 'automodMentions', 'automodCaps', 'automodWords',
+            'automodWordList', 'automodMaxMentions', 'automodLogChannel',
+            'loggingEnabled', 'loggingChannel', 'logEdits', 'logDeletes', 'logMembers', 'logRoles', 'logChannels', 'logBans', 'logVoice', 'logServer', 'logInvites',
+            'autoroleEnabled', 'autoroleIds',
+            'countingEnabled', 'countingChannel', 'countingCurrent', 'countingSameUser', 'countingReset', 'countingMath', 'countingEmoji', 'countingEmojiFail',
+            'serverStatsEnabled', 'statsTotalMembers', 'statsOnline', 'statsBots', 'statsChannels', 'statsCategoryId',
+            'antinukeEnabled', 'antinukeBan', 'antinukeChannel', 'antinukeRole', 'antinukeWebhook', 'antinukeThreshold', 'antinukeWhitelist',
+            'r4TrackingEnabled', 'r4TrackingRole', 'r4TrackingAdQuota', 'r4TrackingMsgQuota',
+            'swearJarEnabled', 'swearJarChannel', 'swearJarWords', 'swearJarPing', 'swearJarTitle', 'swearJarMessage', 'swearJarColor',
+            'newKingdomEnabled', 'newKingdomSourceChannel', 'newKingdomTargetChannel', 'newKingdomPingRole',
+            'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
+            'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
+            'giveawaysEnabled', 'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins'
+        ];
+
+        // Map keys to camelCase expected by the frontend
+        const config = {};
+        config.guildId = req.params.guildId;
+        for (const f of fields) {
+            const foundKey = Object.keys(configRaw).find(k => k.toLowerCase() === f.toLowerCase());
+            config[f] = foundKey !== undefined ? configRaw[foundKey] : null;
+        }
         
         res.json(config);
     } catch (e) {

@@ -427,24 +427,42 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
     }
 
     // Draw background image
+    let bgDrawSuccess = false;
     if (bgToUse) {
         try {
             const bg = await loadImage(bgToUse);
             ctx.drawImage(bg, 0, 0, 800, 250);
-            
-            // Darken background slightly to increase readability of card details
-            ctx.fillStyle = 'rgba(10, 10, 12, 0.35)';
-            ctx.fillRect(0, 0, 800, 250);
+            bgDrawSuccess = true;
         } catch (e) {
-            console.error('[LevelUp Image] Failed to load background image:', e);
-            // Premium fallback gradient
-            const grad = ctx.createLinearGradient(0, 0, 800, 250);
-            grad.addColorStop(0, '#0d0b18');
-            grad.addColorStop(0.5, '#1e1b30');
-            grad.addColorStop(1, '#0e0b16');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, 800, 250);
+            console.error('[LevelUp Image] Failed to load custom background image:', e);
         }
+    }
+
+    if (!bgDrawSuccess) {
+        const possiblePaths = [
+            path.join(__dirname, '..', '..', 'zenith_bg - Copy.png'),
+            path.join(process.cwd(), 'zenith_bg - Copy.png'),
+            path.resolve(process.cwd(), 'zenith_bg - Copy.png'),
+            'zenith_bg - Copy.png'
+        ];
+        for (const p of possiblePaths) {
+            if (p && fs.existsSync(p)) {
+                try {
+                    const bg = await loadImage(p);
+                    ctx.drawImage(bg, 0, 0, 800, 250);
+                    bgDrawSuccess = true;
+                    break;
+                } catch (err) {
+                    console.error('[LevelUp Image] Failed to load default background image at path:', p, err);
+                }
+            }
+        }
+    }
+
+    if (bgDrawSuccess) {
+        // Darken background slightly to increase readability of card details
+        ctx.fillStyle = 'rgba(10, 10, 12, 0.35)';
+        ctx.fillRect(0, 0, 800, 250);
     } else {
         // Premium fallback gradient
         const grad = ctx.createLinearGradient(0, 0, 800, 250);

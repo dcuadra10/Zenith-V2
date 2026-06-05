@@ -3531,6 +3531,31 @@ async function saveR4Excuse() {
         showToast('❌ Server error updating excuse', true);
     }
 }
+
+async function resetR4Tracking() {
+    if (!activeGuild) return;
+    const confirmation = prompt("⚠️ WARNING: This will delete ALL R4 tracking records and officer excuses for this server. This action CANNOT be undone.\n\nType 'DELETE' to confirm:");
+    if (confirmation !== "DELETE") {
+        return;
+    }
+    
+    showToast("Resetting R4 tracking data...");
+    try {
+        const res = await apiFetch(`/r4-tracking/reset/${activeGuild.id}`, {
+            method: 'POST'
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast("✅ R4 Tracking data deleted successfully");
+            fetchR4Tracking();
+        } else {
+            showToast("❌ Error: " + (data.error || "Failed to reset data"), true);
+        }
+    } catch (e) {
+        showToast("❌ Server error resetting data", true);
+    }
+}
+
 function escapeHtml(str) {
     if (!str) return '';
     return str.toString()

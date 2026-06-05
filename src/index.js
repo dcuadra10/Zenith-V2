@@ -1651,6 +1651,26 @@ app.post('/api/r4-tracking/excuse/:guildId', authenticateToken, async (req, res)
     }
 });
 
+// POST Reset R4 Tracking Data
+app.post('/api/r4-tracking/reset/:guildId', authenticateToken, async (req, res) => {
+    try {
+        const guildId = req.params.guildId;
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const db = await getDb();
+        
+        // Delete all tracking data and excuses for this guild
+        await db.run(`DELETE FROM r4_tracking WHERE guildId = ?`, [guildId]);
+        await db.run(`DELETE FROM r4_excuses WHERE guildId = ?`, [guildId]);
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error resetting R4 tracking data:', e);
+        res.status(500).json({ error: 'Error resetting R4 tracking data' });
+    }
+});
+
 // GET Transcripts List
 app.get('/api/transcripts/:guildId', authenticateToken, async (req, res) => {
     try {

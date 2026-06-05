@@ -4,13 +4,27 @@ const fs = require('fs');
 const path = require('path');
 
 async function getGoogleSheetsClient(spreadsheetId) {
-    const credsPath = path.join(__dirname, '../../credentials.json');
-    if (!fs.existsSync(credsPath)) throw new Error('Missing credentials.json');
-    const credentials = require(credsPath);
+    let email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+
+    if (!email || !privateKey) {
+        const credsPath = path.join(__dirname, '../../credentials.json');
+        if (fs.existsSync(credsPath)) {
+            const credentials = require(credsPath);
+            email = credentials.client_email;
+            privateKey = credentials.private_key;
+        }
+    }
+
+    if (!email || !privateKey) {
+        throw new Error('Missing Google Service Account credentials. Set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY in .env, or place credentials.json in the project root.');
+    }
+
+    const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
 
     const auth = new JWT({
-        email: credentials.client_email,
-        key: credentials.private_key,
+        email: email,
+        key: formattedPrivateKey,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 

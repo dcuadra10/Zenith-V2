@@ -274,8 +274,8 @@ module.exports = {
                 
                 const finalContent = remapContent(msg.content, threadMap, sourceChannel.guildId, guild.id);
                 const finalEmbeds = msg.embeds
-                    .filter(e => e.data && (e.data.type === 'rich' || e.data.title || e.data.description || e.data.fields || e.data.image || e.data.author))
-                    .map(e => remapEmbed(e, threadMap, sourceChannel.guildId, guild.id));
+                    .map(e => remapEmbed(e, threadMap, sourceChannel.guildId, guild.id))
+                    .filter(e => e && (e.title || e.description || (e.fields && e.fields.length > 0) || e.image || e.author));
                 
                 let sendContent = finalContent;
                 if (!msg.author.bot) {
@@ -326,8 +326,8 @@ module.exports = {
                     
                     const finalContent = remapContent(msg.content, threadMap, sourceChannel.guildId, guild.id);
                     const finalEmbeds = msg.embeds
-                        .filter(e => e.data && (e.data.type === 'rich' || e.data.title || e.data.description || e.data.fields || e.data.image || e.data.author))
-                        .map(e => remapEmbed(e, threadMap, sourceChannel.guildId, guild.id));
+                        .map(e => remapEmbed(e, threadMap, sourceChannel.guildId, guild.id))
+                        .filter(e => e && (e.title || e.description || (e.fields && e.fields.length > 0) || e.image || e.author));
                     
                     let sendContent = finalContent;
                     if (!msg.author.bot) {

@@ -193,12 +193,18 @@ module.exports = {
 
         if (sourceUrl) {
             try {
-                const urlMatch = sourceUrl.match(/https?:\/\/discord\.com\/channels\/(\d+)\/(\d+)/);
+                const urlMatch = sourceUrl.match(/https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)/);
                 let channelId = sourceUrl;
                 
                 if (urlMatch) {
-                    const srcGuild = interaction.client.guilds.cache.get(urlMatch[1]);
-                    if (!srcGuild) throw new Error('El bot no está en el servidor de origen (debe estar en ambos).');
+                    let srcGuild = interaction.client.guilds.cache.get(urlMatch[1]);
+                    if (!srcGuild) {
+                        try {
+                            srcGuild = await interaction.client.guilds.fetch(urlMatch[1]);
+                        } catch (e) {
+                            throw new Error('El bot no está en el servidor de origen (debe estar en ambos).');
+                        }
+                    }
                     channelId = urlMatch[2];
                 }
                 
@@ -226,7 +232,7 @@ module.exports = {
         try {
             console.log(`[CLONER] Creating destination text channel...`);
             let overwrites = [];
-            if (isSameGuild) {
+            if (isSameGuild && sourceChannel.permissionOverwrites) {
                 overwrites = sourceChannel.permissionOverwrites.cache.map(p => ({
                     id: p.id,
                     type: p.type,
@@ -237,7 +243,7 @@ module.exports = {
 
             targetChannel = await guild.channels.create({
                 name: customName || `${sourceChannel.name}-copy`,
-                type: ChannelType.GuildText,
+                type: sourceChannel.type === ChannelType.GuildAnnouncement ? ChannelType.GuildAnnouncement : ChannelType.GuildText,
                 parent: targetCategory ? targetCategory.id : (isSameGuild ? sourceChannel.parent?.id : null),
                 topic: sourceChannel.topic,
                 rateLimitPerUser: sourceChannel.rateLimitPerUser,

@@ -157,8 +157,14 @@ module.exports = {
                 let channelId = sourceUrl;
                 
                 if (urlMatch) {
-                    const srcGuild = interaction.client.guilds.cache.get(urlMatch[1]);
-                    if (!srcGuild) throw new Error('El bot no está en el servidor de origen (debe estar en ambos).');
+                    let srcGuild = interaction.client.guilds.cache.get(urlMatch[1]);
+                    if (!srcGuild) {
+                        try {
+                            srcGuild = await interaction.client.guilds.fetch(urlMatch[1]);
+                        } catch (e) {
+                            throw new Error('El bot no está en el servidor de origen (debe estar en ambos).');
+                        }
+                    }
                     channelId = urlMatch[2];
                 }
                 
@@ -180,8 +186,14 @@ module.exports = {
                 const urlMatch = messageId.match(/https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)/);
                 
                 if (urlMatch) {
-                    const srcGuild = interaction.client.guilds.cache.get(urlMatch[1]);
-                    if (!srcGuild) throw new Error('Bot is not in the source server.');
+                    let srcGuild = interaction.client.guilds.cache.get(urlMatch[1]);
+                    if (!srcGuild) {
+                        try {
+                            srcGuild = await interaction.client.guilds.fetch(urlMatch[1]);
+                        } catch (e) {
+                            throw new Error('Bot is not in the source server.');
+                        }
+                    }
                     const srcChan = await interaction.client.channels.fetch(urlMatch[2]);
                     if (!srcChan) throw new Error('Source channel not found.');
                     message = await srcChan.messages.fetch(urlMatch[3]);
@@ -309,10 +321,18 @@ module.exports = {
         
         for (const section of finalSections) {
             try {
-                // 1. Create the Forum Channel for the Section
-                console.log(`[CLONER] Creating forum channel: ${section.name}`);
+                let forumName = section.name.toLowerCase()
+                    .replace(/[^a-z0-9-_]/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^-|-$/g, '')
+                    .slice(0, 100);
+                if (!forumName) {
+                    forumName = `forum-${section.id || Math.floor(Math.random() * 10000)}`;
+                }
+
+                console.log(`[CLONER] Creating forum channel: ${forumName}`);
                 const forumChannel = await guild.channels.create({
-                    name: section.name.toLowerCase().replace(/[^a-z0-9-_]/g, '-').slice(0, 100),
+                    name: forumName,
                     type: ChannelType.GuildForum,
                     parent: targetCategory.id,
                     reason: 'Cloned from Section'
@@ -343,9 +363,10 @@ module.exports = {
 
                         // Create the Forum Post (Thread)
                         let post;
+                        const postName = originalThread.name.slice(0, 100) || 'Untitled Post';
                         try {
                             post = await forumChannel.threads.create({
-                                name: originalThread.name,
+                                name: postName,
                                 message: {
                                     content: firstSendContent || null,
                                     embeds: finalFirstEmbeds.length > 0 ? finalFirstEmbeds : undefined,
@@ -354,9 +375,9 @@ module.exports = {
                                 }
                             });
                         } catch (err) {
-                            console.error(`Failed to create forum post for ${originalThread.name}:`, err.message);
+                            console.error(`Failed to create forum post for ${postName}:`, err.message);
                             post = await forumChannel.threads.create({
-                                name: originalThread.name,
+                                name: postName,
                                 message: {
                                     content: firstSendContent || null,
                                     embeds: finalFirstEmbeds.length > 0 ? finalFirstEmbeds : undefined

@@ -375,6 +375,81 @@ module.exports = {
                 );
 
                 return await interaction.showModal(modal);
+            } else if (interaction.customId === 'rss_stock_view_all') {
+                const db = await getDb();
+                const config = await db.get(`SELECT rssEnabled, rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
+                if (!config || !config.rssEnabled) {
+                    return interaction.reply({ content: '❌ The RSS module is currently disabled.', ephemeral: true });
+                }
+
+                const sellersRoleNameOrId = config.rssSellerRole || 'RSS Seller';
+                const isSeller = interaction.member.roles.cache.has(sellersRoleNameOrId) || 
+                                 interaction.member.roles.cache.some(r => r.name.toLowerCase() === sellersRoleNameOrId.toLowerCase());
+                const isAdmin = interaction.member.permissions.has('Administrator');
+
+                if (!isSeller && !isAdmin) {
+                    return interaction.reply({ content: '❌ Only RSS Sellers and Administrators can view stock levels.', ephemeral: true });
+                }
+
+                await interaction.deferReply({ ephemeral: true });
+
+                const { formatRssAmount } = require('../commands/economy/rss-stock');
+
+                if (isAdmin) {
+                    let sellers = [];
+                    try {
+                        const role = interaction.guild.roles.cache.get(sellersRoleNameOrId) || interaction.guild.roles.cache.find(r => r.name.toLowerCase() === sellersRoleNameOrId.toLowerCase());
+                        if (role) {
+                            await interaction.guild.members.fetch();
+                            sellers = Array.from(role.members.keys());
+                        } else {
+                            await interaction.guild.members.fetch();
+                            sellers = Array.from(interaction.guild.members.cache.filter(m => m.roles.cache.some(r => r.name.toLowerCase() === sellersRoleNameOrId.toLowerCase())).keys());
+                        }
+                    } catch (err) {
+                        console.error('[View Stock] Error fetching members/roles:', err);
+                    }
+
+                    if (sellers.length === 0) {
+                        return interaction.editReply('❌ No verified RSS Sellers found.');
+                    }
+
+                    const placeholders = sellers.map(() => '?').join(',');
+                    const rows = await db.all(`SELECT sellerId, food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId IN (${placeholders})`, sellers);
+
+                    const embed = new EmbedBuilder()
+                        .setTitle('📊 RSS Seller Inventory (Admins Only)')
+                        .setDescription('Here are the individual stock levels for all verified RSS Sellers:')
+                        .setColor('#4f46e5')
+                        .setTimestamp();
+
+                    sellers.forEach(sId => {
+                        const sRow = rows.find(r => r.sellerId === sId) || { food: 0, wood: 0, stone: 0, gold: 0 };
+                        embed.addFields({
+                            name: `👤 Seller: ${interaction.guild.members.cache.get(sId)?.displayName || sId}`,
+                            value: `🌾 Food: **${formatRssAmount(sRow.food)}** | 🪵 Wood: **${formatRssAmount(sRow.wood)}**\n🪨 Stone: **${formatRssAmount(sRow.stone)}** | 🪙 Gold: **${formatRssAmount(sRow.gold)}**`,
+                            inline: false
+                        });
+                    });
+
+                    return interaction.editReply({ embeds: [embed] });
+                } else {
+                    const row = await db.get(`SELECT food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId = ?`, [interaction.user.id]) || { food: 0, wood: 0, stone: 0, gold: 0 };
+                    
+                    const embed = new EmbedBuilder()
+                        .setTitle(`🌾 Your RSS Stock Inventory`)
+                        .setDescription('Your current resource levels available for buying transactions.')
+                        .addFields(
+                            { name: '🌾 Food', value: `**${formatRssAmount(row.food)}**`, inline: true },
+                            { name: '🪵 Wood', value: `**${formatRssAmount(row.wood)}**`, inline: true },
+                            { name: '🪨 Stone', value: `**${formatRssAmount(row.stone)}**`, inline: true },
+                            { name: '🪙 Gold', value: `**${formatRssAmount(row.gold)}**`, inline: true }
+                        )
+                        .setColor('#10b981')
+                        .setTimestamp();
+
+                    return interaction.editReply({ embeds: [embed] });
+                }
             } else if (interaction.customId.startsWith('rss_buy_complete_')) {
                 const txId = interaction.customId.replace('rss_buy_complete_', '');
                 const db = await getDb();

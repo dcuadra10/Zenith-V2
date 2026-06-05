@@ -53,13 +53,59 @@ module.exports = {
             return acc;
         }, {});
 
-        // Ignore other bots
-        if (message.author.bot) return;
+        if (message.channel.id === '1512192056838328330') {
+            console.log(`[Gift Codes Debug] Msg in watch channel! conf.giftcodesenabled=${conf.giftcodesenabled}, author=${message.author.tag}`);
+        }
+
         // Ignore ourself to avoid infinite loops
         if (message.author.id === client.user.id) return;
 
+        // Gift Codes scanner (triggers before other bot filter to allow webhooks/alerts bots)
+        if (conf.giftcodesenabled && message.channel.id === '1512192056838328330') {
+            try {
+                const { handleGiftCodeMessage } = require('../features/giftCodes');
+                await handleGiftCodeMessage(message, conf);
+            } catch (err) {
+                console.error('[Gift Code Trigger Error]:', err.message);
+            }
+        }
+
+        // Ignore other bots
+        if (message.author.bot) return;
+
         // Ensure message.member exists for all guild operations and checks
         if (!message.member) return;
+
+        // --- RoK Verifier Module (Channel Uploads) ---
+        if (conf.rokverifierenabled && conf.rokverifierchannel === message.channel.id) {
+            const attachment = message.attachments.first();
+            if (attachment) {
+                const isImage = attachment.contentType?.startsWith('image/') || 
+                                attachment.name.endsWith('.png') || 
+                                attachment.name.endsWith('.jpg') || 
+                                attachment.name.endsWith('.jpeg');
+                if (isImage) {
+                    const { verifyProfile } = require('../utils/rokVerifyHelper');
+                    try {
+                        const result = await verifyProfile(message.member, message.guild, attachment.url);
+                        if (result.success) {
+                            const successMsg = await message.channel.send(`✅ <@${message.author.id}> has been verified successfully! Nickname updated to \`${result.newNickname}\`.`);
+                            setTimeout(() => successMsg.delete().catch(() => {}), 10000);
+                        } else {
+                            const failMsg = await message.channel.send(`❌ <@${message.author.id}> Verification failed: ${result.message}`);
+                            setTimeout(() => failMsg.delete().catch(() => {}), 10000);
+                        }
+                    } catch (err) {
+                        console.error('[messageCreate RoK Verifier Error]', err);
+                        const errMsg = await message.channel.send(`❌ <@${message.author.id}> An error occurred during verification.`);
+                        setTimeout(() => errMsg.delete().catch(() => {}), 10000);
+                    } finally {
+                        await message.delete().catch(() => {});
+                    }
+                    return;
+                }
+            }
+        }
 
         if (true) {
             // Custom bots should NOT run server management features (auto-mod, leveling, swear jar, etc.)

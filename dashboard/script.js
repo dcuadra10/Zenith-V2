@@ -220,6 +220,8 @@ window.addEventListener('DOMContentLoaded', () => {
             showScreen('guildScreen');
             fetchGuilds();
         }
+    } else {
+        showScreen('loginScreen');
     }
 
     // Sidebar navigation
@@ -251,7 +253,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setupColorSync('welcomeColor', 'welcomeColorHex');
     
     // Bind visual toggle sync for all module main switches
-    const togglesToWatch = ['toggleWelcome', 'toggleLeveling', 'toggleTickets', 'toggleAutomod', 'toggleLogging', 'toggleAutorole', 'toggleSwearJar', 'toggleCounting', 'toggleServerStats', 'toggleAntinuke', 'toggleEconomy', 'toggleRss', 'toggleGiveaways', 'toggleMarket'];
+    const togglesToWatch = ['toggleWelcome', 'toggleLeveling', 'toggleTickets', 'toggleAutomod', 'toggleLogging', 'toggleAutorole', 'toggleSwearJar', 'toggleCounting', 'toggleServerStats', 'toggleAntinuke', 'toggleEconomy', 'toggleRss', 'toggleGiveaways', 'toggleMarket', 'toggleRokVerifier'];
     togglesToWatch.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -412,14 +414,15 @@ function populateAllDropdowns() {
         'loggingChannel', 'countingChannel', 'swearJarChannel',
         'levelUpChannel', 'ticketsTranscriptChannel', 'ticketsApprovalChannel', 'marketOwnerChannel',
         'newKingdomTargetChannel', 'ecoWelcomeNotifyChannel', 'rssDeployChannel',
-        'aiWelcomeChannel', 'aiSupportChannel', 'giveawaysLogChannel'
+        'aiWelcomeChannel', 'aiSupportChannel', 'giveawaysLogChannel', 'cfgRokVerifierChannel',
+        'giftCodesTargetChannel'
     ];
 
     // Selects that need a category
     const categorySelects = ['cfgTicketCategory', 'statsCategoryId', 'modalCategoryId', 'rssCategory'];
     
     // Selects that need a role
-    const roleSelects = ['marketMiddlemanRole', 'r4TrackingRole', 'autoRoleInput', 'newKingdomPingRole', 'rssSellerRole', 'giveawaysManagerRole'];
+    const roleSelects = ['marketMiddlemanRole', 'r4TrackingRole', 'autoRoleInput', 'newKingdomPingRole', 'rssSellerRole', 'giveawaysManagerRole', 'cfgRokVerifierRole', 'giftCodesPingRole'];
     
     channelSelects.forEach(id => populateDropdown(id, textChannels, 'Select a Channel'));
     categorySelects.forEach(id => populateDropdown(id, categories, 'Select a Category'));
@@ -849,6 +852,10 @@ function loadModuleToggles(mods) {
     setVal('newKingdomTargetChannel', mods.newKingdomTargetChannel);
 
     setVal('newKingdomPingRole', mods.newKingdomPingRole);
+    // Gift Codes
+    setCheck('toggleGiftCodes', mods.giftCodesEnabled);
+    setVal('giftCodesTargetChannel', mods.giftCodesTargetChannel);
+    setVal('giftCodesPingRole', mods.giftCodesPingRole);
     // Economy
     setCheck('toggleEconomy', mods.ecoEnabled);
     setVal('ecoCoinsPerMessage', mods.ecoCoinsPerMessage ?? 1);
@@ -873,6 +880,13 @@ function loadModuleToggles(mods) {
     setCheck('giveawaysEcoReward', mods.giveawaysEcoReward);
     setVal('giveawaysEcoCoins', mods.giveawaysEcoCoins ?? 200);
     setCheck('toggleGiveaways', mods.giveawaysEnabled);
+    
+    // RoK Verifier
+    setCheck('toggleRokVerifier', mods.rokVerifierEnabled);
+    setVal('cfgRokVerifierRole', mods.rokVerifierRole);
+    setVal('cfgRokVerifierChannel', mods.rokVerifierChannel);
+    setVal('cfgRokVerifierTags', mods.rokVerifierTags);
+    setCheck('cfgRokVerifierUniqueId', mods.rokVerifierUniqueId);
     
     // Refresh visual locking system after loading all values
     applyToggleVisuals();
@@ -903,7 +917,8 @@ function applyToggleVisuals() {
         { page: 'economy', toggle: 'toggleEconomy' },
         { page: 'rss', toggle: 'toggleRss' },
         { page: 'giveaways', toggle: 'toggleGiveaways' },
-        { page: 'market', toggle: 'toggleMarket' }
+        { page: 'market', toggle: 'toggleMarket' },
+        { page: 'rokverifier', toggle: 'toggleRokVerifier' }
     ];
 
     mappings.forEach(m => {
@@ -1053,6 +1068,10 @@ async function saveModuleConfig(moduleName) {
         newKingdomEnabled: getCheck('toggleNewKingdom'),
         newKingdomTargetChannel: getVal('newKingdomTargetChannel'),
         newKingdomPingRole: getVal('newKingdomPingRole'),
+        // Gift Codes
+        giftCodesEnabled: getCheck('toggleGiftCodes'),
+        giftCodesTargetChannel: getVal('giftCodesTargetChannel'),
+        giftCodesPingRole: getVal('giftCodesPingRole'),
 
 
         // Economy
@@ -1078,7 +1097,14 @@ async function saveModuleConfig(moduleName) {
         giveawaysManagerRole: getVal('giveawaysManagerRole'),
         giveawaysLogChannel: getVal('giveawaysLogChannel'),
         giveawaysEcoReward: getCheck('giveawaysEcoReward'),
-        giveawaysEcoCoins: parseInt(getVal('giveawaysEcoCoins')) || 200
+        giveawaysEcoCoins: parseInt(getVal('giveawaysEcoCoins')) || 200,
+
+        // RoK Verifier
+        rokVerifierEnabled: getCheck('toggleRokVerifier'),
+        rokVerifierRole: getVal('cfgRokVerifierRole'),
+        rokVerifierChannel: getVal('cfgRokVerifierChannel'),
+        rokVerifierTags: getVal('cfgRokVerifierTags'),
+        rokVerifierUniqueId: getCheck('cfgRokVerifierUniqueId')
     };
 
     try {

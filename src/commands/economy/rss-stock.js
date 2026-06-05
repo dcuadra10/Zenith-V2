@@ -43,7 +43,7 @@ function formatRssAmount(num) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('rss-stock')
-        .setDescription('View or update your RSS stock (RSS Sellers only)')
+        .setDescription('View or update RSS stock (Sellers and Admins only)')
         .addStringOption(option =>
             option.setName('action')
                 .setDescription('Whether to add, set, or remove stock levels')
@@ -72,6 +72,10 @@ module.exports = {
         .addStringOption(option =>
             option.setName('payments')
                 .setDescription('Accepted payments (comma-separated, e.g. paypal,zelle,crypto)')
+                .setRequired(false))
+        .addUserOption(option =>
+            option.setName('seller')
+                .setDescription('The seller whose stock you want to view (Admins only)')
                 .setRequired(false)),
 
     async execute(interaction) {
@@ -84,13 +88,101 @@ module.exports = {
         const config = await db.get(`SELECT rssSellerRole FROM module_configs WHERE guildId = ?`, [interaction.guild.id]);
         const roleNameOrId = config?.rssSellerRole || 'RSS Seller';
 
-        const hasRole = member.roles.cache.has(roleNameOrId) || member.roles.cache.some(role => role.name.toLowerCase() === roleNameOrId.toLowerCase());
+        const isSeller = member.roles.cache.has(roleNameOrId) || member.roles.cache.some(role => role.name.toLowerCase() === roleNameOrId.toLowerCase());
+        const isAdmin = member.permissions.has('Administrator');
         
-        if (!hasRole) {
+        if (!isSeller && !isAdmin) {
             return interaction.reply({ 
-                content: `❌ You must have the **${roleNameOrId}** role to manage RSS stock.`, 
+                content: `❌ You must have the **${roleNameOrId}** role or Administrator permissions to use this command.`, 
                 ephemeral: true 
             });
+        }
+
+        const targetUser = interaction.options.getUser('seller');
+
+        // Case 1: Viewing another seller's stock (Admins only)
+        if (targetUser) {
+            if (!isAdmin) {
+                return interaction.reply({ content: '❌ Only administrators can view other sellers\' stocks.', ephemeral: true });
+            }
+            
+            // Check if target has seller role
+            const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+            const targetHasRole = targetMember && (targetMember.roles.cache.has(roleNameOrId) || targetMember.roles.cache.some(role => role.name.toLowerCase() === roleNameOrId.toLowerCase()));
+            if (!targetHasRole) {
+                return interaction.reply({ content: `❌ <@${targetUser.id}> does not have the **${roleNameOrId}** role.`, ephemeral: true });
+            }
+
+            const stock = await db.get(`SELECT food, wood, stone, gold, paymentMethods FROM rss_seller_stocks WHERE sellerId = ?`, [targetUser.id]) || { food: 0, wood: 0, stone: 0, gold: 0, paymentMethods: '' };
+            
+            const paymentLabels = {
+                paypal: '💳 PayPal', cashapp: '💵 Cash App', venmo: '📱 Venmo', zelle: '🏦 Zelle',
+                revolut: '🪙 Revolut', crypto: '₿ Crypto', bank: '🏛️ Bank Transfer', applepay: '🍎 Apple Pay / Google Pay'
+            };
+            const pMethods = (stock.paymentMethods || '').split(',').filter(Boolean);
+            const pLabels = pMethods.length > 0 ? pMethods.map(p => paymentLabels[p] || p.toUpperCase()).join(', ') : 'None specified';
+
+            const embed = new EmbedBuilder()
+                .setTitle(`🌾 RSS Stock Inventory: ${targetUser.username}`)
+                .setDescription(`Individual stock level for seller <@${targetUser.id}>.`)
+                .addFields(
+                    { name: '🌾 Food', value: `**${formatRssAmount(stock.food)}**`, inline: true },
+                    { name: '🪵 Wood', value: `**${formatRssAmount(stock.wood)}**`, inline: true },
+                    { name: '🪨 Stone', value: `**${formatRssAmount(stock.stone)}**`, inline: true },
+                    { name: '🪙 Gold', value: `**${formatRssAmount(stock.gold)}**`, inline: true },
+                    { name: '💳 Accepted Payment Methods', value: pLabels, inline: false }
+                )
+                .setColor('#4f46e5')
+                .setThumbnail(targetUser.displayAvatarURL())
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        // Case 2: General View for Admin (shows all sellers)
+        if (isAdmin && !interaction.options.getString('action') && !interaction.options.getString('payments') && !interaction.options.getString('food') && !interaction.options.getString('wood') && !interaction.options.getString('stone') && !interaction.options.getString('gold')) {
+            let sellers = [];
+            try {
+                const role = interaction.guild.roles.cache.get(roleNameOrId) || interaction.guild.roles.cache.find(r => r.name.toLowerCase() === roleNameOrId.toLowerCase());
+                if (role) {
+                    await interaction.guild.members.fetch();
+                    sellers = Array.from(role.members.keys());
+                } else {
+                    await interaction.guild.members.fetch();
+                    sellers = Array.from(interaction.guild.members.cache.filter(m => m.roles.cache.some(r => r.name.toLowerCase() === roleNameOrId.toLowerCase())).keys());
+                }
+            } catch (err) {
+                console.error('[View Stock Cmd] Error fetching members:', err);
+            }
+
+            if (sellers.length === 0) {
+                return interaction.reply({ content: '❌ No verified RSS Sellers found in this server.', ephemeral: true });
+            }
+
+            const placeholders = sellers.map(() => '?').join(',');
+            const rows = await db.all(`SELECT sellerId, food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId IN (${placeholders})`, sellers);
+
+            const embed = new EmbedBuilder()
+                .setTitle('📊 RSS Seller Inventory (Admins Only)')
+                .setDescription('Here are the individual stock levels for all verified RSS Sellers:')
+                .setColor('#4f46e5')
+                .setTimestamp();
+
+            sellers.forEach(sId => {
+                const sRow = rows.find(r => r.sellerId === sId) || { food: 0, wood: 0, stone: 0, gold: 0 };
+                embed.addFields({
+                    name: `👤 Seller: ${interaction.guild.members.cache.get(sId)?.displayName || sId}`,
+                    value: `🌾 Food: **${formatRssAmount(sRow.food)}** | 🪵 Wood: **${formatRssAmount(sRow.wood)}**\n🪨 Stone: **${formatRssAmount(sRow.stone)}** | 🪙 Gold: **${formatRssAmount(sRow.gold)}**`,
+                    inline: false
+                });
+            });
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        // Case 3: Regular seller stock update/view
+        if (!isSeller) {
+            return interaction.reply({ content: `❌ You must have the **${roleNameOrId}** role to update or view your stock.`, ephemeral: true });
         }
 
         const sellerId = interaction.user.id;

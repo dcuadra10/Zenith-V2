@@ -80,7 +80,12 @@ module.exports = {
                 .setCustomId('rss_stock_remove_click')
                 .setLabel('Remove Stock')
                 .setEmoji('➖')
-                .setStyle(ButtonStyle.Danger)
+                .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+                .setCustomId('rss_stock_view_all')
+                .setLabel('View Stock')
+                .setEmoji('🔍')
+                .setStyle(ButtonStyle.Secondary)
         );
 
         await interaction.channel.send({ embeds: [embed], components: [row] });

@@ -46,7 +46,7 @@
     </div>
 
     <!-- ============ LOADING OVERLAY ============ -->
-    <div id="loadingScreen" class="login-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(9,9,11,0.95); z-index:9999; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:20px; backdrop-filter:blur(12px);">
+    <div id="loadingScreen" class="login-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(9,9,11,0.95); z-index:9999; align-items:center; justify-content:center; flex-direction:column; gap:20px; backdrop-filter:blur(12px);">
         <div style="font-size:3rem; color:var(--primary);"><i class="fas fa-circle-notch fa-spin"></i></div>
         <h2 style="color:#fff; font-weight:600; font-family:'Inter',sans-serif; font-size:1.8rem; margin:0;">Connecting to Kingdom...</h2>
         <p style="color:var(--text-secondary); font-size:0.95rem; margin:0;">Retrieving channels, configurations, and core systems.</p>
@@ -106,6 +106,9 @@
             <div class="sidebar-link" data-page="newkingdom">
                 <i class="fas fa-globe link-icon"></i> New Kingdom
             </div>
+            <div class="sidebar-link" data-page="giftcodes" style="color:var(--accent-teal);">
+                <i class="fas fa-gift link-icon"></i> Gift Codes
+            </div>
 
             <div class="sidebar-section">UTILITIES</div>
 
@@ -147,6 +150,9 @@
             </div>
             <div class="sidebar-link" data-page="swearjar">
                 <i class="fas fa-glass-whiskey link-icon"></i> Swear Jar
+            </div>
+            <div class="sidebar-link" data-page="rokverifier" style="color:var(--accent-cyan);">
+                <i class="fas fa-id-card link-icon"></i> RoK Verifier
             </div>
 
             <div class="sidebar-link" data-page="aiagents" style="color:var(--accent-purple);">
@@ -401,6 +407,42 @@
                         <small style="color:var(--text-muted); font-size:0.75rem;">Role to notify when a new kingdom appears.</small>
                     </div>
                     <button class="z-btn z-btn-primary" onclick="saveModuleConfig('newkingdom')" style="margin-top:16px;"><i class="fas fa-save"></i> Save Tracker Config</button>
+                </div>
+            </section>
+
+            <!-- ===== GIFT CODES ===== -->
+            <section id="page-giftcodes" class="page-section">
+                <div class="page-header">
+                    <h1>Gift Codes Scanner</h1>
+                    <p>Automatically scan and list rewards from gift codes.</p>
+                </div>
+
+                <div class="module-header">
+                    <div class="module-header-info">
+                        <div class="module-icon" style="background:rgba(20, 184, 166, 0.1);color:#14b8a6;"><i class="fas fa-gift"></i></div>
+                        <div>
+                            <h3>Gift Codes Tracker</h3>
+                            <p>Watch for codes, parse items, and format expiration timestamps.</p>
+                        </div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleGiftCodes">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="z-card">
+                    <div class="z-input-group">
+                        <label>Target Channel (Posting)</label>
+                        <select class="z-input" id="giftCodesTargetChannel"></select>
+                        <small style="color:var(--text-muted); font-size:0.75rem;">Channel where the bot posts formatted codes and rewards.</small>
+                    </div>
+                    <div class="z-input-group">
+                        <label>Ping Role</label>
+                        <select class="z-input" id="giftCodesPingRole"></select>
+                        <small style="color:var(--text-muted); font-size:0.75rem;">Role to notify when a new gift code is found.</small>
+                    </div>
+                    <button class="z-btn z-btn-primary" onclick="saveModuleConfig('giftcodes')" style="margin-top:16px;"><i class="fas fa-save"></i> Save Scanner Config</button>
                 </div>
             </section>
 
@@ -1806,6 +1848,62 @@
                     </div>
                 </div>
             </section>
+            
+            <!-- ===== ROK VERIFIER SYSTEM ===== -->
+            <section id="page-rokverifier" class="page-section">
+                <div class="page-header">
+                    <h1>RoK Profile Verifier</h1>
+                    <p>Configure automated Rise of Kingdoms governor profile screenshot verification gates.</p>
+                </div>
+
+                <div class="module-header">
+                    <div class="module-header-info">
+                        <div class="module-icon" style="background:var(--primary-soft);color:var(--gold-500);"><i class="fas fa-id-card"></i></div>
+                        <div>
+                            <h3>Verifier Gate</h3>
+                            <p>Verify governor screenshots, grant roles, and format nicknames automatically.</p>
+                        </div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleRokVerifier">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="z-card">
+                    <div class="input-row">
+                        <div class="z-input-group">
+                            <label>Verification Role</label>
+                            <select class="z-input" id="cfgRokVerifierRole"></select>
+                            <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px; display:block;">Role awarded to users upon successful verification.</small>
+                        </div>
+                        <div class="z-input-group">
+                            <label>Designated Upload Channel</label>
+                            <select class="z-input" id="cfgRokVerifierChannel"></select>
+                            <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px; display:block;">Designated channel where users post screenshots for auto-verification.</small>
+                        </div>
+                    </div>
+
+                    <div class="z-input-group" style="margin-top:16px;">
+                        <label>Allowed Alliance Tags</label>
+                        <input class="z-input" type="text" id="cfgRokVerifierTags" placeholder="e.g. DC3~, AO3~ (leave empty to allow all tags)">
+                        <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px; display:block;">Comma-separated list of alliance tags (e.g., DC3~, AO3~). To assign specific roles per tag, use TAG:ROLE_ID format (e.g. DC3~:1512178207066034368, AO3~:1512178207066034369).</small>
+                    </div>
+
+                    <div class="toggle-row" style="margin-top:20px;">
+                        <div class="toggle-info">
+                            <h4>Unique Governor Linkage</h4>
+                            <p>Prevent different Discord accounts from verifying with the same Rise of Kingdoms Governor ID.</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="cfgRokVerifierUniqueId">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <button class="z-btn z-btn-primary" onclick="saveModuleConfig('rokverifier')" style="margin-top:24px;"><i class="fas fa-save"></i> Deploy Settings</button>
+                </div>
+            </section>
 
         </div><!-- end main-content -->
 
@@ -2015,6 +2113,6 @@
             }
         }
     </script>
-    <script src="script.js?v=20260529v5"></script>
+    <script src="script.js?v=20260604v3"></script>
 </body>
 </html>

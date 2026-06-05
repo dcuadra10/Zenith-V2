@@ -1210,7 +1210,9 @@ app.get('/api/modules/:guildId', authenticateToken, async (req, res) => {
             'newKingdomEnabled', 'newKingdomSourceChannel', 'newKingdomTargetChannel', 'newKingdomPingRole',
             'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
             'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
-            'giveawaysEnabled', 'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins'
+            'giveawaysEnabled', 'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins',
+            'rokVerifierEnabled', 'rokVerifierRole', 'rokVerifierTags', 'rokVerifierChannel', 'rokVerifierUniqueId',
+            'giftCodesEnabled', 'giftCodesSourceChannel', 'giftCodesTargetChannel', 'giftCodesPingRole'
         ];
 
         // Map keys to camelCase expected by the frontend
@@ -1275,7 +1277,9 @@ app.post('/api/modules/:guildId', authenticateToken, async (req, res) => {
             'newKingdomEnabled', 'newKingdomSourceChannel', 'newKingdomTargetChannel', 'newKingdomPingRole',
             'ecoEnabled', 'ecoCoinsPerMessage', 'ecoCoinsPerAd', 'ecoCoinsPerInvite', 'ecoCoinsPerWelcome', 'ecoCoinsPerBoost', 'ecoCoinsPerGiveaway', 'ecoCoinsPerVCMinute', 'ecoWelcomeKeywords', 'ecoWelcomeNotifyChannel',
             'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
-            'giveawaysEnabled', 'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins'
+            'giveawaysEnabled', 'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins',
+            'rokVerifierEnabled', 'rokVerifierRole', 'rokVerifierTags', 'rokVerifierChannel', 'rokVerifierUniqueId',
+            'giftCodesEnabled', 'giftCodesSourceChannel', 'giftCodesTargetChannel', 'giftCodesPingRole'
         ];
         
         const allFields = ['guildId', ...fields];

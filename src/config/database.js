@@ -56,7 +56,9 @@ function buildColumnMap(cols) {
         'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
         'pendingTaxFood', 'pendingTaxWood', 'pendingTaxStone', 'pendingTaxGold',
         'openaiApiKey', 'characterName', 'characterTraits', 'chatEnabled', 'chatChannels', 'supportEnabled', 'supportChannel', 'supportKnowledgeChannels', 'botToBotChatEnabled', 'maxBotTurns', 'enabled', 'clientId', 'languageMode',
-        'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins'
+        'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins',
+        'rokVerifierEnabled', 'rokVerifierRole', 'rokVerifierTags', 'rokVerifierChannel',
+        'governorId', 'governorName', 'allianceTag', 'power', 'killPoints', 'verifiedAt'
     ];
     knownColumns.forEach(col => {
         columnNameMap[col.toLowerCase()] = col;
@@ -323,6 +325,18 @@ async function createDbInstance() {
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS rok_verifications (
+                userId TEXT,
+                guildId TEXT,
+                governorId TEXT,
+                governorName TEXT,
+                allianceTag TEXT,
+                power BIGINT DEFAULT 0,
+                killPoints BIGINT DEFAULT 0,
+                verifiedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (userId, guildId)
+            );
+
             CREATE TABLE IF NOT EXISTS r4_tracking (
                 userId TEXT,
                 guildId TEXT,
@@ -459,7 +473,18 @@ async function createDbInstance() {
                 giveawaysManagerRole TEXT,
                 giveawaysLogChannel TEXT,
                 giveawaysEcoReward INTEGER DEFAULT 0,
-                giveawaysEcoCoins INTEGER DEFAULT 200
+                giveawaysEcoCoins INTEGER DEFAULT 200,
+                -- RoK Verifier Module
+                rokVerifierEnabled INTEGER DEFAULT 0,
+                rokVerifierRole TEXT,
+                rokVerifierTags TEXT DEFAULT '',
+                rokVerifierChannel TEXT,
+                rokVerifierUniqueId INTEGER DEFAULT 0,
+                -- Gift Codes Scanner Module
+                giftCodesEnabled INTEGER DEFAULT 0,
+                giftCodesSourceChannel TEXT,
+                giftCodesTargetChannel TEXT,
+                giftCodesPingRole TEXT
             );
 
             CREATE TABLE IF NOT EXISTS custom_bots (
@@ -790,7 +815,10 @@ async function createDbInstance() {
             'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
             'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT',
             'giveawaysEnabled INTEGER DEFAULT 0', 'giveawaysManagerRole TEXT', 'giveawaysLogChannel TEXT', 'giveawaysEcoReward INTEGER DEFAULT 0', 'giveawaysEcoCoins INTEGER DEFAULT 200',
-            'countingEmoji TEXT DEFAULT \'✅\'', 'countingEmojiFail TEXT DEFAULT \'❌\''
+            'countingEmoji TEXT DEFAULT \'✅\'', 'countingEmojiFail TEXT DEFAULT \'❌\'',
+            'rokVerifierEnabled INTEGER DEFAULT 0', 'rokVerifierRole TEXT', 'rokVerifierTags TEXT DEFAULT \'\'', 'rokVerifierChannel TEXT',
+            'rokVerifierUniqueId INTEGER DEFAULT 0',
+            'giftCodesEnabled INTEGER DEFAULT 0', 'giftCodesSourceChannel TEXT', 'giftCodesTargetChannel TEXT', 'giftCodesPingRole TEXT'
         ];
         for (const col of ticketCols) {
             try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN ${col}`); } catch (e) {}
@@ -866,6 +894,18 @@ async function initializeSchema() {
         CREATE TABLE IF NOT EXISTS new_kingdom_logs (
             guildId TEXT,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS rok_verifications (
+            userId TEXT,
+            guildId TEXT,
+            governorId TEXT,
+            governorName TEXT,
+            allianceTag TEXT,
+            power BIGINT DEFAULT 0,
+            killPoints BIGINT DEFAULT 0,
+            verifiedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (userId, guildId)
         );
 
         CREATE TABLE IF NOT EXISTS guild_configs (
@@ -1054,7 +1094,17 @@ async function initializeSchema() {
             giveawaysManagerRole TEXT,
             giveawaysLogChannel TEXT,
             giveawaysEcoReward INTEGER DEFAULT 0,
-            giveawaysEcoCoins INTEGER DEFAULT 200
+            giveawaysEcoCoins INTEGER DEFAULT 200,
+            -- RoK Verifier Module
+            rokVerifierEnabled INTEGER DEFAULT 0,
+            rokVerifierRole TEXT,
+            rokVerifierTags TEXT DEFAULT '',
+            rokVerifierChannel TEXT,
+            -- Gift Codes Scanner Module
+            giftCodesEnabled INTEGER DEFAULT 0,
+            giftCodesSourceChannel TEXT,
+            giftCodesTargetChannel TEXT,
+            giftCodesPingRole TEXT
         );
 
         CREATE TABLE IF NOT EXISTS economy_mafias (
@@ -1220,7 +1270,8 @@ async function initializeSchema() {
             'newKingdomEnabled INTEGER DEFAULT 0', 'newKingdomSourceChannel TEXT', 'newKingdomTargetChannel TEXT', 'newKingdomPingRole TEXT',
             'ecoEnabled INTEGER DEFAULT 0', 'ecoCoinsPerMessage INTEGER DEFAULT 1', 'ecoCoinsPerAd INTEGER DEFAULT 10', 'ecoCoinsPerInvite INTEGER DEFAULT 50', 'ecoCoinsPerWelcome INTEGER DEFAULT 5', 'ecoCoinsPerBoost INTEGER DEFAULT 100', 'ecoCoinsPerGiveaway INTEGER DEFAULT 200', 'ecoCoinsPerVCMinute INTEGER DEFAULT 1', 'ecoWelcomeKeywords TEXT DEFAULT \'welcome,bienvenido,bienvenida\'', 'ecoWelcomeNotifyChannel TEXT',
             'rssEnabled INTEGER DEFAULT 0', 'rssSellerRole TEXT DEFAULT \'RSS Seller\'', 'rssTaxRate REAL DEFAULT 10', 'rssCategory TEXT',
-            'countingEmoji TEXT DEFAULT \'✅\'', 'countingEmojiFail TEXT DEFAULT \'❌\''
+            'countingEmoji TEXT DEFAULT \'✅\'', 'countingEmojiFail TEXT DEFAULT \'❌\'',
+            'giftCodesEnabled INTEGER DEFAULT 0', 'giftCodesSourceChannel TEXT', 'giftCodesTargetChannel TEXT', 'giftCodesPingRole TEXT'
         ],
         economy_mafias: [
             'taxRate REAL DEFAULT 0.05', 'vault BIGINT DEFAULT 0', 'upgrades TEXT DEFAULT \'[]\'',

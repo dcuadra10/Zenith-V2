@@ -357,6 +357,14 @@ module.exports = {
                         }
                     } catch (err) {}
                 }
+                
+                if (thread.archived) {
+                    try {
+                        await newThread.setArchived(true, 'Cloned archived thread');
+                    } catch (archiveErr) {
+                        console.error(`Failed to archive thread ${newThread.name}:`, archiveErr.message);
+                    }
+                }
             } catch (err) {
                 console.error(`Failed to clone messages inside thread ${thread.name}:`, err);
             }

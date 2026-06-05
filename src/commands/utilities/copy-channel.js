@@ -31,13 +31,18 @@ function remapEmbed(embed, threadMap, sourceGuildId, targetGuildId) {
         if (data.fields && data.fields.length > 0) {
             data.fields = data.fields.map(f => ({
                 ...f,
-                name: f.name,
+                name: remapContent(f.name, threadMap, sourceGuildId, targetGuildId),
                 value: remapContent(f.value, threadMap, sourceGuildId, targetGuildId)
             }));
         }
         
-        if (data.author && data.author.url) {
-            data.author.url = remapContent(data.author.url, threadMap, sourceGuildId, targetGuildId);
+        if (data.author) {
+            if (data.author.name) data.author.name = remapContent(data.author.name, threadMap, sourceGuildId, targetGuildId);
+            if (data.author.url) data.author.url = remapContent(data.author.url, threadMap, sourceGuildId, targetGuildId);
+        }
+        
+        if (data.footer && data.footer.text) {
+            data.footer.text = remapContent(data.footer.text, threadMap, sourceGuildId, targetGuildId);
         }
         
         return data;

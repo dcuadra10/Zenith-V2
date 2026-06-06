@@ -2089,6 +2089,34 @@
         </div>
     </div>
 
+    <!-- R4 Edit Activity Modal -->
+    <div id="r4EditModal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); z-index:2000; align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width: 500px; width:90%; display: flex; flex-direction: column; background: rgba(30, 30, 40, 0.95); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); backdrop-filter: blur(12px); color: #fff; padding: 24px;">
+            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-subtle); padding-bottom:12px; margin-bottom:16px;">
+                <h2 id="r4EditModalTitle" style="font-size:1.25rem; font-weight:700; margin:0;">Edit Officer Activity</h2>
+                <button class="modal-close" onclick="closeModal('r4EditModal')" style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer; line-height:1;">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="r4EditUserId">
+                <input type="hidden" id="r4EditWeekId">
+                <p id="r4EditModalSubtitle" style="font-size:0.9rem; color:var(--text-muted); margin-bottom:16px;">Update the activity counts for this officer.</p>
+                
+                <div class="z-input-group" style="margin-bottom:20px;">
+                    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Ads Count</label>
+                    <input class="z-input" type="number" id="r4EditAds" min="0" placeholder="0" style="width:100%; box-sizing:border-box;">
+                </div>
+                <div class="z-input-group" style="margin-bottom:20px;">
+                    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Messages Count</label>
+                    <input class="z-input" type="number" id="r4EditMessages" min="0" placeholder="0" style="width:100%; box-sizing:border-box;">
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px;">
+                <button class="z-btn z-btn-secondary" onclick="closeModal('r4EditModal')">Cancel</button>
+                <button class="z-btn z-btn-primary" onclick="saveR4Activity()"><i class="fas fa-check"></i> Save Changes</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Transcript Overlay Modal -->
     <div id="transcriptOverlay" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(10px); z-index:3000; align-items:center; justify-content:center;">
         <div class="modal-content" style="width:90%; max-width:850px; height:85vh; display:flex; flex-direction:column; position:relative; background:rgba(18, 18, 24, 0.95); border:1px solid var(--border-medium); border-radius:var(--radius-lg); box-shadow:var(--shadow-xl), 0 0 30px rgba(255, 215, 0, 0.08); backdrop-filter:blur(20px); color:#fff; overflow:hidden;">

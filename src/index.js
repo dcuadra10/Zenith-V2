@@ -1651,6 +1651,33 @@ app.post('/api/r4-tracking/excuse/:guildId', authenticateToken, async (req, res)
     }
 });
 
+// POST Update R4 User Activity
+app.post('/api/r4-tracking/update/:guildId', authenticateToken, async (req, res) => {
+    const { userId, weekId, ads, messages } = req.body;
+    try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const db = await getDb();
+        const adsVal = parseInt(ads, 10) || 0;
+        const msgVal = parseInt(messages, 10) || 0;
+
+        await db.run(
+            `INSERT INTO r4_tracking (userId, guildId, weekId, ads, messages, excused, isProcessed)
+             VALUES (?, ?, ?, ?, ?, 0, 0)
+             ON CONFLICT(userId, guildId, weekId) DO UPDATE SET 
+                ads = EXCLUDED.ads,
+                messages = EXCLUDED.messages`,
+            [userId, req.params.guildId, weekId, adsVal, msgVal]
+        );
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error updating R4 user activity:', e);
+        res.status(500).json({ error: 'Error updating R4 user activity' });
+    }
+});
+
 // POST Reset R4 Tracking Data
 app.post('/api/r4-tracking/reset/:guildId', authenticateToken, async (req, res) => {
     try {

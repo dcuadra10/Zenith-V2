@@ -3448,9 +3448,14 @@ function renderR4Table() {
             <td><strong>${item.messages}</strong></td>
             <td>${progressHtml}</td>
             <td>
-                <button class="z-btn z-btn-secondary z-btn-sm" style="display:flex; align-items:center; gap:4px; padding: 4px 8px; font-size: 0.75rem;" onclick="openR4ExcuseModal('${item.userId}', '${escapeJsString(item.displayName)}', '${item.weekId}', ${item.excused ? 1 : 0}, '${escapeJsString(item.excuseReason || '')}', ${item.excuseWeeksRemaining || 0})">
-                    <i class="fas fa-user-shield"></i> Excuse
-                </button>
+                <div style="display:flex; gap:6px;">
+                    <button class="z-btn z-btn-primary z-btn-sm" style="display:flex; align-items:center; gap:4px; padding: 4px 8px; font-size: 0.75rem;" onclick="openR4EditModal('${item.userId}', '${escapeJsString(item.displayName)}', '${item.weekId}', ${item.ads}, ${item.messages})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="z-btn z-btn-secondary z-btn-sm" style="display:flex; align-items:center; gap:4px; padding: 4px 8px; font-size: 0.75rem;" onclick="openR4ExcuseModal('${item.userId}', '${escapeJsString(item.displayName)}', '${item.weekId}', ${item.excused ? 1 : 0}, '${escapeJsString(item.excuseReason || '')}', ${item.excuseWeeksRemaining || 0})">
+                        <i class="fas fa-user-shield"></i> Excuse
+                    </button>
+                </div>
             </td>
         `;
 
@@ -3529,6 +3534,51 @@ async function saveR4Excuse() {
         }
     } catch (e) {
         showToast('❌ Server error updating excuse', true);
+    }
+}
+
+function openR4EditModal(userId, displayName, weekId, ads, messages) {
+    document.getElementById('r4EditUserId').value = userId;
+    document.getElementById('r4EditWeekId').value = weekId;
+    document.getElementById('r4EditAds').value = ads || 0;
+    document.getElementById('r4EditMessages').value = messages || 0;
+    document.getElementById('r4EditModalTitle').textContent = `Edit Activity: ${displayName}`;
+    document.getElementById('r4EditModalSubtitle').textContent = `Editing week ${weekId} activity.`;
+    
+    const el = document.getElementById('r4EditModal');
+    if (el) {
+        el.style.display = 'flex';
+        el.classList.add('active');
+    }
+}
+
+async function saveR4Activity() {
+    const userId = document.getElementById('r4EditUserId').value;
+    const weekId = document.getElementById('r4EditWeekId').value;
+    const ads = parseInt(document.getElementById('r4EditAds').value, 10) || 0;
+    const messages = parseInt(document.getElementById('r4EditMessages').value, 10) || 0;
+
+    showToast('Updating officer activity...');
+    try {
+        const res = await apiFetch(`/r4-tracking/update/${activeGuild.id}`, {
+            method: 'POST',
+            body: JSON.stringify({
+                userId,
+                weekId,
+                ads,
+                messages
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast('✅ Officer activity updated successfully!');
+            closeModal('r4EditModal');
+            fetchR4Tracking();
+        } else {
+            showToast('❌ Error: ' + (data.error || 'Failed to update activity'), true);
+        }
+    } catch (e) {
+        showToast('❌ Server error updating activity', true);
     }
 }
 

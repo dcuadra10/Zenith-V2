@@ -1159,7 +1159,7 @@ module.exports = {
                 const cost = Math.floor(up.baseCost * Math.pow(up.costMultiplier, currentLvl));
                 const { removeBalance } = require('../utils/economyHandler');
                 
-                const removed = await removeBalance(interaction.user.id, cost);
+                const removed = await removeBalance(interaction.user.id, cost, interaction.guildId, `Private Bank Upgrade: ${up.name}`);
                 if (!removed) return interaction.reply({ content: `❌ You need **${cost.toLocaleString()}** coins in your wallet for this upgrade!`, ephemeral: true });
 
                 levels[upgradeId] = currentLvl + 1;

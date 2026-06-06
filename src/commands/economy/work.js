@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const jobs = require('../../config/jobs');
 const { getDb } = require('../../config/database');
-const { addBalance } = require('../../utils/economyHandler');
+const { addBalance, removeBalance, logEconomyEvent } = require('../../utils/economyHandler');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -82,11 +82,14 @@ module.exports = {
             if (!don || (don.balance + don.bank) < finalSalary) {
                 return await interaction.editReply({ content: `❌ The Don (<@${mafia.leaderId}>) is short on funds and cannot pay your salary!`, ephemeral: true });
             }
-            // Deduct from Don't wallet/bank
+            // Deduct from Don's wallet/bank
             if (don.balance >= finalSalary) {
-                await db.run(`UPDATE users SET balance = balance - ? WHERE userId = ?`, [finalSalary, mafia.leaderId]);
+                await removeBalance(mafia.leaderId, finalSalary, interaction.guild.id, `Syndicate Payroll to ${interaction.user.tag}`);
             } else {
                 const remaining = finalSalary - don.balance;
+                if (don.balance > 0) {
+                    await removeBalance(mafia.leaderId, don.balance, interaction.guild.id, `Syndicate Payroll (partial) to ${interaction.user.tag}`);
+                }
                 await db.run(`UPDATE users SET balance = 0, bank = bank - ? WHERE userId = ?`, [remaining, mafia.leaderId]);
             }
         } else if (workplace) {
@@ -96,9 +99,12 @@ module.exports = {
             }
             // Deduct from owner
             if (owner.balance >= finalSalary) {
-                await db.run(`UPDATE users SET balance = balance - ? WHERE userId = ?`, [finalSalary, workplace.userId]);
+                await removeBalance(workplace.userId, finalSalary, interaction.guild.id, `Business Payroll to ${interaction.user.tag}`);
             } else {
                 const remaining = finalSalary - owner.balance;
+                if (owner.balance > 0) {
+                    await removeBalance(workplace.userId, owner.balance, interaction.guild.id, `Business Payroll (partial) to ${interaction.user.tag}`);
+                }
                 await db.run(`UPDATE users SET balance = 0, bank = bank - ? WHERE userId = ?`, [remaining, workplace.userId]);
             }
         }
@@ -108,15 +114,18 @@ module.exports = {
         if (isUnderworld) {
             const [mafiaId] = user.workplaceId.split('_');
             await db.run(`UPDATE mafia_members SET dirtyMoney = dirtyMoney + ? WHERE userId = ? AND mafiaId = ?`, [finalSalary, interaction.user.id, mafiaId]);
+            await logEconomyEvent(interaction.guild.id, interaction.user.id, finalSalary, 'dirty_money_gain', {
+                reason: `Salary for Underworld Work (${jobName})`
+            });
             balanceMsg = `💰 **${finalSalary}** dirty bills added to your stash.`;
             
             // Bonus to mafia business: Boost production (stock)
             await db.run(`UPDATE mafia_businesses SET stock = stock + 10 WHERE mafiaId = ? AND type = ?`, [mafiaId, mafiaData.type]);
         } else if (user.workplaceId === 'MUNICIPAL') {
-            const newBal = await addBalance(interaction.user.id, finalSalary, interaction.guild.id);
+            const newBal = await addBalance(interaction.user.id, finalSalary, interaction.guild.id, false, `Salary for working as Municipal Cleaner`);
             balanceMsg = `💰 New Balance: **${newBal}** coins`;
         } else {
-            const newBal = await addBalance(interaction.user.id, finalSalary, interaction.guild.id);
+            const newBal = await addBalance(interaction.user.id, finalSalary, interaction.guild.id, false, `Salary for working as ${jobName}`);
             balanceMsg = `💰 New Balance: **${newBal}** coins`;
             
             // Bonus to owner if private

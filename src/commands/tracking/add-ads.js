@@ -52,7 +52,7 @@ async function processAdsSubmission(interaction, amount) {
                 if (modConf.ecoenabled) {
                     const { addBalance } = require('../../utils/economyHandler');
                     const coinsPerAd = modConf.ecocoinsperad || 10;
-                    await addBalance(interaction.user.id, coinsPerAd * amount, interaction.guild.id);
+                    await addBalance(interaction.user.id, coinsPerAd * amount, interaction.guild.id, false, `Reward for posting ${amount} ads`);
                 }
             }
         }

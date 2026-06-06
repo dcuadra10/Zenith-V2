@@ -25,12 +25,12 @@ module.exports = {
             return await interaction.reply({ content: '❌ You cannot pay bots!', ephemeral: true });
         }
 
-        const success = await removeBalance(interaction.user.id, amount);
+        const success = await removeBalance(interaction.user.id, amount, interaction.guild.id, `Transfer to ${target.tag}`);
         if (!success) {
             return await interaction.reply({ content: '❌ You don\'t have enough coins!', ephemeral: true });
         }
 
-        await addBalance(target.id, amount);
+        await addBalance(target.id, amount, interaction.guild.id, false, `Transfer from ${interaction.user.tag}`, true);
 
         const embed = new EmbedBuilder()
             .setTitle('💸 Transfer Successful')

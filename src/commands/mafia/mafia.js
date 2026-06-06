@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder } = require('discord.js');
 const { getDb } = require('../../config/database');
-const { addBalance, removeBalance } = require('../../utils/economyHandler');
+const { addBalance, removeBalance, logEconomyEvent } = require('../../utils/economyHandler');
 const { generateMafiaHierarchy } = require('../../utils/imageGenerator');
 
 module.exports = {
@@ -647,6 +647,13 @@ module.exports = {
             currentUpgrades.push(itemName);
             await db.run(`UPDATE economy_mafias SET vault = vault - ?, upgrades = ? WHERE id = ?`, [price, JSON.stringify(currentUpgrades), user.mafiaId]);
             
+            const mafiaDetails = await db.get(`SELECT name FROM economy_mafias WHERE id = ?`, [user.mafiaId]);
+            await logEconomyEvent(interaction.guild.id, interaction.user.id, price, 'mafia_vault_withdraw', {
+                mafiaId: user.mafiaId,
+                mafiaName: mafiaDetails?.name || 'Mafia',
+                reason: `Armory Upgrade: Bought ${itemName.toUpperCase()}`
+            });
+
             return await interaction.editReply({ content: `✅ **Equipment Purchased!** The mafia now has access to: **${itemName.toUpperCase()}**.` });
         }
 
@@ -675,7 +682,11 @@ module.exports = {
             const cleanAmount = Math.floor(amount * (1 - cut));
             
             await db.run(`UPDATE mafia_members SET dirtyMoney = dirtyMoney - ? WHERE userId = ? AND mafiaId = ?`, [amount, interaction.user.id, user.mafiaId]);
-            await addBalance(interaction.user.id, cleanAmount, interaction.guild.id);
+            await addBalance(interaction.user.id, cleanAmount, interaction.guild.id, true, 'Laundered Dirty Money', true);
+            await logEconomyEvent(interaction.guild.id, interaction.user.id, amount, 'dirty_money_clean', {
+                cleanAmount,
+                feePercent: Math.round(cut * 100)
+            });
 
             return await interaction.editReply({ content: `🧼 **Laundry Complete!** You cleaned **${amount}** dirty bills into **${cleanAmount}** clean coins. (${(cut * 100).toFixed(0)}% fee applied)` });
         }
@@ -709,13 +720,16 @@ module.exports = {
             if (success) {
                 await db.run(`UPDATE mafia_members SET dirtyMoney = dirtyMoney + ? WHERE userId = ? AND mafiaId = ?`, [mission.reward, interaction.user.id, user.mafiaId]);
                 await db.run(`UPDATE economy_mafias SET experience = experience + 50 WHERE id = ?`, [user.mafiaId]);
+                await logEconomyEvent(interaction.guild.id, interaction.user.id, mission.reward, 'dirty_money_gain', {
+                    reason: `Completed mission: ${mission.name}`
+                });
                 return await interaction.editReply({ content: `✅ **MISSION SUCCESS!** You completed: **${mission.name}** and earned **${mission.reward}** dirty bills! (+50 Mafia XP)` });
             } else {
                 let jailTime = 120; // 2 hours
                 if (upgrades.includes('car')) jailTime = 60; // Getaway car reduces jail time
                 
                 const jailUntil = new Date(Date.now() + jailTime * 60000).toISOString();
-                await removeBalance(interaction.user.id, 300);
+                await removeBalance(interaction.user.id, 300, interaction.guild.id, `Failed mission: ${mission.name} (Jailed)`);
                 await db.run(`UPDATE users SET jailUntil = ? WHERE userId = ?`, [jailUntil, interaction.user.id]);
                 return await interaction.editReply({ content: `❌ **MISSION FAILED!** You were caught during: **${mission.name}**. You lost 300 coins and have been jailed for **${jailTime} minutes**.` });
             }
@@ -726,10 +740,16 @@ module.exports = {
             const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [interaction.user.id]);
             if (!user || !user.mafiaId) return await interaction.editReply({ content: '❌ You are not in a mafia!' });
 
-            const removed = await removeBalance(interaction.user.id, amount);
+            const removed = await removeBalance(interaction.user.id, amount, interaction.guild.id, 'Donated to Mafia Treasury');
             if (!removed) return await interaction.editReply({ content: '❌ You don\'t have enough coins!' });
 
             await db.run(`UPDATE economy_mafias SET balance = balance + ? WHERE id = ?`, [amount, user.mafiaId]);
+            const mafiaName = (await db.get(`SELECT name FROM economy_mafias WHERE id = ?`, [user.mafiaId]))?.name || 'Mafia';
+            await logEconomyEvent(interaction.guild.id, interaction.user.id, amount, 'mafia_treasury_deposit', {
+                mafiaId: user.mafiaId,
+                mafiaName: mafiaName,
+                reason: 'Member donation'
+            });
             return await interaction.editReply({ content: `✅ You donated **${amount}** coins to your mafia treasury!` });
         }
 
@@ -748,6 +768,11 @@ module.exports = {
             }
 
             await db.run(`UPDATE economy_mafias SET balance = balance - ?, level = level + 1 WHERE id = ?`, [cost, user.mafiaId]);
+            await logEconomyEvent(interaction.guild.id, interaction.user.id, cost, 'mafia_treasury_withdraw', {
+                mafiaId: user.mafiaId,
+                mafiaName: mafia.name,
+                reason: `Upgrade Mafia to Level ${mafia.level + 1}`
+            });
             
             const embed = new EmbedBuilder()
                 .setTitle('👑 Mafia Level Up!')
@@ -850,6 +875,12 @@ module.exports = {
                     const fine = Math.floor(2000 * (targetBank.security || 0.5) * 10);
                     await db.run(`UPDATE economy_mafias SET vault = MAX(0, vault - ?) WHERE id = ?`, [fine, user.mafiaId]);
                     
+                    await logEconomyEvent(interaction.guild.id, null, fine, 'mafia_vault_withdraw', {
+                        mafiaId: user.mafiaId,
+                        mafiaName: mafia.name,
+                        reason: `Failed Bank Heist on ${targetBank.name}`
+                    });
+
                     // Owner of private bank gets the fine added to bank reserve!
                     if (targetBank.ownerId) {
                         await db.run(`UPDATE economy_banks SET reserve = reserve + ? WHERE id = ?`, [fine, targetBankId]);
@@ -888,6 +919,20 @@ module.exports = {
                 
                 await db.run(`UPDATE economy_mafias SET vault = vault + ? WHERE id = ?`, [vaultShare, user.mafiaId]);
 
+                await logEconomyEvent(interaction.guild.id, null, vaultShare, 'mafia_vault_deposit', {
+                    mafiaId: user.mafiaId,
+                    mafiaName: mafia.name,
+                    reason: `Loot cut from Heist on ${targetBank.name}`
+                });
+
+                await logEconomyEvent(interaction.guild.id, null, totalStolen, 'bank_robbery', {
+                    bankId: targetBankId,
+                    bankName: targetBank.name,
+                    vaultShare,
+                    participantCut: sharePerParticipant,
+                    team: participants.map(id => `<@${id}>`).join(', ')
+                });
+
                 if (sharePerParticipant > 0) {
                     for (const pid of participants) {
                         await db.run(
@@ -895,6 +940,9 @@ module.exports = {
                              ON CONFLICT(mafiaId, userId) DO UPDATE SET dirtyMoney = mafia_members.dirtyMoney + ?`,
                             [user.mafiaId, pid, sharePerParticipant, sharePerParticipant]
                         );
+                        await logEconomyEvent(interaction.guild.id, pid, sharePerParticipant, 'dirty_money_gain', {
+                            reason: `Breach team share from Heist on ${targetBank.name}`
+                        });
                     }
                 }
 
@@ -1003,8 +1051,14 @@ module.exports = {
                     const fine = 1000 * targetBiz.level;
                     await db.run(`UPDATE economy_mafias SET vault = MAX(0, vault - ?) WHERE id = ?`, [fine, user.mafiaId]);
                     
+                    await logEconomyEvent(interaction.guild.id, null, fine, 'mafia_vault_withdraw', {
+                        mafiaId: user.mafiaId,
+                        mafiaName: mafia.name,
+                        reason: `Failed Raid on Business ID ${targetBizId}`
+                    });
+
                     // Owner of business gets the fine as insurance / defensive cleanup!
-                    await db.run(`UPDATE users SET balance = balance + ? WHERE userId = ?`, [fine, targetBiz.userId]);
+                    await addBalance(targetBiz.userId, fine, interaction.guild.id, true, `Defense payout from failed raid on business ${targetBizId}`, true);
 
                     return await interaction.followUp({ 
                         content: `👮 **RAID FOILED!** The security forces defended the building. The mafia lost **${fine}** in cleanup. Participants narrowly escaped.` 
@@ -1032,7 +1086,7 @@ module.exports = {
                     await db.run(`UPDATE economy_operations SET lastCollect = CURRENT_TIMESTAMP WHERE id = ?`, [targetBizId]);
                     // Deduct from owner
                     if (walletStolen > 0) {
-                        await db.run(`UPDATE users SET balance = balance - ? WHERE userId = ?`, [walletStolen, targetBiz.userId]);
+                        await removeBalance(targetBiz.userId, walletStolen, interaction.guild.id, `Stolen from wallet during raid on business ${targetBizId}`);
                     }
                 }
 
@@ -1043,9 +1097,24 @@ module.exports = {
 
                 await db.run(`UPDATE economy_mafias SET vault = vault + ? WHERE id = ?`, [vaultShare, user.mafiaId]);
 
+                await logEconomyEvent(interaction.guild.id, null, vaultShare, 'mafia_vault_deposit', {
+                    mafiaId: user.mafiaId,
+                    mafiaName: mafia.name,
+                    reason: `Raid share from business ${targetBizId}`
+                });
+
+                await logEconomyEvent(interaction.guild.id, null, totalStolen, 'business_raid', {
+                    businessId: targetBizId,
+                    businessType: targetBiz.type,
+                    ownerId: targetBiz.userId,
+                    vaultShare,
+                    participantCut: sharePerParticipant,
+                    team: participants.map(id => `<@${id}>`).join(', ')
+                });
+
                 if (sharePerParticipant > 0) {
                     for (const pid of participants) {
-                        await db.run(`UPDATE users SET balance = balance + ? WHERE userId = ?`, [sharePerParticipant, pid]);
+                        await addBalance(pid, sharePerParticipant, interaction.guild.id, true, `Raid share from business ${targetBizId}`, true);
                     }
                 }
 
@@ -1090,6 +1159,12 @@ module.exports = {
 
                 await db.run(`UPDATE economy_mafias SET vault = vault - ? WHERE id = ?`, [price, user.mafiaId]);
                 await db.run(`INSERT INTO mafia_businesses (mafiaId, type, customName) VALUES (?, ?, ?)`, [user.mafiaId, type, customName]);
+                
+                await logEconomyEvent(interaction.guild.id, interaction.user.id, price, 'mafia_vault_withdraw', {
+                    mafiaId: user.mafiaId,
+                    mafiaName: mafia.name,
+                    reason: `Acquired Underworld Venture: ${customName} (${type})`
+                });
 
                 const embed = new EmbedBuilder()
                     .setTitle('🏢 Zenith Foreclosures — Acquisition Confirmed')
@@ -1153,12 +1228,20 @@ module.exports = {
                     const holders = await db.all(`SELECT userId, shares FROM mafia_stocks WHERE mafiaId = ? AND businessType = ?`, [user.mafiaId, type]);
                     for (const h of holders) {
                         const hCut = Math.floor(shareCut * (h.shares / b.publicShares));
-                        if (hCut > 0) await db.run(`UPDATE users SET balance = balance + ? WHERE userId = ?`, [hCut, h.userId]);
+                        if (hCut > 0) {
+                            await addBalance(h.userId, hCut, interaction.guild.id, true, `Stock dividend from ${b.customName || type.toUpperCase()}`, true);
+                        }
                     }
                 }
 
                 await db.run(`UPDATE mafia_businesses SET stock = 0 WHERE mafiaId = ? AND type = ?`, [user.mafiaId, type]);
                 await db.run(`UPDATE economy_mafias SET vault = vault + ? WHERE id = ?`, [mafiaProfit, user.mafiaId]);
+
+                await logEconomyEvent(interaction.guild.id, interaction.user.id, mafiaProfit, 'mafia_vault_deposit', {
+                    mafiaId: user.mafiaId,
+                    mafiaName: mafia.name,
+                    reason: `Profit from selling stock of ${b.customName || type.toUpperCase()}`
+                });
 
                 const embed = new EmbedBuilder()
                     .setTitle('🚚 Sell Mission Successful')
@@ -1181,6 +1264,12 @@ module.exports = {
 
                 await db.run(`UPDATE economy_mafias SET vault = vault - ? WHERE id = ?`, [cost, user.mafiaId]);
                 await db.run(`UPDATE mafia_businesses SET supplies = 100 WHERE mafiaId = ? AND type = ?`, [user.mafiaId, type]);
+                
+                await logEconomyEvent(interaction.guild.id, interaction.user.id, cost, 'mafia_vault_withdraw', {
+                    mafiaId: user.mafiaId,
+                    mafiaName: mafia.name,
+                    reason: `Restocked supplies for business: ${b?.customName || type.toUpperCase()}`
+                });
 
                 return await interaction.editReply({ content: `✅ Supplies delivered to the **${type.toUpperCase()}**. Production resumed.` });
             }
@@ -1218,6 +1307,12 @@ module.exports = {
 
                 await db.run(`UPDATE economy_mafias SET vault = vault - ? WHERE id = ?`, [upgradeCost, user.mafiaId]);
                 await db.run(`UPDATE mafia_businesses SET level = level + 1 WHERE mafiaId = ? AND type = ?`, [user.mafiaId, type]);
+
+                await logEconomyEvent(interaction.guild.id, interaction.user.id, upgradeCost, 'mafia_vault_withdraw', {
+                    mafiaId: user.mafiaId,
+                    mafiaName: mafia.name,
+                    reason: `Upgraded Underworld Venture ${b.customName || type.toUpperCase()} to Level ${b.level + 1}`
+                });
 
                 return await interaction.editReply({ content: `✅ **Expansion Complete!** The **${type.toUpperCase()}** is now **Level ${b.level + 1}**. Production capacity increased!` });
             }

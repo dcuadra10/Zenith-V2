@@ -139,7 +139,7 @@ module.exports = {
             }
             const data = bizData[type];
 
-            const success = await removeBalance(interaction.user.id, data.cost);
+            const success = await removeBalance(interaction.user.id, data.cost, interaction.guild.id, `Established business: ${data.name}`);
             if (!success) return await interaction.editReply({ content: `❌ You need **${data.cost}** coins to open this business!` });
 
             const opId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -193,7 +193,7 @@ module.exports = {
 
             if (total === 0) return await interaction.editReply({ content: '⏳ No profits available yet. Wait at least one hour!' });
 
-            await addBalance(interaction.user.id, total, interaction.guildId);
+            await addBalance(interaction.user.id, total, interaction.guildId, false, 'Collected business profits');
             return await interaction.editReply({ content: `💰 **Profits Collected!** You earned **${total}** coins from your legal businesses.` });
         }
 
@@ -206,7 +206,7 @@ module.exports = {
             const data = bizData[op.type];
             const upgradeCost = Math.floor(data.cost * (op.level + 1) * 0.8);
 
-            const success = await removeBalance(interaction.user.id, upgradeCost);
+            const success = await removeBalance(interaction.user.id, upgradeCost, interaction.guild.id, `Upgraded business ${opId} to Level ${op.level + 1}`);
             if (!success) return await interaction.editReply({ content: `❌ You need **${upgradeCost}** coins to upgrade this business to Level ${op.level + 1}!` });
 
             await db.run(`UPDATE economy_operations SET level = level + 1 WHERE id = ?`, [opId]);

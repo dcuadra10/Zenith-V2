@@ -69,7 +69,7 @@ module.exports = {
             }
 
             const totalCost = b.sharePrice * amount;
-            const success = await removeBalance(interaction.user.id, totalCost);
+            const success = await removeBalance(interaction.user.id, totalCost, interaction.guild.id, `Purchased ${amount} shares of ${mafia.name} (${type})`);
             if (!success) return await interaction.editReply({ content: `❌ You need **${totalCost}** coins to buy ${amount} shares!` });
 
             // Move funds to Mafia Vault (Capital Injection)

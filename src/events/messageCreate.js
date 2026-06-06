@@ -335,7 +335,7 @@ module.exports = {
                         const multiplier = 0.2 + (Math.random() * 0.8); // random between 0.2 and 1.0
                         const amount = Math.max(1, Math.floor(charCount * multiplier));
                         
-                        await addBalance(message.author.id, amount, message.guild.id);
+                        await addBalance(message.author.id, amount, message.guild.id, false, 'Chat activity reward', true);
                     }
 
                     // Welcome reward check
@@ -344,7 +344,7 @@ module.exports = {
                         const content = message.content.toLowerCase();
                         if (keywords.some(k => k.length > 0 && content.includes(k))) {
                             const amount = conf.ecocoinsperwelcome || 5;
-                            await addBalance(message.author.id, amount, message.guild.id);
+                            await addBalance(message.author.id, amount, message.guild.id, false, 'Saying Welcome to new citizen');
                         }
                     }
                 } catch (e) {

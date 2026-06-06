@@ -415,7 +415,7 @@ function populateAllDropdowns() {
         'levelUpChannel', 'ticketsTranscriptChannel', 'ticketsApprovalChannel', 'marketOwnerChannel',
         'newKingdomTargetChannel', 'ecoWelcomeNotifyChannel', 'rssDeployChannel',
         'aiWelcomeChannel', 'aiSupportChannel', 'giveawaysLogChannel', 'cfgRokVerifierChannel',
-        'giftCodesTargetChannel'
+        'giftCodesTargetChannel', 'hallOfShameChannel'
     ];
 
     // Selects that need a category
@@ -888,6 +888,12 @@ function loadModuleToggles(mods) {
     setVal('cfgRokVerifierTags', mods.rokVerifierTags);
     setCheck('cfgRokVerifierUniqueId', mods.rokVerifierUniqueId);
     
+    // Hall of Shame
+    setCheck('toggleHallOfShame', mods.hallOfShameEnabled);
+    setVal('hallOfShameChannel', mods.hallOfShameChannel);
+    setVal('hallOfShameEmoji', mods.hallOfShameEmoji ?? '💀');
+    setVal('hallOfShameThreshold', mods.hallOfShameThreshold ?? 3);
+    
     // Refresh visual locking system after loading all values
     applyToggleVisuals();
 }
@@ -1104,7 +1110,13 @@ async function saveModuleConfig(moduleName) {
         rokVerifierRole: getVal('cfgRokVerifierRole'),
         rokVerifierChannel: getVal('cfgRokVerifierChannel'),
         rokVerifierTags: getVal('cfgRokVerifierTags'),
-        rokVerifierUniqueId: getCheck('cfgRokVerifierUniqueId')
+        rokVerifierUniqueId: getCheck('cfgRokVerifierUniqueId'),
+
+        // Hall of Shame
+        hallOfShameEnabled: getCheck('toggleHallOfShame'),
+        hallOfShameChannel: getVal('hallOfShameChannel'),
+        hallOfShameEmoji: getVal('hallOfShameEmoji'),
+        hallOfShameThreshold: parseInt(getVal('hallOfShameThreshold')) || 3
     };
 
     try {

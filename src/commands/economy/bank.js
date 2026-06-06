@@ -64,11 +64,12 @@ module.exports = {
                 feeAmount = Math.floor(amount * (targetBank.fee || 0.01));
             }
 
-            const netAmount = amount - feeAmount;
-            await db.run(`UPDATE users SET balance = balance - ?, bank = bank + ? WHERE userId = ?`, [amount, netAmount, interaction.user.id]);
+            const removed = await removeBalance(interaction.user.id, amount, interaction.guild.id, 'Bank Deposit');
+            if (!removed) return await interaction.editReply({ content: '❌ Deposit transaction failed.' });
+            await db.run(`UPDATE users SET bank = bank + ? WHERE userId = ?`, [netAmount, interaction.user.id]);
             
             if (feeAmount > 0 && targetBank.ownerId) {
-                await db.run(`UPDATE users SET balance = balance + ? WHERE userId = ?`, [feeAmount, targetBank.ownerId]);
+                await addBalance(targetBank.ownerId, feeAmount, interaction.guild.id, false, `Deposit fee from ${interaction.user.tag}`, true);
             }
 
             const embed = new EmbedBuilder()
@@ -94,7 +95,8 @@ module.exports = {
             if (isNaN(amount) || amount <= 0) return await interaction.editReply({ content: '❌ Invalid amount!' });
             if (amount > user.bank) return await interaction.editReply({ content: '❌ You don\'t have that much in your bank!' });
 
-            await db.run(`UPDATE users SET balance = balance + ?, bank = bank - ? WHERE userId = ?`, [amount, amount, interaction.user.id]);
+            await db.run(`UPDATE users SET bank = bank - ? WHERE userId = ?`, [amount, interaction.user.id]);
+            await addBalance(interaction.user.id, amount, interaction.guild.id, true, 'Bank Withdrawal', true);
             
             const embed = new EmbedBuilder()
                 .setTitle('<:zenith_bank:1510681878032552166> Withdrawal Successful')
@@ -114,7 +116,7 @@ module.exports = {
 
             const cost = Math.max(2500, Math.floor(user.bankCapacity * 0.10));
 
-            const removed = await removeBalance(interaction.user.id, cost);
+            const removed = await removeBalance(interaction.user.id, cost, interaction.guild.id, 'Bank Capacity Upgrade');
             if (!removed) return await interaction.editReply({ content: `❌ You need **${cost.toLocaleString('en-US')}** coins in your wallet to upgrade!` });
 
             // Random capacity gain between 2,500 and 7,500 + 5% of current capacity
@@ -178,7 +180,7 @@ module.exports = {
                 return await interaction.editReply({ content: `❌ You need **${cost}** coins in your wallet to found a bank!` });
             }
 
-            await removeBalance(interaction.user.id, cost);
+            await removeBalance(interaction.user.id, cost, interaction.guild.id, `Founded Private Bank: ${name}`);
             const bankId = Math.random().toString(36).substring(2, 7).toUpperCase();
 
             await db.run(

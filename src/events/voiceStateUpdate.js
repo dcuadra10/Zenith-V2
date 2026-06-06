@@ -36,7 +36,7 @@ module.exports = {
                         const conf = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [guildId]);
                         if (conf && (conf.ecoEnabled || conf.ecoenabled)) {
                             const coinsPerMinute = (conf.ecoCoinsPerVCMinute || conf.ecocoinspervcminute) || 1;
-                            await addBalance(userId, durationMinutes * coinsPerMinute, guildId);
+                            await addBalance(userId, durationMinutes * coinsPerMinute, guildId, false, `Reward for spending ${durationMinutes} minutes in VC`);
                         }
                     } catch (e) {
                         console.error('VC Economy reward error:', e.message);

@@ -19,7 +19,7 @@ module.exports = {
             return await interaction.reply({ content: '❌ Item not found. Check the ID using `/shop`.', ephemeral: true });
         }
 
-        const success = await removeBalance(interaction.user.id, item.price);
+        const success = await removeBalance(interaction.user.id, item.price, interaction.guild.id, `Purchased shop item: ${item.name}`);
         if (!success) {
             return await interaction.reply({ content: `❌ You don't have enough coins! You need **${item.price}** coins.`, ephemeral: true });
         }

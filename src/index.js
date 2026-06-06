@@ -1212,7 +1212,8 @@ app.get('/api/modules/:guildId', authenticateToken, async (req, res) => {
             'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
             'giveawaysEnabled', 'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins',
             'rokVerifierEnabled', 'rokVerifierRole', 'rokVerifierTags', 'rokVerifierChannel', 'rokVerifierUniqueId',
-            'giftCodesEnabled', 'giftCodesSourceChannel', 'giftCodesTargetChannel', 'giftCodesPingRole'
+            'giftCodesEnabled', 'giftCodesSourceChannel', 'giftCodesTargetChannel', 'giftCodesPingRole',
+            'hallOfShameEnabled', 'hallOfShameEmoji', 'hallOfShameThreshold', 'hallOfShameChannel'
         ];
 
         // Map keys to camelCase expected by the frontend
@@ -1279,7 +1280,8 @@ app.post('/api/modules/:guildId', authenticateToken, async (req, res) => {
             'rssEnabled', 'rssSellerRole', 'rssTaxRate', 'rssCategory',
             'giveawaysEnabled', 'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins',
             'rokVerifierEnabled', 'rokVerifierRole', 'rokVerifierTags', 'rokVerifierChannel', 'rokVerifierUniqueId',
-            'giftCodesEnabled', 'giftCodesSourceChannel', 'giftCodesTargetChannel', 'giftCodesPingRole'
+            'giftCodesEnabled', 'giftCodesSourceChannel', 'giftCodesTargetChannel', 'giftCodesPingRole',
+            'hallOfShameEnabled', 'hallOfShameEmoji', 'hallOfShameThreshold', 'hallOfShameChannel'
         ];
         
         const allFields = ['guildId', ...fields];
@@ -1880,6 +1882,7 @@ require('./features/serverStats')(client);
 require('./features/giveaways')(client);
 require('./features/r4Tracker')(client);
 require('./features/aiAgent')(client);
+require('./features/hallOfShame')(client);
 
 // Iniciar bots personalizados
 const customBotManager = require('./managers/CustomBotManager');
@@ -1965,3 +1968,6 @@ if (process.env.DISCORD_TOKEN) {
 } else {
     console.warn('[Startup] DISCORD_TOKEN not set; skipping Discord client login. Dashboard will still run.');
 }
+
+module.exports = { client };
+

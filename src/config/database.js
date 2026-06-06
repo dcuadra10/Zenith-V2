@@ -58,7 +58,8 @@ function buildColumnMap(cols) {
         'openaiApiKey', 'characterName', 'characterTraits', 'chatEnabled', 'chatChannels', 'supportEnabled', 'supportChannel', 'supportKnowledgeChannels', 'botToBotChatEnabled', 'maxBotTurns', 'enabled', 'clientId', 'languageMode',
         'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins',
         'rokVerifierEnabled', 'rokVerifierRole', 'rokVerifierTags', 'rokVerifierChannel',
-        'governorId', 'governorName', 'allianceTag', 'power', 'killPoints', 'verifiedAt'
+        'governorId', 'governorName', 'allianceTag', 'power', 'killPoints', 'verifiedAt',
+        'hallOfShameEnabled', 'hallOfShameEmoji', 'hallOfShameThreshold', 'hallOfShameChannel'
     ];
     knownColumns.forEach(col => {
         columnNameMap[col.toLowerCase()] = col;
@@ -676,6 +677,13 @@ async function createDbInstance() {
                 count INTEGER DEFAULT 0,
                 PRIMARY KEY (userId, guildId)
             );
+
+            CREATE TABLE IF NOT EXISTS hall_of_shame_posts (
+                guildId TEXT,
+                originalMessageId TEXT,
+                shameMessageId TEXT,
+                PRIMARY KEY (guildId, originalMessageId)
+            );
         `);
 
         // Migrate enabled column if table already existed
@@ -695,6 +703,12 @@ async function createDbInstance() {
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN chatCharacterTraits TEXT`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportCharacterName TEXT`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportCharacterTraits TEXT`); } catch (e) {}
+
+        // Migrate Hall of Shame columns
+        try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN hallOfShameEnabled INTEGER DEFAULT 0`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN hallOfShameEmoji TEXT DEFAULT '💀'`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN hallOfShameThreshold INTEGER DEFAULT 3`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN hallOfShameChannel TEXT`); } catch (e) {}
         
         // Migrate custom_bots and ai_agent_configs schema to multi-bot support
         try {

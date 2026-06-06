@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getDb } = require('../../config/database');
-const { removeBalance, addBalance } = require('../../utils/economyHandler');
+const { removeBalance, addBalance, logEconomyEvent } = require('../../utils/economyHandler');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -40,13 +40,13 @@ module.exports = {
                 .setDescription(`You were caught attempting to rob <@${target.id}>!\n\n**Sentence:** ${jailTime} minutes in jail.\n**Fine:** 200 Zenith Coins.`)
                 .setColor('#ef4444');
             
-            await removeBalance(interaction.user.id, 200);
+            await removeBalance(interaction.user.id, 200, interaction.guild.id, `Arrest fine for failed robbery on ${target.tag}`);
             return await interaction.editReply({ embeds: [embed] });
         }
 
         // Success Logic
         const amount = Math.floor(targetData.balance * (0.1 + Math.random() * 0.15)); // 10-25%
-        await removeBalance(target.id, amount);
+        await removeBalance(target.id, amount, interaction.guild.id, `Robbed by ${interaction.user.tag}`);
 
         if (user?.mafiaId) {
             const tax = mafia.taxRate || 0.05;
@@ -56,6 +56,18 @@ module.exports = {
             await db.run(`UPDATE economy_mafias SET vault = vault + ? WHERE id = ?`, [vaultShare, user.mafiaId]);
             await db.run(`UPDATE mafia_members SET dirtyMoney = dirtyMoney + ? WHERE userId = ? AND mafiaId = ?`, [memberShare, interaction.user.id, user.mafiaId]);
             
+            // Log dirty money gain
+            await logEconomyEvent(interaction.guild.id, interaction.user.id, memberShare, 'dirty_money_gain', {
+                reason: `Loot from robbing ${target.tag}`
+            });
+            // Log mafia vault deposit
+            const mafiaName = (await db.get(`SELECT name FROM economy_mafias WHERE id = ?`, [user.mafiaId]))?.name || 'Mafia';
+            await logEconomyEvent(interaction.guild.id, interaction.user.id, vaultShare, 'mafia_vault_deposit', {
+                mafiaId: user.mafiaId,
+                mafiaName: mafiaName,
+                reason: `Robbery tax share from robbing ${target.tag}`
+            });
+
             const embed = new EmbedBuilder()
                 .setTitle('🎭 ROBBERY SUCCESS')
                 .setDescription(`You successfully robbed <@${target.id}>!`)
@@ -69,7 +81,7 @@ module.exports = {
                 
             return await interaction.editReply({ embeds: [embed] });
         } else {
-            await addBalance(interaction.user.id, amount, interaction.guild.id);
+            await addBalance(interaction.user.id, amount, interaction.guild.id, false, `Successfully robbed ${target.tag}`);
             
             const embed = new EmbedBuilder()
                 .setTitle('🧤 LONE WOLF ROBBERY')

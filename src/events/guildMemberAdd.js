@@ -94,7 +94,7 @@ module.exports = {
                     if (conf && (conf.ecoEnabled || conf.ecoenabled)) {
                         const { addBalance } = require('../utils/economyHandler');
                         const amount = (conf.ecoCoinsPerInvite || conf.ecocoinsperinvite) || 50;
-                        await addBalance(inviterId, amount, member.guild.id);
+                        await addBalance(inviterId, amount, member.guild.id, false, `Reward for inviting ${member.user.tag}`);
                     }
                     
                     oldInvites.set(usedInvite.code, usedInvite.uses);

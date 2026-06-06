@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const { addBalance, removeBalance } = require('../../utils/economyHandler');
+const { addBalance, removeBalance, logEconomyEvent } = require('../../utils/economyHandler');
 const { getDb } = require('../../config/database');
 
 module.exports = {
@@ -48,14 +48,14 @@ module.exports = {
         if (sub === 'give') {
             const user = interaction.options.getUser('user');
             const amount = interaction.options.getInteger('amount');
-            const newBal = await addBalance(user.id, amount, null, true);
+            const newBal = await addBalance(user.id, amount, interaction.guild.id, true, `Admin Give by ${interaction.user.tag}`, true);
             return await interaction.reply({ content: `✅ Gave **${amount}** coins to <@${user.id}>. New balance: **${newBal}**.` });
         }
 
         if (sub === 'take') {
             const user = interaction.options.getUser('user');
             const amount = interaction.options.getInteger('amount');
-            const success = await removeBalance(user.id, amount);
+            const success = await removeBalance(user.id, amount, interaction.guild.id, `Admin Take by ${interaction.user.tag}`);
             if (!success) return await interaction.reply({ content: `❌ User does not have enough coins to take **${amount}**.`, ephemeral: true });
             return await interaction.reply({ content: `✅ Took **${amount}** coins from <@${user.id}>.` });
         }
@@ -94,6 +94,11 @@ module.exports = {
             if (!mafia) return await interaction.reply({ content: '❌ Mafia not found.', ephemeral: true });
 
             await db.run(`UPDATE economy_mafias SET balance = balance + ? WHERE id = ?`, [amount, id]);
+            await logEconomyEvent(interaction.guild.id, interaction.user.id, amount, 'mafia_treasury_deposit', {
+                mafiaId: id,
+                mafiaName: mafia.name,
+                reason: `Admin Addition by ${interaction.user.tag}`
+            });
             return await interaction.reply({ content: `✅ Added **${amount}** coins to the **${mafia.name}** treasury.` });
         }
     },

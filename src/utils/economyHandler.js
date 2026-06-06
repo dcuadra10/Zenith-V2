@@ -1,4 +1,107 @@
 const { getDb } = require('../config/database');
+const { EmbedBuilder } = require('discord.js');
+
+/**
+ * Helper to log economy events to the server's surveillance logging channel.
+ */
+async function logEconomyEvent(guildId, userId, amount, type, details = {}) {
+    if (!guildId) return;
+    try {
+        const db = await getDb();
+        const conf = await db.get(`SELECT loggingEnabled, loggingChannel FROM module_configs WHERE guildId = ?`, [guildId]);
+        if (!conf || !conf.loggingEnabled || !conf.loggingChannel) return;
+
+        const { client } = require('../index');
+        if (!client || !client.isReady()) return;
+
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) return;
+
+        const channel = guild.channels.cache.get(conf.loggingChannel);
+        if (!channel) return;
+
+        let userMention = userId ? `<@${userId}>` : 'System/Syndicate';
+        let userTag = '';
+        if (userId) {
+            try {
+                const userObj = await client.users.fetch(userId);
+                if (userObj) userTag = ` (${userObj.tag})`;
+            } catch (e) {}
+        }
+
+        const embed = new EmbedBuilder().setTimestamp();
+        let title = '💰 Economy Event';
+        let color = '#3498db';
+        let desc = '';
+
+        switch (type) {
+            case 'deposit':
+                title = '💰 Economy: Wallet Deposit';
+                color = '#2ecc71';
+                desc = `**User:** ${userMention}${userTag}\n**Amount:** +${amount.toLocaleString()} coins\n**New Balance:** ${details.newBalance !== undefined ? details.newBalance.toLocaleString() : 'N/A'} coins\n**Reason:** ${details.reason || 'Deposit'}`;
+                if (details.baseAmount !== undefined && details.baseAmount !== amount) {
+                    embed.addFields(
+                        { name: 'Base Amount', value: `${details.baseAmount.toLocaleString()} coins`, inline: true },
+                        { name: 'Final Amount (after Taxes/Multipliers)', value: `${amount.toLocaleString()} coins`, inline: true }
+                    );
+                }
+                break;
+            case 'withdrawal':
+                title = '💸 Economy: Wallet Withdrawal';
+                color = '#e74c3c';
+                desc = `**User:** ${userMention}${userTag}\n**Amount:** -${amount.toLocaleString()} coins\n**New Balance:** ${details.newBalance !== undefined ? details.newBalance.toLocaleString() : 'N/A'} coins\n**Reason:** ${details.reason || 'Withdrawal'}`;
+                break;
+            case 'mafia_vault_deposit':
+                title = '🏦 Mafia: Vault Deposit';
+                color = '#2ecc71';
+                desc = `**Mafia:** ${details.mafiaName || 'Unknown Mafia'} (ID: \`${details.mafiaId}\`)\n**User:** ${userMention}${userTag}\n**Amount:** +${amount.toLocaleString()} coins\n**Reason:** ${details.reason || 'Vault Contribution'}`;
+                break;
+            case 'mafia_vault_withdraw':
+                title = '💸 Mafia: Vault Withdrawal';
+                color = '#e74c3c';
+                desc = `**Mafia:** ${details.mafiaName || 'Unknown Mafia'} (ID: \`${details.mafiaId}\`)\n**Amount:** -${amount.toLocaleString()} coins\n**Reason:** ${details.reason || 'Vault Expenditure'}`;
+                break;
+            case 'mafia_treasury_deposit':
+                title = '👑 Mafia: Treasury Deposit';
+                color = '#2ecc71';
+                desc = `**Mafia:** ${details.mafiaName || 'Unknown Mafia'} (ID: \`${details.mafiaId}\`)\n**User:** ${userMention}${userTag}\n**Amount:** +${amount.toLocaleString()} coins\n**Reason:** ${details.reason || 'Donation'}`;
+                break;
+            case 'mafia_treasury_withdraw':
+                title = '💸 Mafia: Treasury Withdrawal';
+                color = '#e74c3c';
+                desc = `**Mafia:** ${details.mafiaName || 'Unknown Mafia'} (ID: \`${details.mafiaId}\`)\n**Amount:** -${amount.toLocaleString()} coins\n**Reason:** ${details.reason || 'Upgrade/Expense'}`;
+                break;
+            case 'dirty_money_gain':
+                title = '💵 Mafia: Dirty Money Earned';
+                color = '#f1c40f';
+                desc = `**User:** ${userMention}${userTag}\n**Amount:** +${amount.toLocaleString()} dirty bills\n**Reason:** ${details.reason || 'Criminal Activity'}`;
+                break;
+            case 'dirty_money_clean':
+                title = '🧼 Mafia: Money Laundering';
+                color = '#2ecc71';
+                desc = `**User:** ${userMention}${userTag}\n**Dirty Cleaned:** -${amount.toLocaleString()} dirty bills\n**Clean Received:** +${(details.cleanAmount || 0).toLocaleString()} coins\n**Laundering Fee:** ${(details.feePercent || 0)}%`;
+                break;
+            case 'bank_robbery':
+                title = '🚨 Heist: Bank Robbed';
+                color = '#e74c3c';
+                desc = `**Bank:** ${details.bankName} (ID: \`${details.bankId}\`)\n**Total Looted:** ${amount.toLocaleString()} coins\n**Vault Payout:** +${(details.vaultShare || 0).toLocaleString()} coins\n**Participant Cut:** +${(details.participantCut || 0).toLocaleString()} coins per user\n**Team:** ${details.team || 'Unknown'}`;
+                break;
+            case 'business_raid':
+                title = '💥 Raid: Business Raided';
+                color = '#e74c3c';
+                desc = `**Business ID:** \`${details.businessId}\` (Type: ${details.businessType})\n**Owner:** <@${details.ownerId}>\n**Total Stolen:** ${amount.toLocaleString()} coins\n**Vault Share (20%):** +${(details.vaultShare || 0).toLocaleString()} coins\n**Participant Cut (80%):** +${(details.participantCut || 0).toLocaleString()} coins per user\n**Team:** ${details.team || 'Unknown'}`;
+                break;
+            default:
+                title = `💰 Economy: ${type}`;
+                desc = `**User:** ${userMention}${userTag}\n**Amount:** ${amount.toLocaleString()} coins\n**Reason:** ${details.reason || 'Event'}`;
+        }
+
+        embed.setTitle(title).setColor(color).setDescription(desc);
+        await channel.send({ embeds: [embed] }).catch(() => {});
+    } catch (err) {
+        console.error('[Economy/Mafia Log Error]', err);
+    }
+}
 
 /**
  * Adds coins to a user's balance, applying social bonuses if guildId is provided.
@@ -6,14 +109,16 @@ const { getDb } = require('../config/database');
  * @param {number} amount - Base amount of coins to add
  * @param {string} [guildId] - The Discord Guild ID for social bonus calculation
  * @param {boolean} [bypassTax] - Whether to skip mafia tax
+ * @param {string} [reason] - The reason for adding coins (for logging)
+ * @param {boolean} [bypassBonus] - Whether to skip social bonus calculations
  * @returns {Promise<number>} - The new balance
  */
-async function addBalance(userId, amount, guildId = null, bypassTax = false) {
+async function addBalance(userId, amount, guildId = null, bypassTax = false, reason = null, bypassBonus = false) {
     if (amount === 0) return 0;
     const db = await getDb();
     
     let finalAmount = amount;
-    if (guildId) {
+    if (guildId && !bypassBonus) {
         finalAmount = await calculateBonuses(userId, guildId, amount);
     }
 
@@ -44,7 +149,17 @@ async function addBalance(userId, amount, guildId = null, bypassTax = false) {
         [userId, finalAmount, finalAmount]
     );
     const user = await db.get(`SELECT balance FROM users WHERE userId = ?`, [userId]);
-    return user ? user.balance : 0;
+    const newBalance = user ? user.balance : 0;
+
+    if (guildId) {
+        await logEconomyEvent(guildId, userId, finalAmount, 'deposit', {
+            newBalance,
+            reason: reason || 'Deposit',
+            baseAmount: amount
+        });
+    }
+
+    return newBalance;
 }
 
 /**
@@ -73,12 +188,25 @@ async function calculateBonuses(userId, guildId, amount) {
  * Deducts coins from a user's balance.
  * @param {string} userId - The Discord User ID
  * @param {number} amount - Amount of coins to deduct
+ * @param {string} [guildId] - The Discord Guild ID for logging
+ * @param {string} [reason] - The reason for deducting coins (for logging)
  * @returns {Promise<boolean>} - True if successful, false if insufficient funds
  */
-async function removeBalance(userId, amount) {
+async function removeBalance(userId, amount, guildId = null, reason = null) {
     const db = await getDb();
     const result = await db.run(`UPDATE users SET balance = balance - ? WHERE userId = ? AND balance >= ?`, [amount, userId, amount]);
-    return result.changes > 0;
+    const success = result.changes > 0;
+
+    if (success && guildId) {
+        const user = await db.get(`SELECT balance FROM users WHERE userId = ?`, [userId]);
+        const newBalance = user ? user.balance : 0;
+        await logEconomyEvent(guildId, userId, amount, 'withdrawal', {
+            newBalance,
+            reason: reason || 'Withdrawal'
+        });
+    }
+
+    return success;
 }
 
-module.exports = { addBalance, removeBalance };
+module.exports = { addBalance, removeBalance, logEconomyEvent };

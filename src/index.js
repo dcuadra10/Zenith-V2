@@ -103,7 +103,7 @@ async function syncMilestoneRoles(guildId) {
     }
     if (rewards.length === 0) return;
     
-    const dbUsers = await db.all(`SELECT userId, level FROM users WHERE level > 0`);
+    const dbUsers = await db.all(`SELECT userId, level FROM users WHERE guildId = ? AND level > 0`, [guildId]);
     if (dbUsers.length === 0) return;
     
     try {
@@ -1751,9 +1751,9 @@ app.post('/api/levels/import/:guildId', authenticateToken, async (req, res) => {
                 for (const item of levelsData) {
                     if (!item.userId || item.level === undefined) continue;
                     await txClient.query(
-                        `INSERT INTO users (userId, level, xp) VALUES (?, ?, 0)
-                         ON CONFLICT(userId) DO UPDATE SET level = excluded.level, xp = 0`,
-                        [item.userId, item.level]
+                        `INSERT INTO users (userId, guildId, level, xp) VALUES (?, ?, ?, 0)
+                         ON CONFLICT(userId, guildId) DO UPDATE SET level = EXCLUDED.level, xp = 0`,
+                        [item.userId, req.params.guildId, item.level]
                     );
                     successCount++;
                 }
@@ -1782,8 +1782,8 @@ app.post('/api/levels/reset/:guildId', authenticateToken, async (req, res) => {
 
         const db = await getDb();
         
-        // Reset database levels and XP for all users to 0
-        await db.run(`UPDATE users SET level = 0, xp = 0`);
+        // Reset database levels and XP for users in this guild to 0
+        await db.run(`UPDATE users SET level = 0, xp = 0 WHERE guildId = ?`, [guildId]);
 
         // Remove milestone roles from members in this guild
         const config = await db.get(`SELECT roleRewards FROM module_configs WHERE guildId = ?`, [guildId]);

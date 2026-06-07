@@ -265,19 +265,19 @@ module.exports = {
                         const xpAmount = Math.floor(Math.random() * ((conf.xpmax || 15) - (conf.xpmin || 5) + 1)) + (conf.xpmin || 5);
                         
                         await db.run(
-                            `INSERT INTO users (userId, xp, level) VALUES (?, ?, 0)
-                            ON CONFLICT(userId) DO UPDATE SET xp = users.xp + ?`,
-                            [message.author.id, xpAmount, xpAmount]
+                            `INSERT INTO users (userId, guildId, xp, level) VALUES (?, ?, ?, 0)
+                            ON CONFLICT(userId, guildId) DO UPDATE SET xp = users.xp + ?`,
+                            [message.author.id, message.guild.id, xpAmount, xpAmount]
                         );
                         
-                        const userProfile = await db.get(`SELECT * FROM users WHERE userId = ?`, [message.author.id]);
+                        const userProfile = await db.get(`SELECT * FROM users WHERE userId = ? AND guildId = ?`, [message.author.id, message.guild.id]);
                         if (!userProfile) return;
                         
                         const currentLevel = userProfile.level;
                         const requiredXP = 5 * (currentLevel ** 2) + 50 * currentLevel + 100;
 
                         if (userProfile.xp >= requiredXP) {
-                            await db.run(`UPDATE users SET level = level + 1, xp = 0 WHERE userId = ?`, [message.author.id]);
+                            await db.run(`UPDATE users SET level = level + 1, xp = 0 WHERE userId = ? AND guildId = ?`, [message.author.id, message.guild.id]);
                             
                             const upChannel = conf.levelupchannel ? message.guild.channels.cache.get(conf.levelupchannel) : message.channel;
                             if (upChannel) {

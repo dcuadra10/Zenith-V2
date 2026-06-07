@@ -77,7 +77,7 @@ module.exports = {
     if (type === 'levels') {
         title = '🏆  Leveling Leaderboard';
         embedTitle = '🏆 Leveling Leaderboard';
-        const topUsers = await db.all(`SELECT userId, xp, level FROM users ORDER BY level DESC, xp DESC LIMIT 10`);
+        const topUsers = await db.all(`SELECT userId, xp, level FROM users WHERE guildId = ? ORDER BY level DESC, xp DESC LIMIT 10`, [interaction.guild.id]);
         
         if (useImage) {
             for (const u of topUsers) {
@@ -98,7 +98,7 @@ module.exports = {
         title = '🪙  Economy Leaderboard';
         embedTitle = '🪙 Economy Leaderboard';
         color = '#F59E0B';
-        const topUsersRaw = await db.all(`SELECT userId, balance, bank FROM users`);
+        const topUsersRaw = await db.all(`SELECT userId, balance, bank FROM users WHERE guildId = ?`, [interaction.guild.id]);
         
         const processedUsers = topUsersRaw.map(u => {
             const balanceVal = BigInt(u.balance || 0);

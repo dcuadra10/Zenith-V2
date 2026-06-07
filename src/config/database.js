@@ -256,7 +256,8 @@ async function createDbInstance() {
         // Initialize tables
         await dbInstance.exec(`
             CREATE TABLE IF NOT EXISTS users (
-                userId TEXT PRIMARY KEY,
+                userId TEXT,
+                guildId TEXT,
                 xp INTEGER DEFAULT 0,
                 level INTEGER DEFAULT 0,
                 invites INTEGER DEFAULT 0,
@@ -266,7 +267,8 @@ async function createDbInstance() {
                 jobId TEXT,
                 lastWork INTEGER,
                 partnerId TEXT,
-                mafiaId TEXT
+                mafiaId TEXT,
+                PRIMARY KEY (userId, guildId)
             );
             
             CREATE TABLE IF NOT EXISTS global_stats (
@@ -877,11 +879,213 @@ async function initializeSchema() {
     if (migrationsDone) return db;
 
     console.log('[DB] Starting schema migrations...');
+
+    // Migrate users table to composite key (userId, guildId)
+    try {
+        const tableInfo = await db.all("PRAGMA table_info(users)");
+        const isUserIdPkOnly = tableInfo.some(col => col.name === 'userId' && col.pk === 1) && !tableInfo.some(col => col.name === 'guildId');
+        if (isUserIdPkOnly) {
+            console.log("[MIGRATION] Migration triggered: Migrating users to (userId, guildId) Primary Key");
+            await db.exec(`ALTER TABLE users RENAME TO temp_users`);
+            await db.exec(`
+                CREATE TABLE users (
+                    userId TEXT,
+                    guildId TEXT,
+                    xp INTEGER DEFAULT 0,
+                    level INTEGER DEFAULT 0,
+                    invites INTEGER DEFAULT 0,
+                    balance BIGINT DEFAULT 0,
+                    bank BIGINT DEFAULT 0,
+                    bankCapacity BIGINT DEFAULT 5000,
+                    bankId TEXT DEFAULT 'standard',
+                    jobId TEXT,
+                    lastWork INTEGER,
+                    partnerId TEXT,
+                    mafiaId TEXT,
+                    dirtyMoney BIGINT DEFAULT 0,
+                    jailUntil TIMESTAMP,
+                    reputation INTEGER DEFAULT 0,
+                    workplaceId TEXT DEFAULT NULL,
+                    workExperience INTEGER DEFAULT 0,
+                    PRIMARY KEY (userId, guildId)
+                )
+            `);
+            
+            const guildConfig = await db.get(`SELECT guildId FROM guild_configs LIMIT 1`);
+            const fallbackGuildId = guildConfig?.guildId || 'global';
+            
+            await db.exec(`
+                INSERT INTO users (
+                    userId, guildId, xp, level, invites, balance, bank, bankCapacity, bankId,
+                    jobId, lastWork, partnerId, mafiaId, dirtyMoney, jailUntil, reputation, workplaceId, workExperience
+                ) SELECT 
+                    userId, '${fallbackGuildId}', xp, level, invites, balance, bank, bankCapacity, bankId,
+                    jobId, lastWork, partnerId, mafiaId, dirtyMoney, jailUntil, reputation, workplaceId, workExperience
+                FROM temp_users
+            `);
+            await db.exec(`DROP TABLE temp_users`);
+            console.log("[MIGRATION] users successfully migrated to (userId, guildId) PRIMARY KEY");
+        }
+    } catch (e) {
+        console.error("[MIGRATION] Failed migrating users table:", e.message || e);
+    }
     
+    // Migrate economy_influence to (sectorId, guildId) Primary Key
+    try {
+        const tableInfo = await db.all("PRAGMA table_info(economy_influence)");
+        const isSectorIdPkOnly = tableInfo.some(col => col.name === 'sectorId' && col.pk === 1) && !tableInfo.some(col => col.name === 'guildId');
+        if (isSectorIdPkOnly) {
+            console.log("[MIGRATION] Migration triggered: Migrating economy_influence to (sectorId, guildId) Primary Key");
+            await db.exec(`ALTER TABLE economy_influence RENAME TO temp_economy_influence`);
+            await db.exec(`
+                CREATE TABLE economy_influence (
+                    sectorId TEXT,
+                    guildId TEXT,
+                    name TEXT,
+                    price REAL DEFAULT 100,
+                    totalInvested BIGINT DEFAULT 0,
+                    controllingEntityId TEXT,
+                    controllingEntityType TEXT,
+                    PRIMARY KEY (sectorId, guildId)
+                )
+            `);
+            
+            const guildConfig = await db.get(`SELECT guildId FROM guild_configs LIMIT 1`);
+            const fallbackGuildId = guildConfig?.guildId || 'global';
+            
+            await db.exec(`
+                INSERT INTO economy_influence (
+                    sectorId, guildId, name, price, totalInvested, controllingEntityId, controllingEntityType
+                ) SELECT 
+                    sectorId, '${fallbackGuildId}', name, price, totalInvested, controllingEntityId, controllingEntityType
+                FROM temp_economy_influence
+            `);
+            await db.exec(`DROP TABLE temp_economy_influence`);
+            console.log("[MIGRATION] economy_influence successfully migrated");
+        }
+    } catch (e) {
+        console.error("[MIGRATION] Failed migrating economy_influence:", e.message || e);
+    }
+
+    // Migrate economy_entity_influence to include guildId
+    try {
+        const tableInfo = await db.all("PRAGMA table_info(economy_entity_influence)");
+        const hasNoGuildId = !tableInfo.some(col => col.name === 'guildId');
+        if (hasNoGuildId) {
+            console.log("[MIGRATION] Migration triggered: Migrating economy_entity_influence to (entityId, entityType, sectorId, guildId) Primary Key");
+            await db.exec(`ALTER TABLE economy_entity_influence RENAME TO temp_economy_entity_influence`);
+            await db.exec(`
+                CREATE TABLE economy_entity_influence (
+                    entityId TEXT,
+                    entityType TEXT,
+                    sectorId TEXT,
+                    guildId TEXT,
+                    points BIGINT DEFAULT 0,
+                    PRIMARY KEY(entityId, entityType, sectorId, guildId)
+                )
+            `);
+            
+            const guildConfig = await db.get(`SELECT guildId FROM guild_configs LIMIT 1`);
+            const fallbackGuildId = guildConfig?.guildId || 'global';
+            
+            await db.exec(`
+                INSERT INTO economy_entity_influence (
+                    entityId, entityType, sectorId, guildId, points
+                ) SELECT 
+                    entityId, entityType, sectorId, '${fallbackGuildId}', points
+                FROM temp_economy_entity_influence
+            `);
+            await db.exec(`DROP TABLE temp_economy_entity_influence`);
+            console.log("[MIGRATION] economy_entity_influence successfully migrated");
+        }
+    } catch (e) {
+        console.error("[MIGRATION] Failed migrating economy_entity_influence:", e.message || e);
+    }
+    
+
+    // Migrate rss_seller_stocks to (sellerId, guildId) Primary Key
+    try {
+        const tableInfo = await db.all("PRAGMA table_info(rss_seller_stocks)");
+        const isSellerIdPkOnly = tableInfo.some(col => col.name === 'sellerId' && col.pk === 1) && !tableInfo.some(col => col.name === 'guildId');
+        if (isSellerIdPkOnly) {
+            console.log("[MIGRATION] Migration triggered: Migrating rss_seller_stocks to (sellerId, guildId) Primary Key");
+            await db.exec(`ALTER TABLE rss_seller_stocks RENAME TO temp_rss_seller_stocks`);
+            await db.exec(`
+                CREATE TABLE rss_seller_stocks (
+                    sellerId TEXT,
+                    guildId TEXT,
+                    food BIGINT DEFAULT 0,
+                    wood BIGINT DEFAULT 0,
+                    stone BIGINT DEFAULT 0,
+                    gold BIGINT DEFAULT 0,
+                    paymentMethods TEXT DEFAULT 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay',
+                    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (sellerId, guildId)
+                )
+            `);
+            
+            const guildConfig = await db.get(`SELECT guildId FROM guild_configs LIMIT 1`);
+            const fallbackGuildId = guildConfig?.guildId || 'global';
+            
+            await db.exec(`
+                INSERT INTO rss_seller_stocks (
+                    sellerId, guildId, food, wood, stone, gold, paymentMethods, updatedAt
+                ) SELECT 
+                    sellerId, '${fallbackGuildId}', food, wood, stone, gold, paymentMethods, updatedAt
+                FROM temp_rss_seller_stocks
+            `);
+            await db.exec(`DROP TABLE temp_rss_seller_stocks`);
+            console.log("[MIGRATION] rss_seller_stocks successfully migrated");
+        }
+    } catch (e) {
+        console.error("[MIGRATION] Failed migrating rss_seller_stocks:", e.message || e);
+    }
+
+    // Migrate rss_seller_sales to (sellerId, guildId) Primary Key
+    try {
+        const tableInfo = await db.all("PRAGMA table_info(rss_seller_sales)");
+        const isSellerIdPkOnly = tableInfo.some(col => col.name === 'sellerId' && col.pk === 1) && !tableInfo.some(col => col.name === 'guildId');
+        if (isSellerIdPkOnly) {
+            console.log("[MIGRATION] Migration triggered: Migrating rss_seller_sales to (sellerId, guildId) Primary Key");
+            await db.exec(`ALTER TABLE rss_seller_sales RENAME TO temp_rss_seller_sales`);
+            await db.exec(`
+                CREATE TABLE rss_seller_sales (
+                    sellerId TEXT,
+                    guildId TEXT,
+                    totalSoldFood BIGINT DEFAULT 0,
+                    totalSoldWood BIGINT DEFAULT 0,
+                    totalSoldStone BIGINT DEFAULT 0,
+                    totalSoldGold BIGINT DEFAULT 0,
+                    totalTransactions INTEGER DEFAULT 0,
+                    pendingTaxFood BIGINT DEFAULT 0,
+                    pendingTaxWood BIGINT DEFAULT 0,
+                    pendingTaxStone BIGINT DEFAULT 0,
+                    pendingTaxGold BIGINT DEFAULT 0,
+                    PRIMARY KEY (sellerId, guildId)
+                )
+            `);
+            
+            const guildConfig = await db.get(`SELECT guildId FROM guild_configs LIMIT 1`);
+            const fallbackGuildId = guildConfig?.guildId || 'global';
+            
+            await db.exec(`
+                INSERT INTO rss_seller_sales (
+                    sellerId, guildId, totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, totalTransactions, pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold
+                ) SELECT 
+                    sellerId, '${fallbackGuildId}', totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, totalTransactions, pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold
+                FROM temp_rss_seller_sales
+            `);
+            await db.exec(`DROP TABLE temp_rss_seller_sales`);
+            console.log("[MIGRATION] rss_seller_sales successfully migrated");
+        }
+    } catch (e) {
+        console.error("[MIGRATION] Failed migrating rss_seller_sales:", e.message || e);
+    }
     // Core Tables
     await db.exec(`
         CREATE TABLE IF NOT EXISTS users (
-            userId TEXT PRIMARY KEY,
+            userId TEXT,
+            guildId TEXT,
             xp INTEGER DEFAULT 0,
             level INTEGER DEFAULT 0,
             invites INTEGER DEFAULT 0,
@@ -897,7 +1101,8 @@ async function initializeSchema() {
             jailUntil TIMESTAMP,
             reputation INTEGER DEFAULT 0,
             workplaceId TEXT DEFAULT NULL,
-            workExperience INTEGER DEFAULT 0
+            workExperience INTEGER DEFAULT 0,
+            PRIMARY KEY (userId, guildId)
         );
         
         CREATE TABLE IF NOT EXISTS global_stats (
@@ -1189,24 +1394,28 @@ async function initializeSchema() {
         );
 
         CREATE TABLE IF NOT EXISTS economy_influence (
-            sectorId TEXT PRIMARY KEY,
+            sectorId TEXT,
+            guildId TEXT,
             name TEXT,
             price REAL DEFAULT 100,
             totalInvested BIGINT DEFAULT 0,
             controllingEntityId TEXT,
-            controllingEntityType TEXT -- 'user' or 'mafia'
+            controllingEntityType TEXT,
+            PRIMARY KEY (sectorId, guildId)
         );
 
         CREATE TABLE IF NOT EXISTS economy_entity_influence (
             entityId TEXT,
             entityType TEXT, -- 'user' or 'mafia'
             sectorId TEXT,
+            guildId TEXT,
             points BIGINT DEFAULT 0,
-            PRIMARY KEY(entityId, entityType, sectorId)
+            PRIMARY KEY(entityId, entityType, sectorId, guildId)
         );
 
         CREATE TABLE IF NOT EXISTS economy_banks (
             id TEXT PRIMARY KEY,
+            guildId TEXT,
             name TEXT,
             security REAL DEFAULT 0.2,
             requirement INTEGER DEFAULT 0,
@@ -1218,17 +1427,20 @@ async function initializeSchema() {
         );
 
         CREATE TABLE IF NOT EXISTS rss_seller_stocks (
-            sellerId TEXT PRIMARY KEY,
+            sellerId TEXT,
+            guildId TEXT,
             food BIGINT DEFAULT 0,
             wood BIGINT DEFAULT 0,
             stone BIGINT DEFAULT 0,
             gold BIGINT DEFAULT 0,
             paymentMethods TEXT DEFAULT 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay',
-            updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (sellerId, guildId)
         );
 
         CREATE TABLE IF NOT EXISTS rss_seller_sales (
-            sellerId TEXT PRIMARY KEY,
+            sellerId TEXT,
+            guildId TEXT,
             totalSoldFood BIGINT DEFAULT 0,
             totalSoldWood BIGINT DEFAULT 0,
             totalSoldStone BIGINT DEFAULT 0,
@@ -1237,7 +1449,8 @@ async function initializeSchema() {
             pendingTaxFood BIGINT DEFAULT 0,
             pendingTaxWood BIGINT DEFAULT 0,
             pendingTaxStone BIGINT DEFAULT 0,
-            pendingTaxGold BIGINT DEFAULT 0
+            pendingTaxGold BIGINT DEFAULT 0,
+            PRIMARY KEY (sellerId, guildId)
         );
 
         CREATE TABLE IF NOT EXISTS rss_transactions (
@@ -1295,6 +1508,7 @@ async function initializeSchema() {
             'contributed BIGINT DEFAULT 0', 'dirtyMoney BIGINT DEFAULT 0'
         ],
         economy_banks: [
+            'guildId TEXT',
             'reserve BIGINT DEFAULT 50000', 'ownerId TEXT DEFAULT NULL', 
             'fee REAL DEFAULT 0.01', 'upgrades TEXT DEFAULT \'[]\''
         ],

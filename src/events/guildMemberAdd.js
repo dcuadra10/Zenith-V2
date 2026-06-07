@@ -85,9 +85,9 @@ module.exports = {
                     const inviterId = usedInvite.inviter.id;
                     const db = await getDb();
                     await db.run(
-                        `INSERT INTO users (userId, invites) VALUES (?, 1)
-                         ON CONFLICT(userId) DO UPDATE SET invites = users.invites + 1`,
-                        [inviterId]
+                        `INSERT INTO users (userId, guildId, invites) VALUES (?, ?, 1)
+                         ON CONFLICT(userId, guildId) DO UPDATE SET invites = users.invites + 1`,
+                        [inviterId, member.guild.id]
                     );
 
                     // Economy reward for inviter

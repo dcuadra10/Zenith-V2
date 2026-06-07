@@ -32,8 +32,8 @@ module.exports = {
                 SELECT b.*, m.name as mafiaName 
                 FROM mafia_businesses b 
                 JOIN economy_mafias m ON b.mafiaId = m.id 
-                WHERE b.publicShares > 0
-            `);
+                WHERE b.publicShares > 0 AND m.guildId = ?
+            `, [interaction.guild.id]);
 
             if (publicBusinesses.length === 0) {
                 return await interaction.editReply({ content: '🏙️ No enterprises are currently listed on the official stock market.' });
@@ -60,7 +60,7 @@ module.exports = {
             const type = interaction.options.getString('type');
             const amount = interaction.options.getInteger('amount');
 
-            const mafia = await db.get(`SELECT * FROM economy_mafias WHERE id = ? OR name = ?`, [mafiaInput, mafiaInput]);
+            const mafia = await db.get(`SELECT * FROM economy_mafias WHERE (id = ? OR name = ?) AND guildId = ?`, [mafiaInput, mafiaInput, interaction.guild.id]);
             if (!mafia) return await interaction.editReply({ content: '❌ Enterprise not found!' });
 
             const b = await db.get(`SELECT * FROM mafia_businesses WHERE mafiaId = ? AND type = ?`, [mafia.id, type]);
@@ -97,8 +97,8 @@ module.exports = {
                 FROM mafia_stocks s
                 JOIN economy_mafias m ON s.mafiaId = m.id
                 JOIN mafia_businesses b ON s.mafiaId = b.mafiaId AND s.businessType = b.type
-                WHERE s.userId = ?
-            `, [interaction.user.id]);
+                WHERE s.userId = ? AND m.guildId = ?
+            `, [interaction.user.id, interaction.guild.id]);
 
             if (stocks.length === 0) return await interaction.editReply({ content: '❌ You don\'t own any enterprise shares yet!' });
 

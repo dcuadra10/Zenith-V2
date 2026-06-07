@@ -36,7 +36,7 @@ module.exports = {
         await interaction.deferReply({ ephemeral: true });
         const sub = interaction.options.getSubcommand();
         const db = await getDb();
-        const user = await db.get(`SELECT balance, bank, bankCapacity, bankId, level FROM users WHERE userId = ?`, [interaction.user.id]);
+        const user = await db.get(`SELECT balance, bank, bankCapacity, bankId, level FROM users WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
         if (!user) return await interaction.editReply({ content: '❌ Profile not found!' });
 
         // Normalize BigInt/INTEGER values from DB to standard JS Numbers to prevent NaN math and string concat issues in PostgreSQL
@@ -58,15 +58,16 @@ module.exports = {
                 if (amount <= 0) return await interaction.editReply({ content: '❌ Your bank is already FULL! Upgrade it to store more.' });
             }
 
-            const targetBank = await db.get(`SELECT ownerId, fee FROM economy_banks WHERE id = ?`, [user.bankId]);
+            const targetBank = await db.get(`SELECT ownerId, fee FROM economy_banks WHERE id = ? AND (guildId = ? OR guildId IS NULL OR guildId = 'global')`, [user.bankId, interaction.guild.id]);
             let feeAmount = 0;
             if (targetBank && targetBank.ownerId && targetBank.ownerId !== interaction.user.id) {
                 feeAmount = Math.floor(amount * (targetBank.fee || 0.01));
             }
 
+            const netAmount = amount - feeAmount;
             const removed = await removeBalance(interaction.user.id, amount, interaction.guild.id, 'Bank Deposit');
             if (!removed) return await interaction.editReply({ content: '❌ Deposit transaction failed.' });
-            await db.run(`UPDATE users SET bank = bank + ? WHERE userId = ?`, [netAmount, interaction.user.id]);
+            await db.run(`UPDATE users SET bank = bank + ? WHERE userId = ? AND guildId = ?`, [netAmount, interaction.user.id, interaction.guild.id]);
             
             if (feeAmount > 0 && targetBank.ownerId) {
                 await addBalance(targetBank.ownerId, feeAmount, interaction.guild.id, false, `Deposit fee from ${interaction.user.tag}`, true);
@@ -95,7 +96,7 @@ module.exports = {
             if (isNaN(amount) || amount <= 0) return await interaction.editReply({ content: '❌ Invalid amount!' });
             if (amount > user.bank) return await interaction.editReply({ content: '❌ You don\'t have that much in your bank!' });
 
-            await db.run(`UPDATE users SET bank = bank - ? WHERE userId = ?`, [amount, interaction.user.id]);
+            await db.run(`UPDATE users SET bank = bank - ? WHERE userId = ? AND guildId = ?`, [amount, interaction.user.id, interaction.guild.id]);
             await addBalance(interaction.user.id, amount, interaction.guild.id, true, 'Bank Withdrawal', true);
             
             const embed = new EmbedBuilder()
@@ -124,7 +125,7 @@ module.exports = {
             const newCapacity = Math.min(maxCapacity, user.bankCapacity + capacityGain);
             const actualGain = newCapacity - user.bankCapacity;
 
-            await db.run(`UPDATE users SET bankCapacity = ? WHERE userId = ?`, [newCapacity, interaction.user.id]);
+            await db.run(`UPDATE users SET bankCapacity = ? WHERE userId = ? AND guildId = ?`, [newCapacity, interaction.user.id, interaction.guild.id]);
             
             const embed = new EmbedBuilder()
                 .setTitle('<:zenith_bank:1510681878032552166> Bank Capacity Upgrade')
@@ -135,7 +136,7 @@ module.exports = {
         }
 
         if (sub === 'list') {
-            const banks = await db.all(`SELECT * FROM economy_banks`);
+            const banks = await db.all(`SELECT * FROM economy_banks WHERE guildId = ? OR guildId IS NULL OR guildId = 'global'`, [interaction.guild.id]);
             const embed = new EmbedBuilder()
                 .setTitle('🏙️ Zenith City Banking Directory')
                 .setDescription('Choose where to keep your coins safe. High security banks are harder to rob!')
@@ -158,14 +159,14 @@ module.exports = {
             const targetId = interaction.options.getString('bank');
             if (user.bankId === targetId) return await interaction.editReply({ content: '❌ You are already using this bank!' });
 
-            const targetBank = await db.get(`SELECT * FROM economy_banks WHERE id = ?`, [targetId]);
+            const targetBank = await db.get(`SELECT * FROM economy_banks WHERE id = ? AND (guildId = ? OR guildId IS NULL OR guildId = 'global')`, [targetId, interaction.guild.id]);
             if (!targetBank) return await interaction.editReply({ content: '❌ Bank not found!' });
 
             if (user.level < targetBank.requirement) {
                 return await interaction.editReply({ content: `❌ You need to be **Level ${targetBank.requirement}** to use this bank!` });
             }
 
-            await db.run(`UPDATE users SET bankId = ? WHERE userId = ?`, [targetId, interaction.user.id]);
+            await db.run(`UPDATE users SET bankId = ? WHERE userId = ? AND guildId = ?`, [targetId, interaction.user.id, interaction.guild.id]);
             
             return await interaction.editReply({ 
                 content: `✅ **Account Transferred!** Your funds have been moved to **${targetBank.name}**.` 
@@ -184,9 +185,9 @@ module.exports = {
             const bankId = Math.random().toString(36).substring(2, 7).toUpperCase();
 
             await db.run(
-                `INSERT INTO economy_banks (id, name, security, requirement, insurance, reserve, ownerId, fee) 
-                 VALUES (?, ?, 0.2, 0, 0.1, 50000, ?, 0.01)`,
-                [bankId, name, interaction.user.id]
+                `INSERT INTO economy_banks (id, guildId, name, security, requirement, insurance, reserve, ownerId, fee) 
+                 VALUES (?, ?, ?, 0.2, 0, 0.1, 50000, ?, 0.01)`,
+                [bankId, interaction.guild.id, name, interaction.user.id]
             );
 
             const embed = new EmbedBuilder()
@@ -199,7 +200,7 @@ module.exports = {
         }
 
         if (sub === 'manage') {
-            const ownedBank = await db.get(`SELECT * FROM economy_banks WHERE ownerId = ?`, [interaction.user.id]);
+            const ownedBank = await db.get(`SELECT * FROM economy_banks WHERE ownerId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
             if (!ownedBank) return await interaction.editReply({ content: '❌ You do not own any private bank!' });
 
             const UPGRADES_CFG = {
@@ -283,7 +284,7 @@ module.exports = {
     async autocomplete(interaction) {
         const focusedValue = interaction.options.getFocused();
         const db = await getDb();
-        const banks = await db.all(`SELECT id, name FROM economy_banks WHERE name LIKE ? LIMIT 25`, [`%${focusedValue}%`]);
+        const banks = await db.all(`SELECT id, name FROM economy_banks WHERE name LIKE ? AND (guildId = ? OR guildId IS NULL OR guildId = 'global') LIMIT 25`, [`%${focusedValue}%`, interaction.guildId]);
 
         await interaction.respond(
             banks.map(b => ({ name: b.name, value: b.id }))

@@ -59,7 +59,7 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'upgrade' || sub === 'hire' || sub === 'salary' || sub === 'cooldown' || sub === 'rename') {
-            const ops = await db.all(`SELECT id, type, level FROM economy_operations WHERE userId = ?`, [interaction.user.id]);
+            const ops = await db.all(`SELECT id, type, level FROM economy_operations WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guildId]);
             const bizNames = {
                 car_wash: 'Car Wash',
                 gas_station: 'Gas Station',
@@ -150,7 +150,7 @@ module.exports = {
         }
 
         if (sub === 'view') {
-            const ops = await db.all(`SELECT * FROM economy_operations WHERE userId = ?`, [interaction.user.id]);
+            const ops = await db.all(`SELECT * FROM economy_operations WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
             if (ops.length === 0) return await interaction.editReply({ content: '❌ You don\'t own any businesses yet. Use `/businesses open` to begin!' });
 
             const embed = new EmbedBuilder()
@@ -177,7 +177,7 @@ module.exports = {
         }
 
         if (sub === 'collect') {
-            const ops = await db.all(`SELECT * FROM economy_operations WHERE userId = ?`, [interaction.user.id]);
+            const ops = await db.all(`SELECT * FROM economy_operations WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
             if (ops.length === 0) return await interaction.editReply({ content: '❌ No businesses to collect from!' });
 
             let total = 0;
@@ -187,7 +187,7 @@ module.exports = {
                 const pending = hoursPassed * data.income * op.level;
                 if (pending > 0) {
                     total += pending;
-                    await db.run(`UPDATE economy_operations SET lastCollect = CURRENT_TIMESTAMP WHERE id = ?`, [op.id]);
+                    await db.run(`UPDATE economy_operations SET lastCollect = CURRENT_TIMESTAMP WHERE id = ? AND guildId = ?`, [op.id, interaction.guild.id]);
                 }
             }
 
@@ -199,7 +199,7 @@ module.exports = {
 
         if (sub === 'upgrade') {
             const opId = interaction.options.getString('id').toUpperCase();
-            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ?`, [opId, interaction.user.id]);
+            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ? AND guildId = ?`, [opId, interaction.user.id, interaction.guild.id]);
             
             if (!op) return await interaction.editReply({ content: '❌ Business not found or you don\'t own it!' });
             
@@ -209,7 +209,7 @@ module.exports = {
             const success = await removeBalance(interaction.user.id, upgradeCost, interaction.guild.id, `Upgraded business ${opId} to Level ${op.level + 1}`);
             if (!success) return await interaction.editReply({ content: `❌ You need **${upgradeCost}** coins to upgrade this business to Level ${op.level + 1}!` });
 
-            await db.run(`UPDATE economy_operations SET level = level + 1 WHERE id = ?`, [opId]);
+            await db.run(`UPDATE economy_operations SET level = level + 1 WHERE id = ? AND guildId = ?`, [opId, interaction.guild.id]);
 
             const embed = new EmbedBuilder()
                 .setTitle('🏗️ Business Upgraded!')
@@ -226,41 +226,41 @@ module.exports = {
         if (sub === 'hire') {
             const opId = interaction.options.getString('id').toUpperCase();
             const status = interaction.options.getBoolean('status');
-            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ?`, [opId, interaction.user.id]);
+            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ? AND guildId = ?`, [opId, interaction.user.id, interaction.guild.id]);
             
             if (!op) return await interaction.editReply({ content: '❌ Business not found!' });
             
-            await db.run(`UPDATE economy_operations SET hiringEnabled = ? WHERE id = ?`, [status ? 1 : 0, opId]);
+            await db.run(`UPDATE economy_operations SET hiringEnabled = ? WHERE id = ? AND guildId = ?`, [status ? 1 : 0, opId, interaction.guild.id]);
             return await interaction.editReply({ content: `📢 Recruitment for **${opId}** is now **${status ? 'OPEN' : 'CLOSED'}**.` });
         }
 
         if (sub === 'salary') {
             const opId = interaction.options.getString('id').toUpperCase();
             const amount = interaction.options.getInteger('amount');
-            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ?`, [opId, interaction.user.id]);
+            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ? AND guildId = ?`, [opId, interaction.user.id, interaction.guild.id]);
             
             if (!op) return await interaction.editReply({ content: '❌ Business not found!' });
             
-            await db.run(`UPDATE economy_operations SET salary = ? WHERE id = ?`, [amount, opId]);
+            await db.run(`UPDATE economy_operations SET salary = ? WHERE id = ? AND guildId = ?`, [amount, opId, interaction.guild.id]);
             return await interaction.editReply({ content: `💰 Employee salary for **${opId}** set to **${amount}** coins per work cycle.` });
         }
 
         if (sub === 'cooldown') {
             const opId = interaction.options.getString('id').toUpperCase();
             const hours = interaction.options.getInteger('hours');
-            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ?`, [opId, interaction.user.id]);
+            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ? AND guildId = ?`, [opId, interaction.user.id, interaction.guild.id]);
             
             if (!op) return await interaction.editReply({ content: '❌ Business not found!' });
             
             const cooldownSeconds = hours * 3600;
-            await db.run(`UPDATE economy_operations SET cooldown = ? WHERE id = ?`, [cooldownSeconds, opId]);
+            await db.run(`UPDATE economy_operations SET cooldown = ? WHERE id = ? AND guildId = ?`, [cooldownSeconds, opId, interaction.guild.id]);
             return await interaction.editReply({ content: `⏱️ Cooldown for **${opId}** set to **${hours}** hours (${cooldownSeconds} seconds).` });
         }
 
         if (sub === 'rename') {
             const opId = interaction.options.getString('id').toUpperCase();
             const newName = interaction.options.getString('name');
-            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ?`, [opId, interaction.user.id]);
+            const op = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND userId = ? AND guildId = ?`, [opId, interaction.user.id, interaction.guild.id]);
             
             if (!op) return await interaction.editReply({ content: '❌ Business not found or you don\'t own it!' });
             
@@ -268,7 +268,7 @@ module.exports = {
                 return await interaction.editReply({ content: '❌ Custom name must be between 3 and 50 characters long.' });
             }
             
-            await db.run(`UPDATE economy_operations SET customName = ? WHERE id = ?`, [newName, opId]);
+            await db.run(`UPDATE economy_operations SET customName = ? WHERE id = ? AND guildId = ?`, [newName, opId, interaction.guild.id]);
             return await interaction.editReply({ content: `✅ Custom name for business **${opId}** set to **${newName}**.` });
         }
     }

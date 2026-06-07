@@ -19,7 +19,8 @@ module.exports = {
     if (target.bot) return interaction.editReply('Bots do not have a rank.');
 
     const db = await getDb();
-    const userProfile = await db.get(`SELECT * FROM users WHERE userId = ?`, [target.id]);
+    const guildId = interaction.guild.id;
+    const userProfile = await db.get(`SELECT * FROM users WHERE userId = ? AND guildId = ?`, [target.id, guildId]);
     if (!userProfile) return interaction.editReply(`${target.username} currently has no XP.`);
 
     const levelValue = Number(userProfile.level) || 0;
@@ -27,8 +28,8 @@ module.exports = {
     const requiredXP = 5 * (levelValue ** 2) + 50 * levelValue + 100;
 
     const rankRow = await db.get(
-        `SELECT COUNT(*) AS higherrank FROM users WHERE (level > ?) OR (level = ? AND xp > ?)`,
-        [levelValue, levelValue, xpValue]
+        `SELECT COUNT(*) AS higherrank FROM users WHERE guildId = ? AND ((level > ?) OR (level = ? AND xp > ?))`,
+        [guildId, levelValue, levelValue, xpValue]
     );
     const higherRankCount = Number(rankRow?.higherrank || 0);
     const rankPosition = higherRankCount + 1;

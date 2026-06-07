@@ -20,11 +20,16 @@ module.exports = {
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
         const db = await getDb();
-        const userData = await db.get(`SELECT jailUntil FROM users WHERE userId = ?`, [interaction.user.id]);
+        const guildId = interaction.guild.id;
+        const userData = await db.get(`SELECT jailUntil FROM users WHERE userId = ? AND guildId = ?`, [interaction.user.id, guildId]);
 
         if (sub === 'info') {
             if (!userData || !userData.jailUntil || new Date(userData.jailUntil) <= new Date()) {
-                return await interaction.editReply({ content: '✅ You are a free citizen! No active sentence.' });
+                if (interaction.replied || interaction.deferred) {
+                    return await interaction.editReply({ content: '✅ You are a free citizen! No active sentence.' });
+                } else {
+                    return await interaction.reply({ content: '✅ You are a free citizen! No active sentence.' });
+                }
             }
 
             const diffMs = new Date(userData.jailUntil) - new Date();
@@ -39,40 +44,74 @@ module.exports = {
                 .setColor('#b91c1c')
                 .setTimestamp();
 
-            return await interaction.editReply({ embeds: [embed] });
+            if (interaction.replied || interaction.deferred) {
+                return await interaction.editReply({ embeds: [embed] });
+            } else {
+                return await interaction.reply({ embeds: [embed] });
+            }
         }
 
         if (sub === 'trial') {
             if (!userData || !userData.jailUntil || new Date(userData.jailUntil) <= new Date()) {
-                return await interaction.editReply({ content: '❌ You are not in jail.' });
+                if (interaction.replied || interaction.deferred) {
+                    return await interaction.editReply({ content: '❌ You are not in jail.' });
+                } else {
+                    return await interaction.reply({ content: '❌ You are not in jail.' });
+                }
             }
 
             // Simple trial mechanic: 30% chance to be released, 70% chance nothing happens
             const success = Math.random() > 0.7;
             if (success) {
-                await db.run(`UPDATE users SET jailUntil = NULL WHERE userId = ?`, [interaction.user.id]);
-                return await interaction.editReply({ content: '⚖️ **The Judge has ruled in your favor!** You have been released from jail early.' });
+                await db.run(`UPDATE users SET jailUntil = NULL WHERE userId = ? AND guildId = ?`, [interaction.user.id, guildId]);
+                if (interaction.replied || interaction.deferred) {
+                    return await interaction.editReply({ content: '⚖️ **The Judge has ruled in your favor!** You have been released from jail early.' });
+                } else {
+                    return await interaction.reply({ content: '⚖️ **The Judge has ruled in your favor!** You have been released from jail early.' });
+                }
             } else {
-                return await interaction.editReply({ content: '⚖️ **Verdict:** The evidence against you is too strong. The sentence remains unchanged.' });
+                if (interaction.replied || interaction.deferred) {
+                    return await interaction.editReply({ content: '⚖️ **Verdict:** The evidence against you is too strong. The sentence remains unchanged.' });
+                } else {
+                    return await interaction.reply({ content: '⚖️ **Verdict:** The evidence against you is too strong. The sentence remains unchanged.' });
+                }
             }
         }
 
         if (sub === 'bribe') {
             if (!userData || !userData.jailUntil || new Date(userData.jailUntil) <= new Date()) {
-                return await interaction.editReply({ content: '❌ You are not in jail.' });
+                if (interaction.replied || interaction.deferred) {
+                    return await interaction.editReply({ content: '❌ You are not in jail.' });
+                } else {
+                    return await interaction.reply({ content: '❌ You are not in jail.' });
+                }
             }
 
             const amount = interaction.options.getInteger('amount');
-            const success = await removeBalance(interaction.user.id, amount);
-            if (!success) return await interaction.editReply({ content: '❌ You don\'t have enough money for this bribe!' });
+            const success = await removeBalance(interaction.user.id, amount, guildId, 'Jail bribe');
+            if (!success) {
+                if (interaction.replied || interaction.deferred) {
+                    return await interaction.editReply({ content: '❌ You don\'t have enough money for this bribe!' });
+                } else {
+                    return await interaction.reply({ content: '❌ You don\'t have enough money for this bribe!' });
+                }
+            }
 
             // Bribe chance: scale with amount. 1000 = 10%, 5000 = 50%, 10000 = 100%
             const chance = Math.min(amount / 10000, 1);
             if (Math.random() < chance) {
-                await db.run(`UPDATE users SET jailUntil = NULL WHERE userId = ?`, [interaction.user.id]);
-                return await interaction.editReply({ content: `💰 **The guard took the cash.** You slip out of the back door. You are free!` });
+                await db.run(`UPDATE users SET jailUntil = NULL WHERE userId = ? AND guildId = ?`, [interaction.user.id, guildId]);
+                if (interaction.replied || interaction.deferred) {
+                    return await interaction.editReply({ content: `💰 **The guard took the cash.** You slip out of the back door. You are free!` });
+                } else {
+                    return await interaction.reply({ content: `💰 **The guard took the cash.** You slip out of the back door. You are free!` });
+                }
             } else {
-                return await interaction.editReply({ content: '👮 **The guard rejected the bribe!** "You trying to corrupt me, boy?" He keeps the cash anyway as a "fine".' });
+                if (interaction.replied || interaction.deferred) {
+                    return await interaction.editReply({ content: '👮 **The guard rejected the bribe!** "You trying to corrupt me, boy?" He keeps the cash anyway as a "fine".' });
+                } else {
+                    return await interaction.reply({ content: '👮 **The guard rejected the bribe!** "You trying to corrupt me, boy?" He keeps the cash anyway as a "fine".' });
+                }
             }
         }
     }

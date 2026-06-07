@@ -155,7 +155,9 @@ module.exports = {
             console.log(`[DEBUG] getDb took ${dbTime}ms for ${interaction.commandName}`);
 
             const step2 = Date.now();
-            const userData = await db.get(`SELECT jailUntil FROM users WHERE userId = ?`, [interaction.user.id]);
+            const userData = interaction.guildId 
+                ? await db.get(`SELECT jailUntil FROM users WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guildId])
+                : null;
             console.log(`[DEBUG] userData fetch took ${Date.now() - step2}ms`);
             if (userData && userData.jailUntil && new Date(userData.jailUntil) > new Date()) {
                 if (interaction.commandName !== 'jail' && interaction.commandName !== 'help') {
@@ -415,7 +417,7 @@ module.exports = {
                     }
 
                     const placeholders = sellers.map(() => '?').join(',');
-                    const rows = await db.all(`SELECT sellerId, food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId IN (${placeholders})`, sellers);
+                    const rows = await db.all(`SELECT sellerId, food, wood, stone, gold FROM rss_seller_stocks WHERE guildId = ? AND sellerId IN (${placeholders})`, [interaction.guildId, ...sellers]);
 
                     const embed = new EmbedBuilder()
                         .setTitle('📊 RSS Seller Inventory (Admins Only)')
@@ -434,7 +436,7 @@ module.exports = {
 
                     return interaction.editReply({ embeds: [embed] });
                 } else {
-                    const row = await db.get(`SELECT food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId = ?`, [interaction.user.id]) || { food: 0, wood: 0, stone: 0, gold: 0 };
+                    const row = await db.get(`SELECT food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId = ? AND guildId = ?`, [interaction.user.id, interaction.guildId]) || { food: 0, wood: 0, stone: 0, gold: 0 };
                     
                     const embed = new EmbedBuilder()
                         .setTitle(`🌾 Your RSS Stock Inventory`)
@@ -500,13 +502,13 @@ module.exports = {
                         wood = CASE WHEN wood - ? < 0 THEN 0 ELSE wood - ? END, 
                         stone = CASE WHEN stone - ? < 0 THEN 0 ELSE stone - ? END, 
                         gold = CASE WHEN gold - ? < 0 THEN 0 ELSE gold - ? END 
-                     WHERE sellerId = ?`,
+                     WHERE sellerId = ? AND guildId = ?`,
                     [
                         deductFood1, deductFood1,
                         deductWood1, deductWood1,
                         deductStone1, deductStone1,
                         deductGold1, deductGold1,
-                        tx.seller1Id
+                        tx.seller1Id, interaction.guildId
                     ]
                 );
 
@@ -519,13 +521,13 @@ module.exports = {
                 // Upsert Seller 1 sales metrics (record only actual sold quantity and add to pending taxes)
                 await db.run(`
                     INSERT INTO rss_seller_sales (
-                        sellerId, 
+                        sellerId, guildId, 
                         totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, 
                         totalTransactions,
                         pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold
                     )
-                    VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
-                    ON CONFLICT(sellerId) DO UPDATE SET
+                    VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                    ON CONFLICT(sellerId, guildId) DO UPDATE SET
                         totalSoldFood = rss_seller_sales.totalSoldFood + EXCLUDED.totalSoldFood,
                         totalSoldWood = rss_seller_sales.totalSoldWood + EXCLUDED.totalSoldWood,
                         totalSoldStone = rss_seller_sales.totalSoldStone + EXCLUDED.totalSoldStone,
@@ -535,7 +537,7 @@ module.exports = {
                         pendingTaxWood = rss_seller_sales.pendingTaxWood + EXCLUDED.pendingTaxWood,
                         pendingTaxStone = rss_seller_sales.pendingTaxStone + EXCLUDED.pendingTaxStone,
                         pendingTaxGold = rss_seller_sales.pendingTaxGold + EXCLUDED.pendingTaxGold
-                `, [tx.seller1Id, food1, wood1, stone1, gold1, taxFood1, taxWood1, taxStone1, taxGold1]);
+                `, [tx.seller1Id, interaction.guildId, food1, wood1, stone1, gold1, taxFood1, taxWood1, taxStone1, taxGold1]);
 
                 // Send Seller 1 Tax DM
                 try {
@@ -580,7 +582,7 @@ module.exports = {
                             deductWood2, deductWood2,
                             deductStone2, deductStone2,
                             deductGold2, deductGold2,
-                            tx.seller2Id
+                            tx.seller2Id, interaction.guildId
                         ]
                     );
 
@@ -609,7 +611,7 @@ module.exports = {
                             pendingTaxWood = rss_seller_sales.pendingTaxWood + EXCLUDED.pendingTaxWood,
                             pendingTaxStone = rss_seller_sales.pendingTaxStone + EXCLUDED.pendingTaxStone,
                             pendingTaxGold = rss_seller_sales.pendingTaxGold + EXCLUDED.pendingTaxGold
-                    `, [tx.seller2Id, food2, wood2, stone2, gold2, taxFood2, taxWood2, taxStone2, taxGold2]);
+                    `, [tx.seller2Id, interaction.guildId, food2, wood2, stone2, gold2, taxFood2, taxWood2, taxStone2, taxGold2]);
 
                     // Send Seller 2 Tax DM
                     try {

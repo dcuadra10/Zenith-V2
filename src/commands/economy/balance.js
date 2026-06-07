@@ -12,8 +12,8 @@ module.exports = {
     async execute(interaction) {
         const target = interaction.options.getUser('user') || interaction.user;
         const db = await getDb();
-        const user = await db.get(`SELECT balance, bank, bankCapacity FROM users WHERE userId = ?`, [target.id]);
-        const mafiaMember = await db.get(`SELECT dirtyMoney FROM mafia_members WHERE userId = ?`, [target.id]);
+        const user = await db.get(`SELECT balance, bank, bankCapacity FROM users WHERE userId = ? AND guildId = ?`, [target.id, interaction.guild.id]);
+        const mafiaMember = await db.get(`SELECT dirtyMoney FROM mafia_members WHERE userId = ? AND mafiaId IN (SELECT id FROM economy_mafias WHERE guildId = ?)`, [target.id, interaction.guild.id]);
         
         const wallet = user?.balance ?? 0;
         const bank = user?.bank ?? 0;

@@ -116,6 +116,7 @@ async function logEconomyEvent(guildId, userId, amount, type, details = {}) {
 async function addBalance(userId, amount, guildId = null, bypassTax = false, reason = null, bypassBonus = false) {
     if (amount === 0) return 0;
     const db = await getDb();
+    const finalGuildId = guildId || 'global';
     
     let finalAmount = amount;
     if (guildId && !bypassBonus) {
@@ -124,7 +125,7 @@ async function addBalance(userId, amount, guildId = null, bypassTax = false, rea
 
     // --- Mafia Tax System ---
     if (!bypassTax) {
-        const userData = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [userId]);
+        const userData = await db.get(`SELECT mafiaId FROM users WHERE userId = ? AND guildId = ?`, [userId, finalGuildId]);
         let mafiaId = userData?.mafiaId;
         if (!mafiaId) {
             const memberData = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [userId]);
@@ -144,11 +145,11 @@ async function addBalance(userId, amount, guildId = null, bypassTax = false, rea
     }
 
     await db.run(
-        `INSERT INTO users (userId, balance) VALUES (?, ?)
-         ON CONFLICT(userId) DO UPDATE SET balance = users.balance + ?`,
-        [userId, finalAmount, finalAmount]
+        `INSERT INTO users (userId, guildId, balance) VALUES (?, ?, ?)
+         ON CONFLICT(userId, guildId) DO UPDATE SET balance = users.balance + ?`,
+        [userId, finalGuildId, finalAmount, finalAmount]
     );
-    const user = await db.get(`SELECT balance FROM users WHERE userId = ?`, [userId]);
+    const user = await db.get(`SELECT balance FROM users WHERE userId = ? AND guildId = ?`, [userId, finalGuildId]);
     const newBalance = user ? user.balance : 0;
 
     if (guildId) {
@@ -167,7 +168,8 @@ async function addBalance(userId, amount, guildId = null, bypassTax = false, rea
  */
 async function calculateBonuses(userId, guildId, amount) {
     const db = await getDb();
-    const user = await db.get(`SELECT partnerId FROM users WHERE userId = ?`, [userId]);
+    const finalGuildId = guildId || 'global';
+    const user = await db.get(`SELECT partnerId FROM users WHERE userId = ? AND guildId = ?`, [userId, finalGuildId]);
     let multiplier = 1.0;
 
     // Marriage Bonus (+10%)
@@ -194,11 +196,12 @@ async function calculateBonuses(userId, guildId, amount) {
  */
 async function removeBalance(userId, amount, guildId = null, reason = null) {
     const db = await getDb();
-    const result = await db.run(`UPDATE users SET balance = balance - ? WHERE userId = ? AND balance >= ?`, [amount, userId, amount]);
+    const finalGuildId = guildId || 'global';
+    const result = await db.run(`UPDATE users SET balance = balance - ? WHERE userId = ? AND guildId = ? AND balance >= ?`, [amount, userId, finalGuildId, amount]);
     const success = result.changes > 0;
 
     if (success && guildId) {
-        const user = await db.get(`SELECT balance FROM users WHERE userId = ?`, [userId]);
+        const user = await db.get(`SELECT balance FROM users WHERE userId = ? AND guildId = ?`, [userId, finalGuildId]);
         const newBalance = user ? user.balance : 0;
         await logEconomyEvent(guildId, userId, amount, 'withdrawal', {
             newBalance,

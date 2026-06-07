@@ -90,10 +90,10 @@ module.exports = {
         if (sub === 'mafia-add') {
             const id = interaction.options.getString('id');
             const amount = interaction.options.getInteger('amount');
-            const mafia = await db.get(`SELECT name FROM economy_mafias WHERE id = ?`, [id]);
+            const mafia = await db.get(`SELECT name FROM economy_mafias WHERE id = ? AND guildId = ?`, [id, interaction.guild.id]);
             if (!mafia) return await interaction.reply({ content: '❌ Mafia not found.', ephemeral: true });
 
-            await db.run(`UPDATE economy_mafias SET balance = balance + ? WHERE id = ?`, [amount, id]);
+            await db.run(`UPDATE economy_mafias SET balance = balance + ? WHERE id = ? AND guildId = ?`, [amount, id, interaction.guild.id]);
             await logEconomyEvent(interaction.guild.id, interaction.user.id, amount, 'mafia_treasury_deposit', {
                 mafiaId: id,
                 mafiaName: mafia.name,

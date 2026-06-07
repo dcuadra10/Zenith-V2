@@ -16,13 +16,13 @@ module.exports = {
         if (target.id === interaction.user.id) return interaction.editReply({ content: '❌ You cannot rob yourself!' });
         if (target.bot) return interaction.editReply({ content: '❌ You cannot rob bots!' });
 
-        const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ?`, [interaction.user.id]);
-        const targetData = await db.get(`SELECT balance FROM users WHERE userId = ?`, [target.id]);
+        const user = await db.get(`SELECT mafiaId FROM users WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
+        const targetData = await db.get(`SELECT balance FROM users WHERE userId = ? AND guildId = ?`, [target.id, interaction.guild.id]);
         
         if (!targetData || targetData.balance < 100) return await interaction.editReply({ content: '❌ Target too poor to rob!' });
 
         // Mafia logic integration
-        const mafia = user?.mafiaId ? await db.get(`SELECT upgrades, taxRate FROM economy_mafias WHERE id = ?`, [user.mafiaId]) : null;
+        const mafia = user?.mafiaId ? await db.get(`SELECT upgrades, taxRate FROM economy_mafias WHERE id = ? AND guildId = ?`, [user.mafiaId, interaction.guild.id]) : null;
         const upgrades = mafia ? JSON.parse(mafia.upgrades || '[]') : [];
 
         let successChance = user?.mafiaId ? 0.45 : 0.35; // Mafias are more skilled
@@ -33,7 +33,7 @@ module.exports = {
         if (Math.random() > successChance) {
             const jailTime = 30; // 30 minutes
             const jailUntil = new Date(Date.now() + jailTime * 60000).toISOString();
-            await db.run(`UPDATE users SET jailUntil = ? WHERE userId = ?`, [jailUntil, interaction.user.id]);
+            await db.run(`UPDATE users SET jailUntil = ? WHERE userId = ? AND guildId = ?`, [jailUntil, interaction.user.id, interaction.guild.id]);
             
             const embed = new EmbedBuilder()
                 .setTitle('👮 ARRESTED!')
@@ -53,7 +53,7 @@ module.exports = {
             const vaultShare = Math.floor(amount * tax);
             const memberShare = amount - vaultShare;
             
-            await db.run(`UPDATE economy_mafias SET vault = vault + ? WHERE id = ?`, [vaultShare, user.mafiaId]);
+            await db.run(`UPDATE economy_mafias SET vault = vault + ? WHERE id = ? AND guildId = ?`, [vaultShare, user.mafiaId, interaction.guild.id]);
             await db.run(`UPDATE mafia_members SET dirtyMoney = dirtyMoney + ? WHERE userId = ? AND mafiaId = ?`, [memberShare, interaction.user.id, user.mafiaId]);
             
             // Log dirty money gain
@@ -61,7 +61,7 @@ module.exports = {
                 reason: `Loot from robbing ${target.tag}`
             });
             // Log mafia vault deposit
-            const mafiaName = (await db.get(`SELECT name FROM economy_mafias WHERE id = ?`, [user.mafiaId]))?.name || 'Mafia';
+            const mafiaName = (await db.get(`SELECT name FROM economy_mafias WHERE id = ? AND guildId = ?`, [user.mafiaId, interaction.guild.id]))?.name || 'Mafia';
             await logEconomyEvent(interaction.guild.id, interaction.user.id, vaultShare, 'mafia_vault_deposit', {
                 mafiaId: user.mafiaId,
                 mafiaName: mafiaName,

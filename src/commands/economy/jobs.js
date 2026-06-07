@@ -19,8 +19,9 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'apply') {
-            const legalVacancies = await db.all(`SELECT id, type, salary, customName FROM economy_operations WHERE hiringEnabled = 1`);
-            const mafiaVacancies = await db.all(`SELECT mafiaId, type, salary, customName FROM mafia_businesses WHERE hiringEnabled = 1`);
+            const guildId = interaction.guild.id;
+            const legalVacancies = await db.all(`SELECT id, type, salary, customName FROM economy_operations WHERE hiringEnabled = 1 AND guildId = ?`, [guildId]);
+            const mafiaVacancies = await db.all(`SELECT mafiaId, type, salary, customName FROM mafia_businesses WHERE hiringEnabled = 1 AND mafiaId IN (SELECT id FROM economy_mafias WHERE guildId = ?)`, [guildId]);
 
             const bizNames = {
                 car_wash: 'Car Wash',
@@ -82,8 +83,9 @@ module.exports = {
         const db = await getDb();
 
         if (sub === 'vacancies') {
-            const legalVacancies = await db.all(`SELECT * FROM economy_operations WHERE hiringEnabled = 1 LIMIT 5`);
-            const mafiaVacancies = await db.all(`SELECT * FROM mafia_businesses WHERE hiringEnabled = 1 LIMIT 5`);
+            const guildId = interaction.guild.id;
+            const legalVacancies = await db.all(`SELECT * FROM economy_operations WHERE hiringEnabled = 1 AND guildId = ? LIMIT 5`, [guildId]);
+            const mafiaVacancies = await db.all(`SELECT * FROM mafia_businesses WHERE hiringEnabled = 1 AND mafiaId IN (SELECT id FROM economy_mafias WHERE guildId = ?) LIMIT 5`, [guildId]);
             
             const embed = new EmbedBuilder()
                 .setTitle('🏢 Zenith Job Market')
@@ -133,7 +135,8 @@ module.exports = {
 
         if (sub === 'apply') {
             const appId = interaction.options.getString('id').toUpperCase();
-            const user = await db.get(`SELECT workplaceId, workExperience FROM users WHERE userId = ?`, [interaction.user.id]);
+            const guildId = interaction.guild.id;
+            const user = await db.get(`SELECT workplaceId, workExperience FROM users WHERE userId = ? AND guildId = ?`, [interaction.user.id, guildId]);
             const currentExp = (user && user.workExperience) || 0;
 
             if (user && user.workplaceId === appId) {
@@ -160,15 +163,15 @@ module.exports = {
                     const [oldMafiaId, oldType] = oldWorkplaceId.split('_');
                     await db.run(`UPDATE mafia_businesses SET employeeCount = MAX(0, employeeCount - 1) WHERE mafiaId = ? AND type = ?`, [oldMafiaId, oldType.toLowerCase()]);
                 } else if (oldWorkplaceId !== 'MUNICIPAL') {
-                    await db.run(`UPDATE economy_operations SET employeeCount = MAX(0, employeeCount - 1) WHERE id = ?`, [oldWorkplaceId]);
+                    await db.run(`UPDATE economy_operations SET employeeCount = MAX(0, employeeCount - 1) WHERE id = ? AND guildId = ?`, [oldWorkplaceId, guildId]);
                 }
             }
             
             if (appId === 'MUNICIPAL') {
                 await db.run(
-                    `INSERT INTO users (userId, workplaceId, jobId) VALUES (?, ?, NULL)
-                     ON CONFLICT(userId) DO UPDATE SET workplaceId = excluded.workplaceId, jobId = NULL`,
-                    [interaction.user.id, 'MUNICIPAL']
+                    `INSERT INTO users (userId, guildId, workplaceId, jobId) VALUES (?, ?, ?, NULL)
+                     ON CONFLICT(userId, guildId) DO UPDATE SET workplaceId = excluded.workplaceId, jobId = NULL`,
+                    [interaction.user.id, guildId, 'MUNICIPAL']
                 );
                 const embed = new EmbedBuilder()
                     .setTitle('🧹 Hired as Municipal Cleaner!')
@@ -193,9 +196,9 @@ module.exports = {
                 }
 
                 await db.run(
-                    `INSERT INTO users (userId, workplaceId, jobId) VALUES (?, ?, NULL)
-                     ON CONFLICT(userId) DO UPDATE SET workplaceId = excluded.workplaceId, jobId = NULL`,
-                    [interaction.user.id, appId]
+                    `INSERT INTO users (userId, guildId, workplaceId, jobId) VALUES (?, ?, ?, NULL)
+                     ON CONFLICT(userId, guildId) DO UPDATE SET workplaceId = excluded.workplaceId, jobId = NULL`,
+                    [interaction.user.id, guildId, appId]
                 );
                 await db.run(`UPDATE mafia_businesses SET employeeCount = employeeCount + 1 WHERE mafiaId = ? AND type = ?`, [mafiaId, type.toLowerCase()]);
 
@@ -209,7 +212,7 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             } else {
                 // Legal Application
-                const business = await db.get(`SELECT * FROM economy_operations WHERE id = ?`, [appId]);
+                const business = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND guildId = ?`, [appId, guildId]);
 
                 if (!business) return await interaction.editReply({ content: '❌ Business not found!' });
                 if (!business.hiringEnabled) return await interaction.editReply({ content: '❌ This business is not currently hiring!' });
@@ -220,11 +223,11 @@ module.exports = {
                 }
 
                 await db.run(
-                    `INSERT INTO users (userId, workplaceId, jobId) VALUES (?, ?, NULL)
-                     ON CONFLICT(userId) DO UPDATE SET workplaceId = excluded.workplaceId, jobId = NULL`,
-                    [interaction.user.id, appId]
+                    `INSERT INTO users (userId, guildId, workplaceId, jobId) VALUES (?, ?, ?, NULL)
+                     ON CONFLICT(userId, guildId) DO UPDATE SET workplaceId = excluded.workplaceId, jobId = NULL`,
+                    [interaction.user.id, guildId, appId]
                 );
-                await db.run(`UPDATE economy_operations SET employeeCount = employeeCount + 1 WHERE id = ?`, [appId]);
+                await db.run(`UPDATE economy_operations SET employeeCount = employeeCount + 1 WHERE id = ? AND guildId = ?`, [appId, guildId]);
 
                 const displayName = business.customName || appId;
                 const embed = new EmbedBuilder()

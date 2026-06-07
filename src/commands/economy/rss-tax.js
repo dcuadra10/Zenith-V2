@@ -66,8 +66,8 @@ module.exports = {
                 const sellerId = sellerUser.id;
                 let sales = await db.get(
                     `SELECT pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold, totalTransactions 
-                     FROM rss_seller_sales WHERE sellerId = ?`, 
-                    [sellerId]
+                     FROM rss_seller_sales WHERE sellerId = ? AND guildId = ?`, 
+                    [sellerId, interaction.guild.id]
                 );
 
                 if (!sales) {
@@ -95,8 +95,8 @@ module.exports = {
                 const allSales = await db.all(`
                     SELECT sellerId, pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold 
                     FROM rss_seller_sales 
-                    WHERE pendingTaxFood > 0 OR pendingTaxWood > 0 OR pendingTaxStone > 0 OR pendingTaxGold > 0
-                `);
+                    WHERE (pendingTaxFood > 0 OR pendingTaxWood > 0 OR pendingTaxStone > 0 OR pendingTaxGold > 0) AND guildId = ?
+                `, [interaction.guild.id]);
 
                 if (allSales.length === 0) {
                     const embed = new EmbedBuilder()
@@ -139,8 +139,8 @@ module.exports = {
             const amountInput = interaction.options.getString('amount').trim().toLowerCase();
 
             let sales = await db.get(
-                `SELECT pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold FROM rss_seller_sales WHERE sellerId = ?`, 
-                [sellerUser.id]
+                `SELECT pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold FROM rss_seller_sales WHERE sellerId = ? AND guildId = ?`, 
+                [sellerUser.id, interaction.guild.id]
             );
 
             if (!sales) {
@@ -176,19 +176,19 @@ module.exports = {
             // Ensure sales record row exists before updating
             await db.run(`
                 INSERT INTO rss_seller_sales (
-                    sellerId, 
+                    sellerId, guildId, 
                     totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, 
                     totalTransactions,
                     pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold
                 )
-                VALUES (?, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-                ON CONFLICT(sellerId) DO NOTHING
-            `, [sellerUser.id]);
+                VALUES (?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                ON CONFLICT(sellerId, guildId) DO NOTHING
+            `, [sellerUser.id, interaction.guild.id]);
 
             // Save the updated tax amount
             await db.run(
-                `UPDATE rss_seller_sales SET ${colName} = ? WHERE sellerId = ?`,
-                [newTax, sellerUser.id]
+                `UPDATE rss_seller_sales SET ${colName} = ? WHERE sellerId = ? AND guildId = ?`,
+                [newTax, sellerUser.id, interaction.guild.id]
             );
 
             const resourceEmoji = {
@@ -220,14 +220,14 @@ module.exports = {
             // Insert placeholder if not exists to support the update
             await db.run(`
                 INSERT INTO rss_seller_sales (
-                    sellerId, 
+                    sellerId, guildId, 
                     totalSoldFood, totalSoldWood, totalSoldStone, totalSoldGold, 
                     totalTransactions,
                     pendingTaxFood, pendingTaxWood, pendingTaxStone, pendingTaxGold
                 )
-                VALUES (?, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-                ON CONFLICT(sellerId) DO NOTHING
-            `, [sellerUser.id]);
+                VALUES (?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                ON CONFLICT(sellerId, guildId) DO NOTHING
+            `, [sellerUser.id, interaction.guild.id]);
 
             await db.run(`
                 UPDATE rss_seller_sales SET 
@@ -235,8 +235,8 @@ module.exports = {
                     pendingTaxWood = 0,
                     pendingTaxStone = 0,
                     pendingTaxGold = 0
-                WHERE sellerId = ?
-            `, [sellerUser.id]);
+                WHERE sellerId = ? AND guildId = ?
+            `, [sellerUser.id, interaction.guild.id]);
 
             const embed = new EmbedBuilder()
                 .setTitle('🧾 All Taxes Cleared')

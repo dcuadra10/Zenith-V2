@@ -113,7 +113,7 @@ module.exports = {
                 return interaction.reply({ content: `❌ <@${targetUser.id}> does not have the **${roleNameOrId}** role.`, ephemeral: true });
             }
 
-            const stock = await db.get(`SELECT food, wood, stone, gold, paymentMethods FROM rss_seller_stocks WHERE sellerId = ?`, [targetUser.id]) || { food: 0, wood: 0, stone: 0, gold: 0, paymentMethods: '' };
+            const stock = await db.get(`SELECT food, wood, stone, gold, paymentMethods FROM rss_seller_stocks WHERE sellerId = ? AND guildId = ?`, [targetUser.id, interaction.guild.id]) || { food: 0, wood: 0, stone: 0, gold: 0, paymentMethods: '' };
             
             const paymentLabels = {
                 paypal: '💳 PayPal', cashapp: '💵 Cash App', venmo: '📱 Venmo', zelle: '🏦 Zelle',
@@ -160,7 +160,7 @@ module.exports = {
             }
 
             const placeholders = sellers.map(() => '?').join(',');
-            const rows = await db.all(`SELECT sellerId, food, wood, stone, gold FROM rss_seller_stocks WHERE sellerId IN (${placeholders})`, sellers);
+            const rows = await db.all(`SELECT sellerId, food, wood, stone, gold FROM rss_seller_stocks WHERE guildId = ? AND sellerId IN (${placeholders})`, [interaction.guild.id, ...sellers]);
 
             const embed = new EmbedBuilder()
                 .setTitle('📊 RSS Seller Inventory (Admins Only)')
@@ -188,9 +188,9 @@ module.exports = {
         const sellerId = interaction.user.id;
 
         // Fetch current stock
-        let stock = await db.get(`SELECT food, wood, stone, gold, paymentMethods FROM rss_seller_stocks WHERE sellerId = ?`, [sellerId]);
+        let stock = await db.get(`SELECT food, wood, stone, gold, paymentMethods FROM rss_seller_stocks WHERE sellerId = ? AND guildId = ?`, [sellerId, interaction.guild.id]);
         if (!stock) {
-            await db.run(`INSERT INTO rss_seller_stocks (sellerId, food, wood, stone, gold, paymentMethods) VALUES (?, 0, 0, 0, 0, ?)`, [sellerId, 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay']);
+            await db.run(`INSERT INTO rss_seller_stocks (sellerId, guildId, food, wood, stone, gold, paymentMethods) VALUES (?, ?, 0, 0, 0, 0, ?)`, [sellerId, interaction.guild.id, 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay']);
             stock = { food: 0, wood: 0, stone: 0, gold: 0, paymentMethods: 'paypal,cashapp,venmo,zelle,revolut,crypto,bank,applepay' };
         }
 
@@ -214,7 +214,7 @@ module.exports = {
                 });
             }
             const joinedPayments = normalized.join(',');
-            await db.run(`UPDATE rss_seller_stocks SET paymentMethods = ? WHERE sellerId = ?`, [joinedPayments, sellerId]);
+            await db.run(`UPDATE rss_seller_stocks SET paymentMethods = ? WHERE sellerId = ? AND guildId = ?`, [joinedPayments, sellerId, interaction.guild.id]);
             stock.paymentMethods = joinedPayments;
         }
 
@@ -261,8 +261,8 @@ module.exports = {
 
             // Save back to DB
             await db.run(
-                `UPDATE rss_seller_stocks SET food = ?, wood = ?, stone = ?, gold = ?, updatedAt = CURRENT_TIMESTAMP WHERE sellerId = ?`,
-                [newFood, newWood, newStone, newGold, sellerId]
+                `UPDATE rss_seller_stocks SET food = ?, wood = ?, stone = ?, gold = ?, updatedAt = CURRENT_TIMESTAMP WHERE sellerId = ? AND guildId = ?`,
+                [newFood, newWood, newStone, newGold, sellerId, interaction.guild.id]
             );
 
             // Update current memory reference for output

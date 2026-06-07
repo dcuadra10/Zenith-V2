@@ -10,7 +10,7 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply();
         const db = await getDb();
-        const user = await db.get(`SELECT jobId, workplaceId, lastWork FROM users WHERE userId = ?`, [interaction.user.id]);
+        const user = await db.get(`SELECT jobId, workplaceId, lastWork FROM users WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
 
         if (!user || !user.workplaceId) {
             return await interaction.editReply({ content: '❌ You don\'t have a job! Join a private business using `/jobs vacancies` and apply using `/jobs apply <id>`.', ephemeral: true });
@@ -35,7 +35,7 @@ module.exports = {
                 const [mafiaId, type] = user.workplaceId.split('_');
                 mafiaData = await db.get(`SELECT * FROM mafia_businesses WHERE mafiaId = ? AND type = ?`, [mafiaId, type.toLowerCase()]);
                 if (!mafiaData) {
-                    await db.run(`UPDATE users SET workplaceId = NULL WHERE userId = ?`, [interaction.user.id]);
+                    await db.run(`UPDATE users SET workplaceId = NULL WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
                     return await interaction.editReply({ content: '❌ Your underworld venture has been busted. Find a new job!', ephemeral: true });
                 }
                 salary = mafiaData.salary;
@@ -43,9 +43,9 @@ module.exports = {
                 jobName = mafiaData.customName ? `${mafiaData.customName} Associate` : `Underworld ${mafiaData.type.toUpperCase()} Associate`;
             } else {
                 // Legal Work
-                workplace = await db.get(`SELECT * FROM economy_operations WHERE id = ?`, [user.workplaceId]);
+                workplace = await db.get(`SELECT * FROM economy_operations WHERE id = ? AND guildId = ?`, [user.workplaceId, interaction.guild.id]);
                 if (!workplace) {
-                    await db.run(`UPDATE users SET workplaceId = NULL WHERE userId = ?`, [interaction.user.id]);
+                    await db.run(`UPDATE users SET workplaceId = NULL WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
                     return await interaction.editReply({ content: '❌ Your workplace has gone out of business. Please find a new job!', ephemeral: true });
                 }
                 salary = workplace.salary;
@@ -78,7 +78,7 @@ module.exports = {
             if (!mafia) {
                 return await interaction.editReply({ content: `❌ Syndicate data not found!`, ephemeral: true });
             }
-            const don = await db.get(`SELECT balance, bank FROM users WHERE userId = ?`, [mafia.leaderId]);
+            const don = await db.get(`SELECT balance, bank FROM users WHERE userId = ? AND guildId = ?`, [mafia.leaderId, interaction.guild.id]);
             if (!don || (don.balance + don.bank) < finalSalary) {
                 return await interaction.editReply({ content: `❌ The Don (<@${mafia.leaderId}>) is short on funds and cannot pay your salary!`, ephemeral: true });
             }
@@ -90,10 +90,10 @@ module.exports = {
                 if (don.balance > 0) {
                     await removeBalance(mafia.leaderId, don.balance, interaction.guild.id, `Syndicate Payroll (partial) to ${interaction.user.tag}`);
                 }
-                await db.run(`UPDATE users SET balance = 0, bank = bank - ? WHERE userId = ?`, [remaining, mafia.leaderId]);
+                await db.run(`UPDATE users SET balance = 0, bank = bank - ? WHERE userId = ? AND guildId = ?`, [remaining, mafia.leaderId, interaction.guild.id]);
             }
         } else if (workplace) {
-            const owner = await db.get(`SELECT balance, bank FROM users WHERE userId = ?`, [workplace.userId]);
+            const owner = await db.get(`SELECT balance, bank FROM users WHERE userId = ? AND guildId = ?`, [workplace.userId, interaction.guild.id]);
             if (!owner || (owner.balance + owner.bank) < finalSalary) {
                 return await interaction.editReply({ content: `❌ The business is short on funds and cannot pay your salary! Contact the owner (<@${workplace.userId}>) to deposit coins.`, ephemeral: true });
             }
@@ -105,7 +105,7 @@ module.exports = {
                 if (owner.balance > 0) {
                     await removeBalance(workplace.userId, owner.balance, interaction.guild.id, `Business Payroll (partial) to ${interaction.user.tag}`);
                 }
-                await db.run(`UPDATE users SET balance = 0, bank = bank - ? WHERE userId = ?`, [remaining, workplace.userId]);
+                await db.run(`UPDATE users SET balance = 0, bank = bank - ? WHERE userId = ? AND guildId = ?`, [remaining, workplace.userId, interaction.guild.id]);
             }
         }
 
@@ -132,15 +132,15 @@ module.exports = {
             if (workplace) {
                 const dbType = process.env.DB_TYPE || 'sqlite';
                 if (dbType === 'sqlite') {
-                    await db.run(`UPDATE economy_operations SET lastCollect = datetime(lastCollect, '-30 minutes') WHERE id = ?`, [workplace.id]);
+                    await db.run(`UPDATE economy_operations SET lastCollect = datetime(lastCollect, '-30 minutes') WHERE id = ? AND guildId = ?`, [workplace.id, interaction.guild.id]);
                 } else {
-                    await db.run(`UPDATE economy_operations SET lastCollect = lastCollect - interval '30 minutes' WHERE id = ?`, [workplace.id]);
+                    await db.run(`UPDATE economy_operations SET lastCollect = lastCollect - interval '30 minutes' WHERE id = ? AND guildId = ?`, [workplace.id, interaction.guild.id]);
                 }
             }
         }
 
-        await db.run(`UPDATE users SET lastWork = ?, workExperience = COALESCE(workExperience, 0) + 1 WHERE userId = ?`, [now, interaction.user.id]);
-        const updatedUser = await db.get(`SELECT workExperience FROM users WHERE userId = ?`, [interaction.user.id]);
+        await db.run(`UPDATE users SET lastWork = ?, workExperience = COALESCE(workExperience, 0) + 1 WHERE userId = ? AND guildId = ?`, [now, interaction.user.id, interaction.guild.id]);
+        const updatedUser = await db.get(`SELECT workExperience FROM users WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
         const newExp = updatedUser ? updatedUser.workExperience : 0;
 
         const embed = new EmbedBuilder()

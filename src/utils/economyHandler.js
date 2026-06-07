@@ -128,7 +128,7 @@ async function addBalance(userId, amount, guildId = null, bypassTax = false, rea
         const userData = await db.get(`SELECT mafiaId FROM users WHERE userId = ? AND guildId = ?`, [userId, finalGuildId]);
         let mafiaId = userData?.mafiaId;
         if (!mafiaId) {
-            const memberData = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ?`, [userId]);
+            const memberData = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ? AND mafiaId IN (SELECT id FROM economy_mafias WHERE guildId = ?)`, [userId, finalGuildId]);
             mafiaId = memberData?.mafiaId;
         }
         if (mafiaId) {

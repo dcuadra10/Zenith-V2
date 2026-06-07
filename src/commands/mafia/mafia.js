@@ -241,7 +241,7 @@ module.exports = {
             const user = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ? AND mafiaId IN (SELECT id FROM economy_mafias WHERE guildId = ?)`, [interaction.user.id, interaction.guild.id]);
             if (user && user.mafiaId) return await interaction.editReply({ content: '❌ You are already in a mafia!' });
 
-            const success = await removeBalance(interaction.user.id, cost);
+            const success = await removeBalance(interaction.user.id, cost, interaction.guild.id);
             if (!success) return await interaction.editReply({ content: `❌ You need **${cost}** coins to start a mafia!` });
 
             const id = Math.random().toString(36).substring(2, 8).toUpperCase();

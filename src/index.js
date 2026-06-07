@@ -1799,6 +1799,23 @@ app.post('/api/levels/import/:guildId', authenticateToken, async (req, res) => {
     }
 });
 
+// POST Sync Milestone Roles
+app.post('/api/levels/sync/:guildId', authenticateToken, async (req, res) => {
+    try {
+        const guildId = req.params.guildId;
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        // Run sync in the background and respond immediately
+        syncMilestoneRoles(guildId).catch(err => console.error('[SYNC ERROR]:', err));
+
+        res.json({ success: true, message: 'Milestone role synchronization started in the background.' });
+    } catch (e) {
+        console.error('Error triggering role sync:', e);
+        res.status(500).json({ error: 'Internal server error triggering role sync' });
+    }
+});
+
 // POST Reset All Levels
 app.post('/api/levels/reset/:guildId', authenticateToken, async (req, res) => {
     try {

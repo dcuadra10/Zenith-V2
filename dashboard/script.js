@@ -629,15 +629,18 @@ function loadDefaultMarketQuestions() {
 function addMarketQuestion() {
     marketQuestionsArr.push({ key: 'custom_'+Date.now(), prompt: 'New Question?', isImage: false });
     renderMarketQuestions();
+    triggerUnsavedChanges();
 }
 
 function removeMarketQuestion(idx) {
     marketQuestionsArr.splice(idx, 1);
     renderMarketQuestions();
+    triggerUnsavedChanges();
 }
 
 function updateMarketQuestion(idx, field, val) {
     marketQuestionsArr[idx][field] = val;
+    triggerUnsavedChanges();
 }
 
 function renderMarketQuestions() {
@@ -673,15 +676,18 @@ let marketForumChannelsArr = [];
 function addMarketForumChannel() {
     marketForumChannelsArr.push({ min: 0, max: 999999, channelId: '' });
     renderMarketForumChannels();
+    triggerUnsavedChanges();
 }
 
 function removeMarketForumChannel(idx) {
     marketForumChannelsArr.splice(idx, 1);
     renderMarketForumChannels();
+    triggerUnsavedChanges();
 }
 
 function updateMarketForumChannel(idx, field, val) {
     marketForumChannelsArr[idx][field] = val;
+    triggerUnsavedChanges();
 }
 
 function renderMarketForumChannels() {
@@ -729,15 +735,18 @@ let mmPaymentMethodsArr = [];
 function addMmPaymentMethod() {
     mmPaymentMethodsArr.push({ userId: '', details: '' });
     renderMmPaymentMethods();
+    triggerUnsavedChanges();
 }
 
 function removeMmPaymentMethod(idx) {
     mmPaymentMethodsArr.splice(idx, 1);
     renderMmPaymentMethods();
+    triggerUnsavedChanges();
 }
 
 function updateMmPaymentMethod(idx, field, val) {
     mmPaymentMethodsArr[idx][field] = val;
+    triggerUnsavedChanges();
 }
 
 function renderMmPaymentMethods() {
@@ -1233,15 +1242,18 @@ let levelMilestones = [];
 function addLevelMilestone() {
     levelMilestones.push({ level: '', emoji: '', title: '', roleId: '' });
     renderMilestones();
+    triggerUnsavedChanges();
 }
 
 function removeMilestone(i) {
     levelMilestones.splice(i, 1);
     renderMilestones();
+    triggerUnsavedChanges();
 }
 
 function updateMilestone(i, field, val) {
     levelMilestones[i][field] = val;
+    triggerUnsavedChanges();
 }
 
 function renderMilestones() {
@@ -1261,8 +1273,14 @@ function renderMilestones() {
         </div>
     `).join('');
 
-    levelMilestones.forEach((_, i) => {
+    levelMilestones.forEach((m, i) => {
         initTomSelect(`levelMilestoneRole_${i}`, false, 'Select a Role...');
+        const ts = tomSelects[`levelMilestoneRole_${i}`] || document.getElementById(`levelMilestoneRole_${i}`)?.tomselect;
+        if (ts) {
+            ts.on('change', function(val) {
+                updateMilestone(i, 'roleId', val);
+            });
+        }
     });
 }
 
@@ -1272,16 +1290,19 @@ let vipMultipliers = [];
 function addVipMultiplier() {
     vipMultipliers.push({ type: 'ROLE', value: '', multiplier: '1.5' });
     renderVipMultipliers();
+    triggerUnsavedChanges();
 }
 
 function removeVipMultiplier(i) {
     vipMultipliers.splice(i, 1);
     renderVipMultipliers();
+    triggerUnsavedChanges();
 }
 
 function updateVipMultiplier(i, field, val) {
     vipMultipliers[i][field] = val;
     if (field === 'type') renderVipMultipliers();
+    triggerUnsavedChanges();
 }
 
 function renderVipMultipliers() {
@@ -2335,6 +2356,12 @@ document.addEventListener('change', (e) => {
     }
 });
 
+function triggerUnsavedChanges() {
+    markDirty();
+    const saveBar = document.getElementById('saveBar');
+    if (saveBar) saveBar.classList.add('visible');
+}
+
 document.querySelectorAll('.sidebar-link').forEach(link => {
     link.addEventListener('click', () => {
         currentPage = link.dataset.page;
@@ -2874,6 +2901,45 @@ async function executeLevelImport(input) {
         showToast('❌ Error reading file.', true);
     };
     reader.readAsText(file);
+}
+
+// Sync milestone roles manual trigger
+async function syncMilestoneRolesManual() {
+    if (!activeGuild) return;
+    
+    const statusDiv = document.getElementById('importStatus');
+    if (statusDiv) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.color = 'var(--primary)';
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Triggering milestone roles sync...';
+    }
+    
+    try {
+        const res = await apiFetch(`/levels/sync/${activeGuild.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await res.json();
+        if (res.ok) {
+            if (statusDiv) {
+                statusDiv.style.color = 'var(--accent-green)';
+                statusDiv.innerHTML = `<i class="fas fa-check-circle"></i> Milestone role sync triggered in the background.`;
+            }
+            showToast('🔄 Role sync triggered successfully!', 'success');
+        } else {
+            if (statusDiv) {
+                statusDiv.style.color = 'var(--accent-red)';
+                statusDiv.innerHTML = `<i class="fas fa-times-circle"></i> Error triggering sync: ${result.error || 'Unknown error'}`;
+            }
+            showToast('❌ Failed to trigger role sync', 'error');
+        }
+    } catch (err) {
+        if (statusDiv) {
+            statusDiv.style.color = 'var(--accent-red)';
+            statusDiv.innerHTML = `<i class="fas fa-times-circle"></i> Connection error: ${err.message}`;
+        }
+        showToast('❌ Error connecting to server', 'error');
+    }
 }
 
 // =============================================

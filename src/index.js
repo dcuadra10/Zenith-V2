@@ -107,9 +107,13 @@ async function syncMilestoneRoles(guildId) {
     if (dbUsers.length === 0) return;
     
     try {
-        await guild.members.fetch();
+        const userIds = dbUsers.map(u => u.userId);
+        if (userIds.length > 0) {
+            // Fetch only the users that have leveling data in chunks/arrays
+            await guild.members.fetch({ user: userIds });
+        }
     } catch (e) {
-        console.error(`[SYNC] Failed to fetch guild members for ${guildId}:`, e);
+        console.error(`[SYNC] Failed to fetch specified guild members for ${guildId}:`, e);
     }
     
     for (const dbUser of dbUsers) {

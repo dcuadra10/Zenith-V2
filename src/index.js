@@ -106,6 +106,8 @@ async function syncMilestoneRoles(guildId) {
     const dbUsers = await db.all(`SELECT userId, level FROM users WHERE guildId = ? AND level > 0`, [guildId]);
     if (dbUsers.length === 0) return;
     
+    console.log(`[SYNC] Starting milestone role sync for guild ${guild.name} (${guildId}). Total users with levels: ${dbUsers.length}`);
+
     try {
         const userIds = dbUsers.map(u => u.userId);
         if (userIds.length > 0) {
@@ -116,21 +118,41 @@ async function syncMilestoneRoles(guildId) {
         console.error(`[SYNC] Failed to fetch specified guild members for ${guildId}:`, e);
     }
     
+    let processedCount = 0;
+    let rolesAddedCount = 0;
+
     for (const dbUser of dbUsers) {
+        processedCount++;
         const member = guild.members.cache.get(dbUser.userId);
         if (!member) continue;
         
+        let addedAny = false;
         for (const reward of rewards) {
             if (reward && reward.roleId && dbUser.level >= parseInt(reward.level)) {
                 const role = guild.roles.cache.get(reward.roleId.replace(/[^0-9]/g, ''));
                 if (role && !member.roles.cache.has(role.id)) {
-                    await member.roles.add(role).catch(err => {
+                    try {
+                        await member.roles.add(role);
+                        rolesAddedCount++;
+                        addedAny = true;
+                        console.log(`[SYNC] Added role ${role.name} to ${member.user.tag} (Level ${dbUser.level})`);
+                    } catch (err) {
                         console.error(`[SYNC] Failed to add role ${role.name} to ${member.user.tag}:`, err.message);
-                    });
+                    }
                 }
             }
         }
+
+        // Add a 500ms rate limit buffer if we performed a role update
+        if (addedAny) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        if (processedCount % 50 === 0 || processedCount === dbUsers.length) {
+            console.log(`[SYNC] Progress: ${processedCount}/${dbUsers.length} users processed. Roles added so far: ${rolesAddedCount}`);
+        }
     }
+    console.log(`[SYNC] Milestone role sync complete for guild ${guild.name}. Total processed: ${processedCount}, Total roles added: ${rolesAddedCount}`);
 }
 
 const client = new Client({

@@ -883,8 +883,8 @@ async function initializeSchema() {
     // Migrate users table to composite key (userId, guildId)
     try {
         const tableInfo = await db.all("PRAGMA table_info(users)");
-        const isUserIdPkOnly = tableInfo.some(col => col.name === 'userId' && col.pk === 1) && !tableInfo.some(col => col.name === 'guildId');
-        if (isUserIdPkOnly) {
+        const hasNoGuildId = !tableInfo.some(col => col.name.toLowerCase() === 'guildid');
+        if (hasNoGuildId) {
             console.log("[MIGRATION] Migration triggered: Migrating users to (userId, guildId) Primary Key");
             await db.exec(`ALTER TABLE users RENAME TO temp_users`);
             await db.exec(`
@@ -933,8 +933,8 @@ async function initializeSchema() {
     // Migrate economy_influence to (sectorId, guildId) Primary Key
     try {
         const tableInfo = await db.all("PRAGMA table_info(economy_influence)");
-        const isSectorIdPkOnly = tableInfo.some(col => col.name === 'sectorId' && col.pk === 1) && !tableInfo.some(col => col.name === 'guildId');
-        if (isSectorIdPkOnly) {
+        const hasNoGuildId = !tableInfo.some(col => col.name.toLowerCase() === 'guildid');
+        if (hasNoGuildId) {
             console.log("[MIGRATION] Migration triggered: Migrating economy_influence to (sectorId, guildId) Primary Key");
             await db.exec(`ALTER TABLE economy_influence RENAME TO temp_economy_influence`);
             await db.exec(`
@@ -970,7 +970,7 @@ async function initializeSchema() {
     // Migrate economy_entity_influence to include guildId
     try {
         const tableInfo = await db.all("PRAGMA table_info(economy_entity_influence)");
-        const hasNoGuildId = !tableInfo.some(col => col.name === 'guildId');
+        const hasNoGuildId = !tableInfo.some(col => col.name.toLowerCase() === 'guildid');
         if (hasNoGuildId) {
             console.log("[MIGRATION] Migration triggered: Migrating economy_entity_influence to (entityId, entityType, sectorId, guildId) Primary Key");
             await db.exec(`ALTER TABLE economy_entity_influence RENAME TO temp_economy_entity_influence`);
@@ -1006,8 +1006,8 @@ async function initializeSchema() {
     // Migrate rss_seller_stocks to (sellerId, guildId) Primary Key
     try {
         const tableInfo = await db.all("PRAGMA table_info(rss_seller_stocks)");
-        const isSellerIdPkOnly = tableInfo.some(col => col.name === 'sellerId' && col.pk === 1) && !tableInfo.some(col => col.name === 'guildId');
-        if (isSellerIdPkOnly) {
+        const hasNoGuildId = !tableInfo.some(col => col.name.toLowerCase() === 'guildid');
+        if (hasNoGuildId) {
             console.log("[MIGRATION] Migration triggered: Migrating rss_seller_stocks to (sellerId, guildId) Primary Key");
             await db.exec(`ALTER TABLE rss_seller_stocks RENAME TO temp_rss_seller_stocks`);
             await db.exec(`
@@ -1044,8 +1044,8 @@ async function initializeSchema() {
     // Migrate rss_seller_sales to (sellerId, guildId) Primary Key
     try {
         const tableInfo = await db.all("PRAGMA table_info(rss_seller_sales)");
-        const isSellerIdPkOnly = tableInfo.some(col => col.name === 'sellerId' && col.pk === 1) && !tableInfo.some(col => col.name === 'guildId');
-        if (isSellerIdPkOnly) {
+        const hasNoGuildId = !tableInfo.some(col => col.name.toLowerCase() === 'guildid');
+        if (hasNoGuildId) {
             console.log("[MIGRATION] Migration triggered: Migrating rss_seller_sales to (sellerId, guildId) Primary Key");
             await db.exec(`ALTER TABLE rss_seller_sales RENAME TO temp_rss_seller_sales`);
             await db.exec(`

@@ -41,6 +41,7 @@ function saveDraft() {
             guild: activeGuild,
             activePage: document.querySelector('.sidebar-link.active')?.dataset?.page || 'overview',
             panelDraft: typeof panelDraft !== 'undefined' ? panelDraft : null,
+            levelMilestones: typeof levelMilestones !== 'undefined' ? levelMilestones : [],
             fields: {},
             timestamp: Date.now()
         };
@@ -85,6 +86,12 @@ function applyDraft(draft) {
         try { 
             panelDraft = draft.panelDraft;
             if (!panelDraft.v2Components) panelDraft.v2Components = [];
+        } catch(e) {}
+    }
+    if (draft.levelMilestones) {
+        try {
+            levelMilestones = draft.levelMilestones;
+            renderMilestones();
         } catch(e) {}
     }
     Object.entries(draft.fields).forEach(([id, data]) => {
@@ -816,6 +823,13 @@ function loadModuleToggles(mods) {
     setVal('levelUpChannel', mods.levelUpChannel);
     setVal('levelingBackground', mods.levelingBackground);
     setCheck('leaderboardImageEnabled', mods.leaderboardImageEnabled);
+    try {
+        const parsed = JSON.parse(mods.roleRewards || '[]');
+        levelMilestones = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        levelMilestones = [];
+    }
+    renderMilestones();
     // Tickets
     setCheck('toggleTickets', mods.ticketsEnabled);
     if(mods.ticketsMaxActive) setVal('ticketsMaxActive', mods.ticketsMaxActive ?? 2);
@@ -1035,6 +1049,7 @@ async function saveModuleConfig(moduleName) {
         levelUpChannel: getVal('levelUpChannel'),
         levelingBackground: getVal('levelingBackground'),
         leaderboardImageEnabled: getCheck('leaderboardImageEnabled'),
+        roleRewards: JSON.stringify(levelMilestones.filter(m => m.level && m.roleId)),
         // Tickets
         ticketsEnabled: getCheck('toggleTickets'),
         ticketsMaxActive: parseInt(getVal('ticketsMaxActive'), 10) || 2,

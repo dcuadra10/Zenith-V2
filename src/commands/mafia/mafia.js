@@ -353,20 +353,37 @@ module.exports = {
             const collector = response.createMessageComponentCollector({ componentType: ComponentType.Button, time: 3600000 }); // 1 hour
 
             collector.on('collect', async i => {
-                if (i.user.id !== mafia.leaderId) return i.reply({ content: '❌ Only the Don can accept applications!', ephemeral: true });
+                 if (i.user.id !== mafia.leaderId) return i.reply({ content: '❌ Only the Don can accept applications!', ephemeral: true });
 
-                if (i.customId === 'apply_accept') {
-                    const current = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ? AND mafiaId IN (SELECT id FROM economy_mafias WHERE guildId = ?)`, [interaction.user.id, interaction.guild.id]);
-                    if (current && current.mafiaId) return i.update({ content: '❌ This user has already joined another mafia.', embeds: [], components: [] });
+                 try {
+                     if (i.customId === 'apply_accept') {
+                         const current = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ? AND mafiaId IN (SELECT id FROM economy_mafias WHERE guildId = ?)`, [interaction.user.id, interaction.guild.id]);
+                         if (current && current.mafiaId) {
+                             if (current.mafiaId === mafiaId) {
+                                 await i.update({ content: `✅ <@${interaction.user.id}> has already been accepted into **${mafia.name}**.`, embeds: [], components: [] });
+                                 collector.stop();
+                                 return;
+                             }
+                             return i.update({ content: '❌ This user has already joined another mafia.', embeds: [], components: [] });
+                         }
 
-                    await db.run(`UPDATE users SET mafiaId = ? WHERE userId = ? AND guildId = ?`, [mafiaId, interaction.user.id, interaction.guild.id]);
-                    await db.run(`INSERT INTO mafia_members (mafiaId, userId, rank) VALUES (?, ?, ?)`, [mafiaId, interaction.user.id, 'Soldier']);
-                    await i.update({ content: `✅ <@${interaction.user.id}> is now a Soldier of **${mafia.name}**.`, embeds: [], components: [] });
-                } else {
-                    await i.update({ content: `❌ Application from <@${interaction.user.id}> was denied.`, embeds: [], components: [] });
-                }
-                collector.stop();
-            });
+                         await db.run(`INSERT INTO users (userId, guildId, mafiaId) VALUES (?, ?, ?)
+                             ON CONFLICT(userId, guildId) DO UPDATE SET mafiaId = EXCLUDED.mafiaId`, [interaction.user.id, interaction.guild.id, mafiaId]);
+                         await db.run(`INSERT INTO mafia_members (mafiaId, userId, rank) VALUES (?, ?, ?)
+                             ON CONFLICT(mafiaId, userId) DO NOTHING`, [mafiaId, interaction.user.id, 'Soldier']);
+                         
+                         await i.update({ content: `✅ <@${interaction.user.id}> is now a Soldier of **${mafia.name}**.`, embeds: [], components: [] });
+                     } else {
+                         await i.update({ content: `❌ Application from <@${interaction.user.id}> was denied.`, embeds: [], components: [] });
+                     }
+                 } catch (err) {
+                     console.error('[MAFIA APPLY ACCEPT ERROR]', err);
+                     try {
+                         await i.reply({ content: '❌ An error occurred while processing this action.', ephemeral: true });
+                     } catch (e) {}
+                 }
+                 collector.stop();
+             });
             return;
         }
 
@@ -615,12 +632,32 @@ module.exports = {
             collector.on('collect', async i => {
                 if (i.user.id !== target.id) return i.reply({ content: '❌ This invitation is not for you!', ephemeral: true });
 
-                if (i.customId === 'mafia_accept') {
-                    await db.run(`UPDATE users SET mafiaId = ? WHERE userId = ? AND guildId = ?`, [user.mafiaId, target.id, interaction.guild.id]);
-                    await db.run(`INSERT INTO mafia_members (mafiaId, userId, rank) VALUES (?, ?, ?)`, [user.mafiaId, target.id, 'Soldier']);
-                    await i.update({ content: `✅ <@${target.id}> is now a Soldier of the mafia.`, embeds: [], components: [] });
-                } else {
-                    await i.update({ content: '❌ Invitation refused.', embeds: [], components: [] });
+                try {
+                    if (i.customId === 'mafia_accept') {
+                        const targetUser = await db.get(`SELECT mafiaId FROM mafia_members WHERE userId = ? AND mafiaId IN (SELECT id FROM economy_mafias WHERE guildId = ?)`, [target.id, interaction.guild.id]);
+                        if (targetUser && targetUser.mafiaId) {
+                            if (targetUser.mafiaId === user.mafiaId) {
+                                await i.update({ content: `✅ <@${target.id}> is already a member of the mafia.`, embeds: [], components: [] });
+                                collector.stop();
+                                return;
+                            }
+                            return await i.reply({ content: '❌ You are already in another mafia!', ephemeral: true });
+                        }
+
+                        await db.run(`INSERT INTO users (userId, guildId, mafiaId) VALUES (?, ?, ?)
+                            ON CONFLICT(userId, guildId) DO UPDATE SET mafiaId = EXCLUDED.mafiaId`, [target.id, interaction.guild.id, user.mafiaId]);
+                        await db.run(`INSERT INTO mafia_members (mafiaId, userId, rank) VALUES (?, ?, ?)
+                            ON CONFLICT(mafiaId, userId) DO NOTHING`, [user.mafiaId, target.id, 'Soldier']);
+                        
+                        await i.update({ content: `✅ <@${target.id}> is now a Soldier of the mafia.`, embeds: [], components: [] });
+                    } else {
+                        await i.update({ content: '❌ Invitation refused.', embeds: [], components: [] });
+                    }
+                } catch (err) {
+                    console.error('[MAFIA INVITE ERROR]', err);
+                    try {
+                        await i.reply({ content: '❌ An error occurred while processing the invitation.', ephemeral: true });
+                    } catch (e) {}
                 }
                 collector.stop();
             });

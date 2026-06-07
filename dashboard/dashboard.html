@@ -1161,7 +1161,11 @@
                 </div>                <div class="z-card" style="margin-top:32px;">
                     <div class="z-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                         <h3>Weekly Leaderboard</h3>
-                        <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                            <div style="position:relative; display:flex; align-items:center;">
+                                <i class="fas fa-search" style="position:absolute; left:12px; color:var(--text-muted); font-size:0.85rem;"></i>
+                                <input type="text" id="r4SearchInput" placeholder="Search officer..." style="padding: 6px 12px 6px 32px; font-size:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle); background:rgba(255,255,255,0.05); color:#fff; width:180px; outline:none;" oninput="renderR4Table()">
+                            </div>
                             <label style="font-size:0.85rem; color:var(--text-muted); margin:0;">Week:</label>
                             <select class="z-input" id="r4WeekFilter" style="width: 160px; padding: 6px 12px; margin-bottom:0;" onchange="renderR4Table()"></select>
                             <button class="z-btn z-btn-secondary z-btn-sm" onclick="fetchR4Tracking()"><i class="fas fa-sync-alt"></i> Refresh</button>

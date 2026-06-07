@@ -849,7 +849,10 @@ tr:hover td {
 
     /* Cards */
     .z-card { padding: 20px; margin-bottom: 16px; }
+    .z-card-header { flex-direction: column; align-items: stretch !important; gap: 12px; }
     .z-card-header h3 { font-size: 1.1rem; }
+    .z-card-header div, .z-card-header > div { width: 100%; flex-wrap: wrap; }
+    #r4SearchInput { width: 100% !important; }
 
     /* Forms */
     .input-grid, .input-row { grid-template-columns: 1fr; gap: 16px; }

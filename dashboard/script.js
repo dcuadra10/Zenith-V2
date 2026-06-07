@@ -3388,7 +3388,17 @@ function renderR4Table() {
         return;
     }
 
-    const filtered = r4TrackingData.filter(r => r.weekId === selectedWeek);
+    const searchInput = document.getElementById('r4SearchInput');
+    const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    let filtered = r4TrackingData.filter(r => r.weekId === selectedWeek);
+    if (searchVal) {
+        filtered = filtered.filter(item => 
+            (item.displayName && item.displayName.toLowerCase().includes(searchVal)) ||
+            (item.username && item.username.toLowerCase().includes(searchVal)) ||
+            (item.userId && item.userId.toString().includes(searchVal))
+        );
+    }
 
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color:var(--text-muted);">No officer records for week ' + selectedWeek + '.</td></tr>';

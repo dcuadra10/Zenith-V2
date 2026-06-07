@@ -44,7 +44,7 @@ function saveDraft() {
             fields: {},
             timestamp: Date.now()
         };
-        document.querySelectorAll('.z-input, input[type=checkbox], input[type=color]').forEach(el => {
+        document.querySelectorAll('.z-input, input, select, textarea').forEach(el => {
             if (!el.id) return;
             if (el.type === 'checkbox') {
                 draft.fields[el.id] = { type: 'check', value: el.checked };

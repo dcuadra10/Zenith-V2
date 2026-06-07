@@ -357,9 +357,12 @@ function initTomSelect(id, isMulti, placeholder) {
     const el = document.getElementById(id);
     if (!el) return;
 
-    // Destroy existing if any
-    if (tomSelects[id]) {
-        tomSelects[id].destroy();
+    // Destroy existing if any (both in tracking object or directly on the element)
+    const existing = tomSelects[id] || el.tomselect;
+    if (existing) {
+        try {
+            existing.destroy();
+        } catch (e) {}
         delete tomSelects[id];
     }
 
@@ -371,7 +374,6 @@ function initTomSelect(id, isMulti, placeholder) {
             plugins: isMulti ? ['remove_button'] : [],
             render: {
                 option: function(data, escape) {
-                    // If option includes an avatar (member), show avatar image
                     if (data.avatar) {
                         const img = `<img src="${escape(data.avatar)}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:8px;vertical-align:middle;">`;
                         return `<div>${img}${escape(data.text)}</div>`;
@@ -446,39 +448,67 @@ function populateDropdown(elementId, items, placeholder, isMulti = false) {
     const el = document.getElementById(elementId);
     if (!el || el.tagName !== 'SELECT') return;
     
-    // Preserve existing value if any
-    const currentValue = isMulti ? 
-        Array.from(el.selectedOptions).map(o => o.value) : 
-        el.value;
-        
-    el.innerHTML = '';
+    // Check if TomSelect is already active
+    const tsInstance = tomSelects[elementId] || el.tomselect;
     
-    if (!isMulti) {
-        const defaultOpt = document.createElement('option');
-        defaultOpt.value = '';
-        defaultOpt.textContent = `-- ${placeholder} --`;
-        el.appendChild(defaultOpt);
-    }
-
-    items.forEach(item => {
-        const opt = document.createElement('option');
-        opt.value = item.id;
-        opt.textContent = item.name;
-        if (item.avatar) opt.setAttribute('data-avatar', item.avatar);
-        el.appendChild(opt);
-    });
-    
-    // Restore value
-    if (isMulti) {
-        Array.from(el.options).forEach(opt => {
-            if (currentValue.includes(opt.value)) opt.selected = true;
-        });
+    // Preserve existing value
+    let currentValue = '';
+    if (tsInstance) {
+        currentValue = tsInstance.getValue();
     } else {
-        el.value = currentValue;
+        currentValue = isMulti ? 
+            Array.from(el.selectedOptions).map(o => o.value) : 
+            el.value;
     }
+    
+    if (tsInstance) {
+        // Clear and update options dynamically
+        tsInstance.clear(true);
+        tsInstance.clearOptions();
+        
+        if (!isMulti) {
+            tsInstance.addOption({ value: '', text: `-- ${placeholder} --` });
+        }
+        
+        items.forEach(item => {
+            tsInstance.addOption({
+                value: item.id,
+                text: item.name,
+                avatar: item.avatar || null
+            });
+        });
+        
+        tsInstance.setValue(currentValue, true);
+    } else {
+        // Rebuild HTML options
+        el.innerHTML = '';
+        
+        if (!isMulti) {
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = `-- ${placeholder} --`;
+            el.appendChild(defaultOpt);
+        }
 
-    // Re-init TomSelect
-    initTomSelect(elementId, isMulti, placeholder);
+        items.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.name;
+            if (item.avatar) opt.setAttribute('data-avatar', item.avatar);
+            el.appendChild(opt);
+        });
+        
+        if (isMulti) {
+            Array.from(el.options).forEach(opt => {
+                if (Array.isArray(currentValue) && currentValue.includes(opt.value)) opt.selected = true;
+            });
+        } else {
+            el.value = currentValue;
+        }
+
+        // Initialize TomSelect
+        initTomSelect(elementId, isMulti, placeholder);
+    }
 }
 
 

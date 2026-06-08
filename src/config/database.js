@@ -778,6 +778,7 @@ async function createDbInstance() {
                         languageMode TEXT DEFAULT 'en',
                         status TEXT DEFAULT 'inactive',
                         errorMessage TEXT,
+                        claudeModel TEXT DEFAULT 'haiku',
                         PRIMARY KEY (guildId, agentId)
                     )
                 `);
@@ -791,7 +792,7 @@ async function createDbInstance() {
                         chatCharacterName, chatCharacterTraits, supportCharacterName, supportCharacterTraits,
                         welcomeEnabled, welcomeChannel, welcomeMessage, chatEnabled, chatChannels,
                         supportEnabled, supportChannel, supportKnowledgeChannels,
-                        botToBotChatEnabled, maxBotTurns, enabled, languageMode
+                        botToBotChatEnabled, maxBotTurns, enabled, languageMode, claudeModel
                     ) SELECT 
                         t.guildId,
                         'agent_' || COALESCE(t.clientId, 'old_' || RANDOM()),
@@ -805,7 +806,8 @@ async function createDbInstance() {
                         t.chatCharacterName, t.chatCharacterTraits, t.supportCharacterName, t.supportCharacterTraits,
                         t.welcomeEnabled, t.welcomeChannel, t.welcomeMessage, t.chatEnabled, t.chatChannels,
                         t.supportEnabled, t.supportChannel, t.supportKnowledgeChannels,
-                        t.botToBotChatEnabled, t.maxBotTurns, t.enabled, t.languageMode
+                        t.botToBotChatEnabled, t.maxBotTurns, t.enabled, t.languageMode,
+                        COALESCE(t.claudeModel, 'haiku')
                     FROM temp_ai_agent_configs t
                 `);
                 await dbInstance.exec(`DROP TABLE temp_ai_agent_configs`);
@@ -841,6 +843,7 @@ async function createDbInstance() {
             try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN ${col}`); } catch (e) {}
         }
         try { await dbInstance.exec(`ALTER TABLE market_configs ADD COLUMN marketQuestions TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN claudeModel TEXT DEFAULT 'haiku'`); } catch (e) {}
 
         // Auto-migrate guild_configs columns
         const guildCols = ['welcomeChannelId', 'logChannelId', 'ticketCategoryId', 'brandingName', 'brandingAvatar'];

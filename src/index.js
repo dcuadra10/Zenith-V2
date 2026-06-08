@@ -421,26 +421,38 @@ app.get('/api/config/:guildId', authenticateToken, async (req, res) => {
 
 // POST Settings for a specific Guild
 app.post('/api/config/:guildId', authenticateToken, async (req, res) => {
+    const b = req.body;
+    const guildId = req.params.guildId;
     try {
-        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
         if (!hasAdmin) return res.status(403).json({ error: 'Forbidden' });
 
-        const { spreadsheetId, leadershipChannelId, welcomeChannelId, logChannelId, ticketCategoryId, brandingName, brandingAvatar } = req.body;
         const db = await getDb();
-        await db.run(
-            `INSERT INTO guild_configs (guildId, spreadsheetId, leadershipChannelId, welcomeChannelId, logChannelId, ticketCategoryId, brandingName, brandingAvatar) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?) 
-             ON CONFLICT(guildId) DO UPDATE SET 
-             spreadsheetId=excluded.spreadsheetId, 
-             leadershipChannelId=excluded.leadershipChannelId,
-             welcomeChannelId=excluded.welcomeChannelId,
-             logChannelId=excluded.logChannelId,
-             ticketCategoryId=excluded.ticketCategoryId,
-             brandingName=excluded.brandingName,
-             brandingAvatar=excluded.brandingAvatar`,
-             [req.params.guildId, spreadsheetId, leadershipChannelId, welcomeChannelId, logChannelId, ticketCategoryId, brandingName || null, brandingAvatar || null]
-        );
-        const config = await db.get(`SELECT * FROM guild_configs WHERE guildId = ?`, [req.params.guildId]);
+        const fields = ['spreadsheetId', 'leadershipChannelId', 'welcomeChannelId', 'logChannelId', 'ticketCategoryId', 'brandingName', 'brandingAvatar'];
+        
+        const fieldsToUpdate = [];
+        const values = [];
+        for (const f of fields) {
+            const foundKey = Object.keys(b).find(k => k.toLowerCase() === f.toLowerCase());
+            if (foundKey !== undefined && b[foundKey] !== undefined) {
+                fieldsToUpdate.push(f);
+                values.push(b[foundKey]);
+            }
+        }
+
+        if (fieldsToUpdate.length > 0) {
+            const existing = await db.get('SELECT 1 FROM guild_configs WHERE guildId = ?', [guildId]);
+            if (existing) {
+                const setClause = fieldsToUpdate.map(f => `${f} = ?`).join(', ');
+                await db.run(`UPDATE guild_configs SET ${setClause} WHERE guildId = ?`, [...values, guildId]);
+            } else {
+                const cols = ['guildId', ...fieldsToUpdate].join(', ');
+                const placeholders = ['?', ...fieldsToUpdate.map(() => '?')].join(', ');
+                await db.run(`INSERT INTO guild_configs (${cols}) VALUES (${placeholders})`, [guildId, ...values]);
+            }
+        }
+
+        const config = await db.get(`SELECT * FROM guild_configs WHERE guildId = ?`, [guildId]);
         res.json({ success: true, config });
     } catch (e) {
         console.error(e);
@@ -848,41 +860,42 @@ app.get('/api/market-config/:guildId', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/market-config/:guildId', authenticateToken, async (req, res) => {
+    const b = req.body;
+    const guildId = req.params.guildId;
     try {
-        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        const hasAdmin = await checkAdmin(req.user.id, guildId);
         if (!hasAdmin) return res.status(403).json({ error: 'Forbidden' });
 
         const db = await getDb();
-        const { marketEnabled, forumChannelId, approvalChannelId, ownerChannelId, paymentMethods, middlemanRole, marketFeePct, middlemanFeePct, marketQuestions, mmPaymentMethods } = req.body;
+        const fields = ['marketEnabled', 'forumChannelId', 'approvalChannelId', 'ownerChannelId', 'paymentMethods', 'middlemanRole', 'marketFeePct', 'middlemanFeePct', 'marketQuestions', 'mmPaymentMethods'];
         
-        await db.run(
-            `INSERT INTO market_configs (guildId, marketEnabled, forumChannelId, approvalChannelId, ownerChannelId, paymentMethods, middlemanRole, marketFeePct, middlemanFeePct, marketQuestions, mmPaymentMethods)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(guildId) DO UPDATE SET 
-             marketEnabled = excluded.marketEnabled,
-             forumChannelId = excluded.forumChannelId,
-             approvalChannelId = excluded.approvalChannelId,
-             ownerChannelId = excluded.ownerChannelId,
-             paymentMethods = excluded.paymentMethods,
-             middlemanRole = excluded.middlemanRole,
-             marketFeePct = excluded.marketFeePct,
-             middlemanFeePct = excluded.middlemanFeePct,
-             marketQuestions = excluded.marketQuestions,
-             mmPaymentMethods = excluded.mmPaymentMethods`,
-            [
-                req.params.guildId, 
-                marketEnabled ? 1 : 0, 
-                forumChannelId, 
-                approvalChannelId, 
-                ownerChannelId, 
-                paymentMethods, 
-                middlemanRole, 
-                parseInt(marketFeePct) || 5, 
-                parseInt(middlemanFeePct) || 5, 
-                marketQuestions ? JSON.stringify(marketQuestions) : null, 
-                mmPaymentMethods
-            ]
-        );
+        const fieldsToUpdate = [];
+        const values = [];
+        for (const f of fields) {
+            const foundKey = Object.keys(b).find(k => k.toLowerCase() === f.toLowerCase());
+            if (foundKey !== undefined && b[foundKey] !== undefined) {
+                fieldsToUpdate.push(f);
+                let val = b[foundKey];
+                if (f === 'marketEnabled') val = val ? 1 : 0;
+                else if (f === 'marketQuestions' && val !== null) {
+                    val = typeof val === 'string' ? val : JSON.stringify(val);
+                }
+                values.push(val);
+            }
+        }
+
+        if (fieldsToUpdate.length > 0) {
+            const existing = await db.get('SELECT 1 FROM market_configs WHERE guildId = ?', [guildId]);
+            if (existing) {
+                const setClause = fieldsToUpdate.map(f => `${f} = ?`).join(', ');
+                await db.run(`UPDATE market_configs SET ${setClause} WHERE guildId = ?`, [...values, guildId]);
+            } else {
+                const cols = ['guildId', ...fieldsToUpdate].join(', ');
+                const placeholders = ['?', ...fieldsToUpdate.map(() => '?')].join(', ');
+                await db.run(`INSERT INTO market_configs (${cols}) VALUES (${placeholders})`, [guildId, ...values]);
+            }
+        }
+
         res.json({ success: true });
     } catch (e) {
         console.error(e);
@@ -1320,7 +1333,7 @@ app.post('/api/modules/:guildId', authenticateToken, async (req, res) => {
 
         const db = await getDb();
         
-        // Build dynamic upsert
+        // Build dynamic upsert/update
         const fields = [
             'welcomeEnabled', 'welcomeChannel', 'welcomeEmbedTitle', 'welcomeEmbedDesc', 'welcomeColor', 'welcomeImage', 'welcomeUseEmbed',
             'levelingEnabled', 'xpMin', 'xpMax', 'xpCooldown', 'levelUpChannel', 'roleRewards',
@@ -1343,20 +1356,29 @@ app.post('/api/modules/:guildId', authenticateToken, async (req, res) => {
             'giftCodesEnabled', 'giftCodesSourceChannel', 'giftCodesTargetChannel', 'giftCodesPingRole',
             'hallOfShameEnabled', 'hallOfShameEmoji', 'hallOfShameThreshold', 'hallOfShameChannel'
         ];
-        
-        const allFields = ['guildId', ...fields];
-        const placeholders = allFields.map(() => '?').join(',');
-        const updateSet = fields.map(f => `${f}=excluded.${f}`).join(',');
-        const values = [guildId, ...fields.map(f => {
-            const foundKey = Object.keys(b).find(k => k.toLowerCase() === f.toLowerCase());
-            return (foundKey !== undefined && b[foundKey] !== undefined) ? b[foundKey] : null;
-        })];
 
-        
-        await db.run(
-            `INSERT INTO module_configs (${allFields.join(',')}) VALUES (${placeholders}) ON CONFLICT(guildId) DO UPDATE SET ${updateSet}`,
-            values
-        );
+        // Only update fields that were actually provided in the request body
+        const fieldsToUpdate = [];
+        const values = [];
+        for (const f of fields) {
+            const foundKey = Object.keys(b).find(k => k.toLowerCase() === f.toLowerCase());
+            if (foundKey !== undefined && b[foundKey] !== undefined) {
+                fieldsToUpdate.push(f);
+                values.push(b[foundKey]);
+            }
+        }
+
+        if (fieldsToUpdate.length > 0) {
+            const existing = await db.get('SELECT 1 FROM module_configs WHERE guildId = ?', [guildId]);
+            if (existing) {
+                const setClause = fieldsToUpdate.map(f => `${f} = ?`).join(', ');
+                await db.run(`UPDATE module_configs SET ${setClause} WHERE guildId = ?`, [...values, guildId]);
+            } else {
+                const cols = ['guildId', ...fieldsToUpdate].join(', ');
+                const placeholders = ['?', ...fieldsToUpdate.map(() => '?')].join(', ');
+                await db.run(`INSERT INTO module_configs (${cols}) VALUES (${placeholders})`, [guildId, ...values]);
+            }
+        }
         
         // Sync role rewards in the background for users who already reached the levels
         syncMilestoneRoles(guildId).catch(err => console.error('[SYNC ERROR]:', err));

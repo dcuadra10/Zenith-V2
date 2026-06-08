@@ -260,7 +260,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setupColorSync('welcomeColor', 'welcomeColorHex');
     
     // Bind visual toggle sync for all module main switches
-    const togglesToWatch = ['toggleWelcome', 'toggleLeveling', 'toggleTickets', 'toggleAutomod', 'toggleLogging', 'toggleAutorole', 'toggleSwearJar', 'toggleCounting', 'toggleServerStats', 'toggleAntinuke', 'toggleEconomy', 'toggleRss', 'toggleGiveaways', 'toggleMarket', 'toggleRokVerifier'];
+    const togglesToWatch = ['toggleWelcome', 'toggleLeveling', 'toggleTickets', 'toggleAutomod', 'toggleLogging', 'toggleAutorole', 'toggleSwearJar', 'toggleCounting', 'toggleServerStats', 'toggleAntinuke', 'toggleEconomy', 'toggleRss', 'toggleGiveaways', 'toggleMarket', 'toggleRokVerifier', 'toggleHallOfShame', 'toggleNewKingdom', 'toggleGiftCodes', 'toggleR4Tracking'];
     togglesToWatch.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -977,7 +977,11 @@ function applyToggleVisuals() {
         { page: 'rss', toggle: 'toggleRss' },
         { page: 'giveaways', toggle: 'toggleGiveaways' },
         { page: 'market', toggle: 'toggleMarket' },
-        { page: 'rokverifier', toggle: 'toggleRokVerifier' }
+        { page: 'rokverifier', toggle: 'toggleRokVerifier' },
+        { page: 'hallofshame', toggle: 'toggleHallOfShame' },
+        { page: 'newkingdom', toggle: 'toggleNewKingdom' },
+        { page: 'giftcodes', toggle: 'toggleGiftCodes' },
+        { page: 'r4tracking', toggle: 'toggleR4Tracking' }
     ];
 
     mappings.forEach(m => {
@@ -1909,15 +1913,18 @@ function addBtnOption(rIdx) {
 function removeBtnRow(rIdx) {
     panelDraft.buttonRows.splice(rIdx, 1);
     renderDropdowns();
+    triggerUnsavedChanges();
 }
 
 function removeBtnOption(rIdx, oIdx) {
     panelDraft.buttonRows[rIdx].options.splice(oIdx, 1);
     renderDropdowns();
+    triggerUnsavedChanges();
 }
 
 function updateBtnField(rIdx, oIdx, field, val) {
     panelDraft.buttonRows[rIdx].options[oIdx][field] = val;
+    triggerUnsavedChanges();
 }
 
 function addOption(dIdx) {
@@ -1935,11 +1942,13 @@ function addOption(dIdx) {
         questionDelivery: 'modal'
     });
     renderDropdowns();
+    triggerUnsavedChanges();
 }
 
 function addQuestion(dIdx, oIdx) {
     panelDraft.dropdowns[dIdx].options[oIdx].questions.push('');
     renderDropdowns();
+    triggerUnsavedChanges();
 }
 
 function updateField(dIdx, oIdx, field, val) {
@@ -1948,6 +1957,7 @@ function updateField(dIdx, oIdx, field, val) {
     } else {
         panelDraft.dropdowns[dIdx].options[oIdx][field] = val;
     }
+    triggerUnsavedChanges();
 }
 
 function updateQuestion(dIdx, oIdx, qIdx, field, val) {
@@ -1957,6 +1967,7 @@ function updateQuestion(dIdx, oIdx, qIdx, field, val) {
     }
     opt.questions[qIdx][field] = val;
     if (field === 'type') renderModalQuestions();
+    triggerUnsavedChanges();
 }
 
 function clearPanelForm() {
@@ -2203,6 +2214,7 @@ function addModalQuestion() {
     if (!opt.questions) opt.questions = [];
     opt.questions.push('');
     renderModalQuestions();
+    triggerUnsavedChanges();
 }
 
 function removeModalQuestion(qIdx) {
@@ -2211,6 +2223,7 @@ function removeModalQuestion(qIdx) {
     const opt = isBtn ? panelDraft.buttonRows[dIdx].options[oIdx] : panelDraft.dropdowns[dIdx].options[oIdx];
     opt.questions.splice(qIdx, 1);
     renderModalQuestions();
+    triggerUnsavedChanges();
 }
 
 function saveOptionSettings() {
@@ -2240,6 +2253,7 @@ function saveOptionSettings() {
     
     closeModal('optionSettingsModal');
     renderDropdowns();
+    triggerUnsavedChanges();
 }
 
 async function savePanel() {
@@ -2391,13 +2405,29 @@ function revertChanges() {
     showToast('Changes reverted');
 }
 
-function saveCurrentPage() {
+async function saveCurrentPage() {
     // Determine which page is active and save accordingly
     const page = currentPage;
-    if (page === 'general') {
-        saveGeneralConfig();
-    } else {
-        saveModuleConfig(page);
+    try {
+        if (page === 'general') {
+            await saveGeneralConfig();
+        } else if (page === 'market') {
+            await saveMarketConfig();
+            await saveModuleConfig(page);
+        } else if (page === 'aiagents') {
+            await saveAIAgentConfig();
+            await saveModuleConfig(page);
+        } else if (page === 'tickets') {
+            await saveModuleConfig(page);
+            const channelId = getVal('panelChannelId');
+            if (channelId) {
+                await savePanel();
+            }
+        } else {
+            await saveModuleConfig(page);
+        }
+    } catch (e) {
+        console.error('Error in saveCurrentPage:', e);
     }
     document.getElementById('saveBar').classList.remove('visible');
 }

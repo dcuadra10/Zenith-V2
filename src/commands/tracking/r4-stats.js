@@ -32,10 +32,19 @@ module.exports = {
 
         const weekId = getISOWeekString();
         const record = await db.get(`SELECT * FROM r4_tracking WHERE guildId = ? AND userId = ? AND weekId = ?`, [interaction.guild.id, interaction.user.id, weekId]);
+        const excuse = await db.get(`SELECT startWeekId, durationWeeks, excuseReason FROM r4_excuses WHERE userId = ? AND guildId = ?`, [interaction.user.id, interaction.guild.id]);
+        const { isWeekWithinExcuse } = require('../../utils/dateHelpers');
 
         const ads = record ? record.ads : 0;
         const msgs = record ? record.messages : 0;
-        const excused = record ? record.excused : 0;
+        let excused = record ? record.excused === 1 : false;
+
+        if (excuse) {
+            const excuseCheck = isWeekWithinExcuse(excuse.startWeekId, excuse.durationWeeks, weekId);
+            if (excuseCheck.excused) {
+                excused = true;
+            }
+        }
 
         const adQuota = conf.r4trackingadquota || 40;
         const msgQuota = conf.r4trackingmsgquota || 245;
@@ -58,13 +67,13 @@ module.exports = {
         }
 
         const embed = new EmbedBuilder()
-            .setTitle(`🎯 R4 Weekly Progress: ${weekId}`)
-            .setColor(color)
-            .setDescription(`Here is your current progress towards the weekly activity quotas.\n\n**Status:** ${statusText}\n**Total Completion:** \`${totalPct}%\` / 100%`)
-            .addFields(
-                { name: '📊 Ads Logged', value: `${ads} / ${adQuota} \`(${Math.round(adPct)}%)\``, inline: true },
-                { name: '💬 Messages Sent', value: `${msgs} / ${msgQuota} \`(${Math.round(msgPct)}%)\``, inline: true }
-            );
+             .setTitle(`🎯 R4 Weekly Progress: ${weekId}`)
+             .setColor(color)
+             .setDescription(`Here is your current progress towards the weekly activity quotas.\n\n**Status:** ${statusText}\n**Total Completion:** \`${totalPct}%\` / 100%`)
+             .addFields(
+                 { name: '📊 Ads Logged', value: `${ads} / ${adQuota} \`(${Math.round(adPct)}%)\``, inline: true },
+                 { name: '💬 Messages Sent', value: `${msgs} / ${msgQuota} \`(${Math.round(msgPct)}%)\``, inline: true }
+             );
 
         // Fetch History
         const history = await db.all(`SELECT weekId, ads, messages, excused FROM r4_tracking WHERE guildId = ? AND userId = ? AND weekId != ? ORDER BY weekId DESC LIMIT 4`, [interaction.guild.id, interaction.user.id, weekId]);
@@ -74,7 +83,16 @@ module.exports = {
                 const hAdPct = (h.ads / adQuota) * 100;
                 const hMsgPct = (h.messages / msgQuota) * 100;
                 const hTotal = Math.min(Math.round(hAdPct + hMsgPct), 200);
-                const hIcon = h.excused ? '🛡️' : (hTotal >= 100 ? '✅' : (hTotal >= 75 ? '⚠️' : '❌'));
+                
+                let hExcused = h.excused === 1;
+                if (excuse) {
+                    const excuseCheck = isWeekWithinExcuse(excuse.startWeekId, excuse.durationWeeks, h.weekId);
+                    if (excuseCheck.excused) {
+                        hExcused = true;
+                    }
+                }
+                
+                const hIcon = hExcused ? '🛡️' : (hTotal >= 100 ? '✅' : (hTotal >= 75 ? '⚠️' : '❌'));
                 return `**${h.weekId}**: ${hIcon} Ads: ${h.ads} | Msgs: ${h.messages} (${hTotal}%)`;
             }).join('\n');
             embed.addFields({ name: '📜 Past Performance History', value: historyText, inline: false });

@@ -33,6 +33,9 @@ module.exports = {
 
         const weekId = getISOWeekString();
         const records = await db.all(`SELECT userId, ads, messages, excused FROM r4_tracking WHERE guildId = ? AND weekId = ?`, [interaction.guild.id, weekId]);
+        const excuses = await db.all(`SELECT userId, startWeekId, durationWeeks FROM r4_excuses WHERE guildId = ?`, [interaction.guild.id]);
+        const excusesMap = new Map();
+        excuses.forEach(e => excusesMap.set(e.userId, e));
 
         // Fetch all current guild members to ensure hot cache and identify officers
         const officerIds = new Set();
@@ -83,11 +86,22 @@ module.exports = {
         const msgQuota = conf.r4trackingmsgquota || 245;
 
         // Calculate progress percentage and sort
+        const { isWeekWithinExcuse } = require('../../utils/dateHelpers');
         const leaderboard = finalRecords.map(r => {
             const adPct = (r.ads / adQuota) * 100;
             const msgPct = (r.messages / msgQuota) * 100;
             const totalPct = Math.min(Math.round(adPct + msgPct), 200);
-            return { ...r, totalPct };
+
+            const excuse = excusesMap.get(r.userId);
+            let isExcused = r.excused === 1;
+            if (excuse) {
+                const excuseCheck = isWeekWithinExcuse(excuse.startWeekId, excuse.durationWeeks, weekId);
+                if (excuseCheck.excused) {
+                    isExcused = true;
+                }
+            }
+
+            return { ...r, totalPct, isExcused };
         }).sort((a, b) => b.totalPct - a.totalPct).slice(0, 15);
 
         const entries = [];
@@ -99,7 +113,7 @@ module.exports = {
                 if (member) name = member.displayName || member.user.username;
             } catch (e) {}
 
-            const icon = r.excused ? '🛡️' : (r.totalPct >= 100 ? '✅' : (r.totalPct >= 75 ? '⚠️' : '❌'));
+            const icon = r.isExcused ? '🛡️' : (r.totalPct >= 100 ? '✅' : (r.totalPct >= 75 ? '⚠️' : '❌'));
             entries.push({
                 name: `${name} ${icon}`,
                 value: `${r.totalPct}% (Ads: ${r.ads}/${adQuota} | Msgs: ${r.messages}/${msgQuota})`

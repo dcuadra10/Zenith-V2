@@ -1216,8 +1216,8 @@ app.post('/api/ai-agent/:guildId/research', authenticateToken, async (req, res) 
         const systemPrompt = `You are a professional character personality researcher and prompt engineer.
 Your task is to research the character named "${characterName}" and write a detailed set of character traits and behavior instructions to be used as a system prompt for a Discord AI bot.
 Include their:
-- Voice, style, and tone of speaking.
-- Personality traits, backstory, and attitudes.
+- Voice, style, and tone of speaking (avoid robotic or corporate customer support politeness; they must act like a normal human/character on Discord).
+- Personality traits, backstory, and attitudes (including how they respond to being insulted, teased, or bantered with in-character, rather than using canned AI safety refusals).
 - Standard phrases, idioms, or quotes.
 - Instructions on how they should act in a Discord chat.
 

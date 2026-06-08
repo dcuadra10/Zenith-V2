@@ -3,8 +3,16 @@ const fs = require('fs');
 const path = require('path');
 
 async function deployCommands(token, clientId) {
-    // Do not load any commands for custom bots, pushing an empty array clears all of them globally
+    // Custom bots only get the ai-agent command
     const commands = [];
+    try {
+        const aiAgentCommand = require('../commands/utilities/ai-agent');
+        if (aiAgentCommand.data) {
+            commands.push(aiAgentCommand.data.toJSON());
+        }
+    } catch (e) {
+        console.error('[Deploy] Failed to load ai-agent command:', e.message);
+    }
 
     const rest = new REST({ version: '10' }).setToken(token);
 

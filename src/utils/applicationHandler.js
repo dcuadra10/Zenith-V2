@@ -186,6 +186,13 @@ async function handleApplicationMessage(message, client) {
 
             saveCurrentAnswer(appState);
 
+            // Show the user's answer confirmation before moving on
+            const savedAnswer = appState.answers[appState.currentQuestion];
+            if (savedAnswer && savedAnswer.answer && savedAnswer.answer !== 'No answer provided') {
+                const answerPreview = savedAnswer.answer.length > 200 ? savedAnswer.answer.substring(0, 197) + '...' : savedAnswer.answer;
+                await message.author.send(`✅ **Answer recorded for Question ${appState.currentQuestion + 1}:**\n> ${answerPreview.split('\n').join('\n> ')}`).catch(() => {});
+            }
+
             if (appState.status === 'editing') {
                 appState.status = 'review';
                 return await showReviewScreen(message, appState);
@@ -544,6 +551,12 @@ async function handleApplicationStartButton(interaction) {
         
         appState.answers[appState.currentQuestion] = newAnswer;
         appState.currentBuffer = '';
+
+        // 2.5 Send answer confirmation before advancing
+        const user = interaction.user || interaction.message?.author;
+        if (user) {
+            await user.send(`✅ **Answer recorded for Question ${appState.currentQuestion + 1}:**\n> ${choice}`).catch(() => {});
+        }
         
         // 3. Move to next question or show review screen
         if (appState.status === 'editing') {

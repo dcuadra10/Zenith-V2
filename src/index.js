@@ -117,42 +117,73 @@ async function syncMilestoneRoles(guildId) {
     } catch (e) {
         console.error(`[SYNC] Failed to fetch specified guild members for ${guildId}:`, e);
     }
-    
     let processedCount = 0;
     let rolesAddedCount = 0;
+    let rolesRemovedCount = 0;
+
+    // Collect all milestone role IDs for fast lookup
+    const allMilestoneRoleIds = rewards
+        .filter(r => r && r.roleId)
+        .map(r => r.roleId.replace(/[^0-9]/g, ''))
+        .filter(id => id);
 
     for (const dbUser of dbUsers) {
         processedCount++;
         const member = guild.members.cache.get(dbUser.userId);
         if (!member) continue;
         
-        let addedAny = false;
+        // Find the HIGHEST earned reward for this user
+        let highestReward = null;
         for (const reward of rewards) {
             if (reward && reward.roleId && dbUser.level >= parseInt(reward.level)) {
-                const role = guild.roles.cache.get(reward.roleId.replace(/[^0-9]/g, ''));
-                if (role && !member.roles.cache.has(role.id)) {
-                    try {
-                        await member.roles.add(role);
-                        rolesAddedCount++;
-                        addedAny = true;
-                        console.log(`[SYNC] Added role ${role.name} to ${member.user.tag} (Level ${dbUser.level})`);
-                    } catch (err) {
-                        console.error(`[SYNC] Failed to add role ${role.name} to ${member.user.tag}:`, err.message);
-                    }
+                if (!highestReward || parseInt(reward.level) > parseInt(highestReward.level)) {
+                    highestReward = reward;
+                }
+            }
+        }
+
+        const highestRoleId = highestReward ? highestReward.roleId.replace(/[^0-9]/g, '') : null;
+        let changedAny = false;
+
+        // Remove all milestone roles that are NOT the highest earned one
+        for (const milestoneRoleId of allMilestoneRoleIds) {
+            if (milestoneRoleId === highestRoleId) continue; // Keep the highest
+            if (member.roles.cache.has(milestoneRoleId)) {
+                try {
+                    await member.roles.remove(milestoneRoleId);
+                    rolesRemovedCount++;
+                    changedAny = true;
+                } catch (err) {
+                    console.error(`[SYNC] Failed to remove milestone role from ${member.user.tag}:`, err.message);
+                }
+            }
+        }
+
+        // Add the highest earned milestone role if not already present
+        if (highestRoleId) {
+            const role = guild.roles.cache.get(highestRoleId);
+            if (role && !member.roles.cache.has(role.id)) {
+                try {
+                    await member.roles.add(role);
+                    rolesAddedCount++;
+                    changedAny = true;
+                    console.log(`[SYNC] Added role ${role.name} to ${member.user.tag} (Level ${dbUser.level})`);
+                } catch (err) {
+                    console.error(`[SYNC] Failed to add role ${role.name} to ${member.user.tag}:`, err.message);
                 }
             }
         }
 
         // Add a 500ms rate limit buffer if we performed a role update
-        if (addedAny) {
+        if (changedAny) {
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         if (processedCount % 50 === 0 || processedCount === dbUsers.length) {
-            console.log(`[SYNC] Progress: ${processedCount}/${dbUsers.length} users processed. Roles added so far: ${rolesAddedCount}`);
+            console.log(`[SYNC] Progress: ${processedCount}/${dbUsers.length} users processed. Roles added: ${rolesAddedCount}, Roles removed: ${rolesRemovedCount}`);
         }
     }
-    console.log(`[SYNC] Milestone role sync complete for guild ${guild.name}. Total processed: ${processedCount}, Total roles added: ${rolesAddedCount}`);
+    console.log(`[SYNC] Milestone role sync complete for guild ${guild.name}. Total processed: ${processedCount}, Added: ${rolesAddedCount}, Removed: ${rolesRemovedCount}`);
 }
 
 const client = new Client({
@@ -977,7 +1008,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
             botToBotChatEnabled,
             maxBotTurns,
             enabled,
-            languageMode
+            languageMode,
+            claudeModel
         } = req.body;
         
         const activeAgentId = agentId || '';
@@ -1022,8 +1054,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 chatEnabled, chatChannels, supportEnabled, supportChannel, supportKnowledgeChannels,
                 botToBotChatEnabled, maxBotTurns, enabled, languageMode,
                 welcomeCharacterName, welcomeCharacterTraits, chatCharacterName, chatCharacterTraits,
-                supportCharacterName, supportCharacterTraits
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                supportCharacterName, supportCharacterTraits, claudeModel
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(guildId, agentId) DO UPDATE SET
              botToken = excluded.botToken,
              openaiApiKey = excluded.openaiApiKey,
@@ -1053,7 +1085,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
              chatCharacterName = excluded.chatCharacterName,
              chatCharacterTraits = excluded.chatCharacterTraits,
              supportCharacterName = excluded.supportCharacterName,
-             supportCharacterTraits = excluded.supportCharacterTraits`,
+             supportCharacterTraits = excluded.supportCharacterTraits,
+             claudeModel = excluded.claudeModel`,
             [
                 guildId,
                 activeAgentId,
@@ -1086,7 +1119,8 @@ app.post('/api/ai-agent/:guildId', authenticateToken, async (req, res) => {
                 chatCharacterName || '',
                 chatCharacterTraits || '',
                 supportCharacterName || '',
-                supportCharacterTraits || ''
+                supportCharacterTraits || '',
+                claudeModel || 'haiku'
             ]
         );
 

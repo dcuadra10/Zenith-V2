@@ -60,8 +60,11 @@ module.exports = {
                     requiredModule = 'giveawaysenabled';
                     moduleNameFriendly = 'Giveaways';
                 } else if (aiCommands.includes(cmdName)) {
-                    requiredModule = 'chatenabled';
-                    moduleNameFriendly = 'AI Agents';
+                    // Custom bots always allow the ai-agent command (they check their own config internally)
+                    if (!client.isCustomBot) {
+                        requiredModule = 'chatenabled';
+                        moduleNameFriendly = 'AI Agents';
+                    }
                 } else if (marketCommands.includes(cmdName)) {
                     requiredModule = 'marketenabled';
                     moduleNameFriendly = 'Market+';

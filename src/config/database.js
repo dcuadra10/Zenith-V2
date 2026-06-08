@@ -705,6 +705,7 @@ async function createDbInstance() {
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN chatCharacterTraits TEXT`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportCharacterName TEXT`); } catch (e) {}
         try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN supportCharacterTraits TEXT`); } catch (e) {}
+        try { await dbInstance.exec(`ALTER TABLE ai_agent_configs ADD COLUMN claudeModel TEXT DEFAULT 'haiku'`); } catch (e) {}
 
         // Migrate Hall of Shame columns
         try { await dbInstance.exec(`ALTER TABLE module_configs ADD COLUMN hallOfShameEnabled INTEGER DEFAULT 0`); } catch (e) {}

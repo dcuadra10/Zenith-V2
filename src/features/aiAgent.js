@@ -1,6 +1,17 @@
 const { getDb } = require('../config/database');
 const axios = require('axios');
 
+// Available Claude models for dashboard selection
+const CLAUDE_MODELS = {
+    'haiku': 'claude-haiku-4-5-20250514',
+    'sonnet': 'claude-sonnet-4-6-20250514',
+    'opus': 'claude-opus-4-8-20250514'
+};
+const DEFAULT_CLAUDE_MODEL = CLAUDE_MODELS['haiku'];
+
+// Available OpenAI models
+const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
+
 function getLanguageInstruction(languageMode) {
     if (languageMode === 'en') {
         return '\n\nIMPORTANT: ALWAYS speak and respond strictly in English. Do not use any other language, regardless of the language used by the user.';
@@ -25,12 +36,59 @@ function getLanguageInstruction(languageMode) {
 const channelTurnCounts = {}; // 'guildId:channelId' -> number
 const channelCooldownEndTimes = {}; // 'guildId:channelId' -> timestamp
 
+/**
+ * Resolve the Claude model ID from config.
+ * Supports both short names ('haiku', 'sonnet', 'opus') and full model IDs.
+ */
+function resolveClaudeModel(configModel) {
+    if (!configModel) return DEFAULT_CLAUDE_MODEL;
+    // If it's a short name, look it up
+    if (CLAUDE_MODELS[configModel.toLowerCase()]) {
+        return CLAUDE_MODELS[configModel.toLowerCase()];
+    }
+    // If it already looks like a full model ID, use as-is
+    if (configModel.startsWith('claude-')) {
+        return configModel;
+    }
+    return DEFAULT_CLAUDE_MODEL;
+}
+
+/**
+ * Split a message into Discord-safe chunks (max 2000 chars).
+ * Tries to split at newlines for readability.
+ */
+function splitMessage(text, maxLength = 1990) {
+    if (text.length <= maxLength) return [text];
+    
+    const chunks = [];
+    let remaining = text;
+    while (remaining.length > 0) {
+        if (remaining.length <= maxLength) {
+            chunks.push(remaining);
+            break;
+        }
+        // Try to find a newline to split at
+        let splitIdx = remaining.lastIndexOf('\n', maxLength);
+        if (splitIdx <= 0 || splitIdx < maxLength * 0.5) {
+            // Fallback: split at space
+            splitIdx = remaining.lastIndexOf(' ', maxLength);
+        }
+        if (splitIdx <= 0) {
+            // Hard split
+            splitIdx = maxLength;
+        }
+        chunks.push(remaining.substring(0, splitIdx));
+        remaining = remaining.substring(splitIdx).trimStart();
+    }
+    return chunks;
+}
+
 async function askOpenAI(apiKey, systemPrompt, messageHistory) {
     try {
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
-                model: 'gpt-4o-mini',
+                model: DEFAULT_OPENAI_MODEL,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     ...messageHistory
@@ -53,56 +111,73 @@ async function askOpenAI(apiKey, systemPrompt, messageHistory) {
     }
 }
 
-async function askClaude(apiKey, systemPrompt, messageHistory) {
-    try {
-        // Convert OpenAI-style message history to Claude format
-        const messages = messageHistory.map(m => ({
-            role: m.role === 'assistant' ? 'assistant' : 'user',
-            content: m.content
-        }));
+async function askClaude(apiKey, systemPrompt, messageHistory, modelOverride) {
+    const model = modelOverride || DEFAULT_CLAUDE_MODEL;
+    const MAX_RETRIES = 3;
 
-        // Claude requires alternating user/assistant messages; merge consecutive same-role messages
-        const mergedMessages = [];
-        for (const msg of messages) {
-            if (mergedMessages.length > 0 && mergedMessages[mergedMessages.length - 1].role === msg.role) {
-                mergedMessages[mergedMessages.length - 1].content += '\n' + msg.content;
-            } else {
-                mergedMessages.push({ ...msg });
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            // Convert OpenAI-style message history to Claude format
+            const messages = messageHistory.map(m => ({
+                role: m.role === 'assistant' ? 'assistant' : 'user',
+                content: m.content
+            }));
+
+            // Claude requires alternating user/assistant messages; merge consecutive same-role messages
+            const mergedMessages = [];
+            for (const msg of messages) {
+                if (mergedMessages.length > 0 && mergedMessages[mergedMessages.length - 1].role === msg.role) {
+                    mergedMessages[mergedMessages.length - 1].content += '\n' + msg.content;
+                } else {
+                    mergedMessages.push({ ...msg });
+                }
             }
-        }
 
-        // Ensure first message is from user (Claude requirement)
-        if (mergedMessages.length === 0 || mergedMessages[0].role !== 'user') {
-            mergedMessages.unshift({ role: 'user', content: '...' });
-        }
+            // Ensure first message is from user (Claude requirement)
+            if (mergedMessages.length === 0 || mergedMessages[0].role !== 'user') {
+                mergedMessages.unshift({ role: 'user', content: '...' });
+            }
 
-        const response = await axios.post(
-            'https://api.anthropic.com/v1/messages',
-            {
-                model: 'claude-3-5-sonnet-latest',
-                max_tokens: 300,
-                system: systemPrompt,
-                messages: mergedMessages
-            },
-            {
-                headers: {
-                    'x-api-key': apiKey,
-                    'anthropic-version': '2023-06-01',
-                    'Content-Type': 'application/json'
+            const response = await axios.post(
+                'https://api.anthropic.com/v1/messages',
+                {
+                    model: model,
+                    max_tokens: 300,
+                    system: systemPrompt,
+                    messages: mergedMessages
                 },
-                timeout: 15000
+                {
+                    headers: {
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01',
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 20000
+                }
+            );
+            return response.data?.content?.[0]?.text;
+        } catch (err) {
+            const status = err.response?.status;
+            // Retry on rate limit (429) or overloaded (529)
+            if ((status === 429 || status === 529) && attempt < MAX_RETRIES - 1) {
+                const retryAfter = err.response?.headers?.['retry-after'];
+                const delay = retryAfter
+                    ? parseInt(retryAfter) * 1000
+                    : Math.min(1000 * Math.pow(2, attempt) + Math.random() * 500, 10000);
+                console.warn(`[Claude API] Rate limited (${status}). Retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+                await new Promise(r => setTimeout(r, delay));
+                continue;
             }
-        );
-        return response.data?.content?.[0]?.text;
-    } catch (err) {
-        console.error('[Claude API Error]:', err.response?.data || err.message);
-        return null;
+            console.error('[Claude API Error]:', err.response?.data || err.message);
+            return null;
+        }
     }
+    return null;
 }
 
-async function askAI(provider, apiKey, systemPrompt, messageHistory) {
+async function askAI(provider, apiKey, systemPrompt, messageHistory, claudeModel) {
     if (provider === 'claude') {
-        return askClaude(apiKey, systemPrompt, messageHistory);
+        return askClaude(apiKey, systemPrompt, messageHistory, claudeModel);
     }
     return askOpenAI(apiKey, systemPrompt, messageHistory);
 }
@@ -120,7 +195,8 @@ module.exports = function setupAIAgent(client) {
             if (!config && client.token) {
                 config = await db.get(`SELECT * FROM ai_agent_configs WHERE guildId = ? AND botToken = ?`, [member.guild.id, client.token]);
             }
-            const welcomeKey = config?.welcomeOpenaiApiKey || config?.openaiApiKey;
+            const welcomeKey = config?.welcomeOpenaiApiKey || config?.openaiApiKey
+                || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
             if (!config || config.enabled === 0 || !config.welcomeEnabled || !config.welcomeChannel || !welcomeKey) return;
 
             // Wait 1.5 seconds for the Discord system join message to appear in the channel
@@ -160,9 +236,10 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
             if (welcomeKey.startsWith('sk-ant-')) provider = 'claude';
             else if (welcomeKey.startsWith('sk-proj-') || welcomeKey.startsWith('sk-svc-')) provider = 'openai';
 
+            const claudeModel = resolveClaudeModel(config.claudeModel);
             const welcomeMessage = await askAI(provider, welcomeKey, systemPrompt, [
                 { role: 'user', content: `Dale la bienvenida a <@${member.user.id}>` }
-            ]);
+            ], claudeModel);
 
             if (welcomeMessage) {
                 // Fetch the last 10 messages in the welcome channel to find the Discord system join message for this user
@@ -172,12 +249,17 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
                     joinMsg = messages.find(m => m.author.id === member.id || (m.system && m.type === 7 && m.mentions.users.has(member.id)));
                 }
 
+                const chunks = splitMessage(welcomeMessage);
                 if (joinMsg) {
                     // Simulates pressing the "Wave to say hi!" system button
                     await joinMsg.react('👋').catch(() => null);
-                    await joinMsg.reply({ content: welcomeMessage }).catch(() => null);
+                    await joinMsg.reply({ content: chunks[0] }).catch(() => null);
                 } else {
-                    await welcomeChan.send({ content: welcomeMessage }).catch(() => null);
+                    await welcomeChan.send({ content: chunks[0] }).catch(() => null);
+                }
+                // Send remaining chunks if message was long
+                for (let i = 1; i < chunks.length; i++) {
+                    await welcomeChan.send({ content: chunks[i] }).catch(() => null);
                 }
             }
         } catch (e) {
@@ -237,10 +319,17 @@ ${baseInstructions}${getLanguageInstruction(config.languageMode)}`;
             let chatKey = config.chatOpenaiApiKey || config.openaiApiKey;
             let supportKey = config.supportOpenaiApiKey || config.openaiApiKey;
             
+            // Fallback to .env global key if no per-agent key configured
+            if (!chatKey) chatKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
+            if (!supportKey) supportKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
+
             // Prevent using corrupted masked keys
-            if (chatKey && chatKey.includes('••••')) chatKey = config.openaiApiKey;
-            if (supportKey && supportKey.includes('••••')) supportKey = config.openaiApiKey;
-            if (config.openaiApiKey && config.openaiApiKey.includes('••••')) return; // Main key is corrupted
+            if (chatKey && chatKey.includes('••••')) chatKey = config.openaiApiKey || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
+            if (supportKey && supportKey.includes('••••')) supportKey = config.openaiApiKey || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
+            if (config.openaiApiKey && config.openaiApiKey.includes('••••')) {
+                // Main key is corrupted, try env fallback
+                if (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) return;
+            }
 
             const activeKey = isSupportChannel ? supportKey : chatKey;
             if (!activeKey || activeKey.includes('••••')) return;
@@ -280,9 +369,10 @@ Explica de manera divertida y totalmente metido en tu personaje que has estado h
                     if (chatKey.startsWith('sk-ant-')) chatProvider = 'claude';
                     else if (chatKey.startsWith('sk-proj-') || chatKey.startsWith('sk-svc-')) chatProvider = 'openai';
 
+                    const claudeModel = resolveClaudeModel(config.claudeModel);
                     const cooldownText = await askAI(chatProvider, chatKey, systemPrompt, [
                         { role: 'user', content: 'Di que te vas a tomar un descanso de 5 minutos.' }
-                    ]);
+                    ], claudeModel);
 
                     const finalMsg = `⚠️ **[Protección contra Bucles Activada - Pausa de Costes de 5 Minutos]**\n${cooldownText || '¡Vaya, hemos estado chateando demasiado! Me tomaré un respiro de 5 minutos.'}`;
                     await message.channel.send(finalMsg).catch(() => {});
@@ -366,13 +456,22 @@ Si la información oficial no responde la duda, explica de forma educada (en tu 
                 activeProvider = 'openai';
             }
             
+            // Resolve the Claude model from config
+            const claudeModel = resolveClaudeModel(config.claudeModel);
+
             // Diagnostic logging
-            console.log(`[AI Agent Debug] Guild: ${message.guild.id}, Channel: ${message.channel.id}, Provider: ${activeProvider}, KeyPrefix: ${activeKey ? activeKey.substring(0, 8) + '...' : 'NULL'}, isChatChannel: ${isChatChannel}, isSupportChannel: ${isSupportChannel}, isMentioned: ${isMentioned}`);
-            const responseText = await askAI(activeProvider, activeKey, systemPrompt, history);
+            console.log(`[AI Agent Debug] Guild: ${message.guild.id}, Channel: ${message.channel.id}, Provider: ${activeProvider}, Model: ${activeProvider === 'claude' ? claudeModel : DEFAULT_OPENAI_MODEL}, KeyPrefix: ${activeKey ? activeKey.substring(0, 8) + '...' : 'NULL'}, isChatChannel: ${isChatChannel}, isSupportChannel: ${isSupportChannel}, isMentioned: ${isMentioned}`);
+            const responseText = await askAI(activeProvider, activeKey, systemPrompt, history, claudeModel);
             if (responseText) {
-                await message.reply(responseText).catch(err => {
+                // Discord 2000-char limit safety — split into chunks
+                const chunks = splitMessage(responseText);
+                await message.reply(chunks[0]).catch(err => {
                     console.error('[AI Agent Reply Error]:', err.message);
                 });
+                // Send remaining chunks as follow-up messages
+                for (let i = 1; i < chunks.length; i++) {
+                    await message.channel.send(chunks[i]).catch(() => {});
+                }
             } else {
                 console.error(`[AI Agent] API returned null for guild ${message.guild.id}, provider: ${activeProvider}`);
                 await message.reply('⚠️ I tried to respond but my AI brain had a hiccup. Please check the API key configuration in the dashboard.').catch(() => {});
@@ -382,3 +481,7 @@ Si la información oficial no responde la duda, explica de forma educada (en tu 
         }
     });
 };
+
+// Export model constants for use in commands/dashboard
+module.exports.CLAUDE_MODELS = CLAUDE_MODELS;
+module.exports.DEFAULT_CLAUDE_MODEL = DEFAULT_CLAUDE_MODEL;

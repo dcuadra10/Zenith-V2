@@ -308,8 +308,19 @@ module.exports = {
 
                                 const reward = rewards.find(r => r && parseInt(r.level) === currentLevel + 1);
                                 if (reward && reward.roleId) {
-                                    const rr = message.guild.roles.cache.get(reward.roleId.replace(/[^0-9]/g, ''));
-                                    if (rr) await message.member.roles.add(rr).catch(()=>{});
+                                    const newRole = message.guild.roles.cache.get(reward.roleId.replace(/[^0-9]/g, ''));
+                                    if (newRole) {
+                                        // Remove all OTHER milestone roles first (exclusive: only keep the highest)
+                                        for (const otherReward of rewards) {
+                                            if (!otherReward || !otherReward.roleId) continue;
+                                            if (parseInt(otherReward.level) === currentLevel + 1) continue; // skip the one we're about to add
+                                            const otherRoleId = otherReward.roleId.replace(/[^0-9]/g, '');
+                                            if (message.member.roles.cache.has(otherRoleId)) {
+                                                await message.member.roles.remove(otherRoleId).catch(() => {});
+                                            }
+                                        }
+                                        await message.member.roles.add(newRole).catch(()=>{});
+                                    }
                                 }
                             } catch(e) {}
                         }

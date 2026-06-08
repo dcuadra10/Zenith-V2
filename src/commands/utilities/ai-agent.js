@@ -1,6 +1,12 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { getDb } = require('../../config/database');
 
+const CLAUDE_MODEL_LABELS = {
+    'haiku': '⚡ Haiku 4.5 — Fast & Cheap ($1/$5 per MTok)',
+    'sonnet': '🧠 Sonnet 4.6 — Balanced ($3/$15 per MTok)',
+    'opus': '🏆 Opus 4.8 — Smartest ($5/$25 per MTok)'
+};
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ai-agent')
@@ -31,6 +37,21 @@ module.exports = {
         )
         .addSubcommand(subcommand =>
             subcommand
+                .setName('model')
+                .setDescription('Set the Claude AI model for this bot.')
+                .addStringOption(option =>
+                    option.setName('tier')
+                        .setDescription('Choose the Claude model tier')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: '⚡ Haiku 4.5 — Fast & Cheap', value: 'haiku' },
+                            { name: '🧠 Sonnet 4.6 — Balanced Quality', value: 'sonnet' },
+                            { name: '🏆 Opus 4.8 — Maximum Intelligence', value: 'opus' }
+                        )
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('status')
                 .setDescription('Show the current status of AI agents on this server.')
         ),
@@ -50,8 +71,8 @@ module.exports = {
                 await db.run(`UPDATE ai_agent_configs SET clientId = ? WHERE guildId = ? AND (clientId IS NULL OR clientId = '')`, [clientId, guildId]);
             } else {
                 await db.run(
-                    `INSERT INTO ai_agent_configs (guildId, agentId, clientId, welcomeEnabled, chatEnabled, supportEnabled, botToBotChatEnabled, maxBotTurns, enabled)
-                     VALUES (?, ?, ?, 0, 0, 0, 0, 5, 1)`,
+                    `INSERT INTO ai_agent_configs (guildId, agentId, clientId, welcomeEnabled, chatEnabled, supportEnabled, botToBotChatEnabled, maxBotTurns, enabled, claudeModel)
+                     VALUES (?, ?, ?, 0, 0, 0, 0, 5, 1, 'haiku')`,
                     [guildId, `agent_${clientId}`, clientId]
                 );
             }
@@ -101,13 +122,38 @@ module.exports = {
             return interaction.reply({ embeds: [embed] });
         }
 
+        if (subcommand === 'model') {
+            const tier = interaction.options.getString('tier');
+            
+            await db.run(`UPDATE ai_agent_configs SET claudeModel = ? WHERE guildId = ? AND clientId = ?`, [tier, guildId, clientId]);
+
+            const modelLabel = CLAUDE_MODEL_LABELS[tier] || tier;
+            const embed = new EmbedBuilder()
+                .setTitle('🧠 AI Model Updated')
+                .setDescription(`The Claude AI model for **${interaction.client.user.username}** has been set to:\n\n**${modelLabel}**`)
+                .addFields(
+                    { name: '⚡ Haiku 4.5', value: 'Fastest, cheapest. Great for casual chat.', inline: true },
+                    { name: '🧠 Sonnet 4.6', value: 'Balanced quality and speed.', inline: true },
+                    { name: '🏆 Opus 4.8', value: 'Maximum intelligence. Complex tasks.', inline: true }
+                )
+                .setColor('#a855f7')
+                .setFooter({ text: 'Changes take effect immediately for new messages.' })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed] });
+        }
+
         if (subcommand === 'status') {
+            const currentModel = config.claudeModel || 'haiku';
+            const modelLabel = CLAUDE_MODEL_LABELS[currentModel] || currentModel;
+
             const embed = new EmbedBuilder()
                 .setTitle('🧠 AI Agent — Server Status')
                 .setDescription(`Here is the current status of bot **${interaction.client.user.username}** on your server:`)
                 .addFields(
                     { name: 'Overall Status 🧠', value: config.enabled !== 0 ? '✅ **ACTIVE (On)**' : '❌ **INACTIVE (Completely Off)**', inline: false },
                     { name: 'Character Name 🎭', value: config.characterName || '*Not configured (See dashboard)*', inline: true },
+                    { name: 'Claude Model 🤖', value: modelLabel, inline: true },
                     { name: 'Turn Limit 🔄', value: `${config.maxBotTurns || 5} consecutive turns`, inline: true },
                     { name: '\u200b', value: '\u200b', inline: false },
                     { name: 'Welcome Host 🚪', value: config.welcomeEnabled ? '✅ **Active**' : '❌ **Inactive**', inline: true },
@@ -116,7 +162,7 @@ module.exports = {
                     { name: 'Bot-to-Bot Chats 🤖🤖', value: config.botToBotChatEnabled ? '✅ **Active**' : '❌ **Inactive**', inline: true }
                 )
                 .setColor(config.enabled !== 0 ? '#ffd700' : '#4f545c')
-                .setFooter({ text: 'Configure traits and channels in the Zenith dashboard.' })
+                .setFooter({ text: 'Configure traits and channels in the Zenith dashboard. Use /ai-agent model to change the AI model.' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });

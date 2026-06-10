@@ -107,6 +107,23 @@ module.exports = {
             }
         }
 
+        // --- R4 TRACKING (MESSAGES) ---
+        if (conf.r4trackingenabled && conf.r4trackingrole) {
+            try {
+                if (message.member.roles.cache.has(conf.r4trackingrole.replace(/[^0-9]/g, ''))) {
+                    const weekId = getISOWeekString();
+                    await db.run(
+                        `INSERT INTO r4_tracking (userId, guildId, weekId, messages, ads, excused) 
+                        VALUES (?, ?, ?, 1, 0, 0)
+                        ON CONFLICT(userId, guildId, weekId) DO UPDATE SET messages = r4_tracking.messages + 1`,
+                        [message.author.id, message.guild.id, weekId]
+                    );
+                }
+            } catch (e) {
+                console.error('R4 tracking error:', e.message);
+            }
+        }
+
         if (true) {
             // Custom bots should NOT run server management features (auto-mod, leveling, swear jar, etc.)
             // They only handle AI agent responses via aiAgent.js
@@ -363,22 +380,7 @@ module.exports = {
                 }
             }
 
-            // --- 4. R4 TRACKING (MESSAGES) ---
-            if (conf.r4trackingenabled && conf.r4trackingrole) {
-                try {
-                    if (message.member.roles.cache.has(conf.r4trackingrole.replace(/[^0-9]/g, ''))) {
-                        const weekId = getISOWeekString();
-                        await db.run(
-                            `INSERT INTO r4_tracking (userId, guildId, weekId, messages, ads, excused) 
-                            VALUES (?, ?, ?, 1, 0, 0)
-                            ON CONFLICT(userId, guildId, weekId) DO UPDATE SET messages = r4_tracking.messages + 1`,
-                            [message.author.id, message.guild.id, weekId]
-                        );
-                    }
-                } catch (e) {
-                    console.error('R4 tracking error:', e.message);
-                }
-            }
+
 
             // --- 5. SWEAR JAR ---
             if (conf.swearjarenabled && conf.swearjarchannel) {

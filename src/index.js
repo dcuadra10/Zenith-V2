@@ -72,7 +72,6 @@ async function authenticateToken(req, res, next) {
 
 // Helper to check if user has admin permissions in a guild
 async function checkAdmin(userId, guildId) {
-    if (!client.isReady()) return false;
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return false;
     try {
@@ -204,6 +203,37 @@ const client = new Client({
 });
 client.commands = new Collection();
 client.activeApplications = new Collection();
+
+// Zenith Custom Bot Guild Cache Bridge Override
+const originalGet = client.guilds.cache.get;
+client.guilds.cache.get = function(guildId) {
+    const g = originalGet.call(client.guilds.cache, guildId);
+    if (g) return g;
+    try {
+        const customBotManager = require('./managers/CustomBotManager');
+        for (const [cId, botClient] of customBotManager.activeBots.entries()) {
+            if (botClient.isReady()) {
+                const bg = botClient.guilds.cache.get(guildId);
+                if (bg) return bg;
+            }
+        }
+    } catch (e) {}
+    return undefined;
+};
+
+const originalHas = client.guilds.cache.has;
+client.guilds.cache.has = function(guildId) {
+    if (originalHas.call(client.guilds.cache, guildId)) return true;
+    try {
+        const customBotManager = require('./managers/CustomBotManager');
+        for (const [cId, botClient] of customBotManager.activeBots.entries()) {
+            if (botClient.isReady() && botClient.guilds.cache.has(guildId)) {
+                return true;
+            }
+        }
+    } catch (e) {}
+    return false;
+};
 
 // Endpoints de API Local
 

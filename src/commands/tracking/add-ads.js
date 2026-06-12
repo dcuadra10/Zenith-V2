@@ -131,7 +131,8 @@ async function processAdsSubmission(interaction, amount) {
             );
             
             if (panelMsg) {
-                const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id]);
+                const weekId = getISOWeekString();
+                const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? AND weekId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id, weekId]);
                 const useImage = true;
                 
                 let leaderboardEmbed = null;

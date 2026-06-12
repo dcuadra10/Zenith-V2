@@ -13,8 +13,8 @@ module.exports = {
     await interaction.deferReply({ ephemeral: true });
     const db = await getDb();
     const useImage = true;
-
-    const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id]);
+    const weekId = getISOWeekString();
+    const topUsers = await db.all(`SELECT userId, SUM(ads) as totalAds FROM r4_tracking WHERE guildId = ? AND weekId = ? GROUP BY userId ORDER BY totalAds DESC LIMIT 10`, [interaction.guild.id, weekId]);
     
     const imagePath = path.join(__dirname, '..', '..', '..', 'zenith_bg - Copy.png');
     const files = [];

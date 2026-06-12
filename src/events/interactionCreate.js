@@ -1697,16 +1697,32 @@ module.exports = {
             }
             else if (interaction.customId.startsWith('modal_ticket_app_')) {
                 const parts = interaction.customId.split('_');
-                const panelId = parts[3];
-                const dIdx = parseInt(parts[4]);
-                const oIdx = parseInt(parts[5]);
+                let isBtn = false;
+                let panelId, dIdx, oIdx;
+
+                if (parts[3] === 'btn' || parts[3] === 'dropdown') {
+                    isBtn = parts[3] === 'btn';
+                    panelId = parts[4];
+                    dIdx = parseInt(parts[5]);
+                    oIdx = parseInt(parts[6]);
+                } else {
+                    panelId = parts[3];
+                    dIdx = parseInt(parts[4]);
+                    oIdx = parseInt(parts[5]);
+                }
 
                 const db = await getDb();
                 const panelRec = await db.get(`SELECT panelData FROM ticket_panels WHERE id = ?`, [panelId]);
                 if (!panelRec) return interaction.reply({ content: 'It looks like your ticket is already being processed. Please check your DMs or your open ticket channel.', ephemeral: true });
 
                 const data = JSON.parse(panelRec.panelData);
-                const opt = data.dropdowns[dIdx].options[oIdx];
+                const opt = isBtn 
+                    ? data.buttonRows?.[dIdx]?.options?.[oIdx] 
+                    : data.dropdowns?.[dIdx]?.options?.[oIdx];
+
+                if (!opt) {
+                    return interaction.reply({ content: '❌ The configuration for this ticket option could not be found.', ephemeral: true });
+                }
                 
                 const guildConfigs = await db.get(`SELECT * FROM guild_configs WHERE guildId = ?`, [interaction.guildId]);
                 const moduleConfigs = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guildId]);

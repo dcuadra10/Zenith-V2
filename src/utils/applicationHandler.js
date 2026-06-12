@@ -50,8 +50,10 @@ async function handleTicketSelection(interaction, opt, guildConfigs, moduleConfi
         if (hasQuestions) {
             if (delivery === 'modal') {
                 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+                const isBtn = interaction.customId && interaction.customId.includes('_btn_');
+                const typeStr = isBtn ? 'btn' : 'dropdown';
                 const modal = new ModalBuilder()
-                    .setCustomId(`modal_ticket_app_${panelId}_${dIdx}_${oIdx}`)
+                    .setCustomId(`modal_ticket_app_${typeStr}_${panelId}_${dIdx}_${oIdx}`)
                     .setTitle((opt.label || 'Application').substring(0, 45));
 
                 const numQuestions = Math.min(opt.questions.length, 5);

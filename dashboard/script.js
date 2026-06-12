@@ -2362,32 +2362,22 @@ let currentPage = 'overview';
 
 document.addEventListener('input', (e) => {
     if (e.target.closest('.main-content')) {
-        document.getElementById('saveBar').classList.add('visible');
+        markDirty();
     }
 });
 
 document.addEventListener('change', (e) => {
     if (e.target.closest('.main-content')) {
-        document.getElementById('saveBar').classList.add('visible');
+        markDirty();
     }
 });
 
 function triggerUnsavedChanges() {
     markDirty();
-    const saveBar = document.getElementById('saveBar');
-    if (saveBar) saveBar.classList.add('visible');
 }
 
 document.querySelectorAll('.sidebar-link').forEach(link => {
     link.addEventListener('click', (e) => {
-        const saveBar = document.getElementById('saveBar');
-        if (saveBar && saveBar.classList.contains('visible')) {
-            alert('You have unsaved changes! Please save your changes before leaving this page.');
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-        }
-
         currentPage = link.dataset.page;
         
         if (currentPage === 'economy') {
@@ -2401,55 +2391,12 @@ document.querySelectorAll('.sidebar-link').forEach(link => {
     });
 });
 
-// Prevent reload, tab close, or navigating away with unsaved changes
-window.addEventListener('beforeunload', (e) => {
-    const saveBar = document.getElementById('saveBar');
-    if (saveBar && saveBar.classList.contains('visible')) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes! Please save your changes before leaving this page.';
-        return e.returnValue;
-    }
-});
-
 // Mobile sidebar toggle
 function toggleMobileSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     sidebar.classList.toggle('active');
     overlay.classList.toggle('active');
-}
-
-function revertChanges() {
-    document.getElementById('saveBar').classList.remove('visible');
-    loadDashboardData();
-    showToast('Changes reverted');
-}
-
-async function saveCurrentPage() {
-    // Determine which page is active and save accordingly
-    const page = currentPage;
-    try {
-        if (page === 'general') {
-            await saveGeneralConfig();
-        } else if (page === 'market') {
-            await saveMarketConfig();
-            await saveModuleConfig(page);
-        } else if (page === 'aiagents') {
-            await saveAIAgentConfig();
-            await saveModuleConfig(page);
-        } else if (page === 'tickets') {
-            await saveModuleConfig(page);
-            const channelId = getVal('panelChannelId');
-            if (channelId) {
-                await savePanel();
-            }
-        } else {
-            await saveModuleConfig(page);
-        }
-    } catch (e) {
-        console.error('Error in saveCurrentPage:', e);
-    }
-    document.getElementById('saveBar').classList.remove('visible');
 }
 
 // ===== GIVEAWAYS =====

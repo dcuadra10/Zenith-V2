@@ -708,7 +708,7 @@ module.exports = {
                     const guildConfigs = await db.get(`SELECT * FROM guild_configs WHERE guildId = ?`, [interaction.guildId]);
                     const moduleConfigs = await db.get(`SELECT * FROM module_configs WHERE guildId = ?`, [interaction.guildId]);
                     
-                    await handleTicketSelection(interaction, opt, guildConfigs, moduleConfigs);
+                    await handleTicketSelection(interaction, opt, guildConfigs, moduleConfigs, panelId, rIdx, oIdx);
                 }
 
             } else if (interaction.customId.startsWith('start_app_') || 

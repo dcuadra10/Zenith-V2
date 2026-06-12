@@ -352,7 +352,9 @@ async function showReviewScreen(messageOrInteraction, appState) {
 
 async function submitApplication(interaction, appState) {
     // 1. Acknowledge the interaction immediately to prevent timeout (3s limit)
-    const isApprovalMode = !!(appState.moduleConfigs && appState.moduleConfigs.ticketsApprovalChannel);
+    const opt = appState.opt || {};
+    const requiresApproval = opt.requiresApproval === undefined || opt.requiresApproval === null ? true : (opt.requiresApproval === 1 || opt.requiresApproval === true);
+    const isApprovalMode = requiresApproval && !!(appState.moduleConfigs && appState.moduleConfigs.ticketsApprovalChannel);
     
     await interaction.update({ 
         content: isApprovalMode ? '✅ Your application has been sent for admin review. You will be notified of the decision.' : '🚀 Creating your ticket channel now...', 

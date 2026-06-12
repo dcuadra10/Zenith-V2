@@ -1053,6 +1053,7 @@ tr:hover td {
 
 /* ===== SAVE BAR NOTIFICATION ===== */
 .save-bar {
+    display: none !important;
     position: fixed;
     bottom: -100px;
     left: 50%;

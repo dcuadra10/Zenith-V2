@@ -2153,6 +2153,7 @@ function openOptionSettings(dIdx, oIdx, isBtn = false) {
     setVal('modalQuestionDelivery', opt.questionDelivery || 'modal');
     setVal('modalImageUrl', opt.imageUrl || '');
     setCheck('modalUseEmbed', opt.useEmbed === undefined || opt.useEmbed === null ? true : !!opt.useEmbed);
+    setCheck('modalRequiresApproval', opt.requiresApproval === undefined || opt.requiresApproval === null ? true : !!opt.requiresApproval);
     
     renderModalQuestions();
     
@@ -2250,6 +2251,7 @@ function saveOptionSettings() {
     opt.questionDelivery = getVal('modalQuestionDelivery');
     opt.imageUrl = getVal('modalImageUrl');
     opt.useEmbed = document.getElementById('modalUseEmbed').checked ? 1 : 0;
+    opt.requiresApproval = document.getElementById('modalRequiresApproval').checked ? 1 : 0;
     
     closeModal('optionSettingsModal');
     renderDropdowns();
@@ -2377,7 +2379,15 @@ function triggerUnsavedChanges() {
 }
 
 document.querySelectorAll('.sidebar-link').forEach(link => {
-    link.addEventListener('click', () => {
+    link.addEventListener('click', (e) => {
+        const saveBar = document.getElementById('saveBar');
+        if (saveBar && saveBar.classList.contains('visible')) {
+            alert('You have unsaved changes! Please save your changes before leaving this page.');
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
         currentPage = link.dataset.page;
         
         if (currentPage === 'economy') {
@@ -2389,6 +2399,16 @@ document.querySelectorAll('.sidebar-link').forEach(link => {
             toggleMobileSidebar();
         }
     });
+});
+
+// Prevent reload, tab close, or navigating away with unsaved changes
+window.addEventListener('beforeunload', (e) => {
+    const saveBar = document.getElementById('saveBar');
+    if (saveBar && saveBar.classList.contains('visible')) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes! Please save your changes before leaving this page.';
+        return e.returnValue;
+    }
 });
 
 // Mobile sidebar toggle

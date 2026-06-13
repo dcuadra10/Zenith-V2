@@ -456,7 +456,7 @@ async function submitApplication(interaction, appState) {
                 // Send long/overflowed answers as follow-up messages in the approval channel
                 if (longAnswersToFollowUp.length > 0) {
                     for (const item of longAnswersToFollowUp) {
-                        const header = `📝 **Full Answer for ${item.label} (User: <@${interaction.user.id}>):**\n`;
+                        const header = `📝 **Continuing Question - ${item.label} (User: <@${interaction.user.id}>):**\n`;
                         let index = 0;
                         while (index < item.text.length) {
                             const chunk = item.text.substring(index, index + 1900);
@@ -742,7 +742,7 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
     // Send full/untruncated versions of long answers as follow-up messages in the channel
     if (longAnswersToPost.length > 0) {
         for (const item of longAnswersToPost) {
-            const header = `📝 **Full Answer for ${item.label}:**\n`;
+            const header = `📝 **Continuing Question - ${item.label}:**\n`;
             let index = 0;
             while (index < item.text.length) {
                 const chunk = item.text.substring(index, index + 1900);

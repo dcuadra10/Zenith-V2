@@ -389,6 +389,8 @@ async function submitApplication(interaction, appState) {
                 let fullAnswersText = '';
                 let imageUrl = null;
                 let allImageUrls = [];
+                const longAnswersToFollowUp = [];
+
                 appState.answers.forEach((ans, i) => {
                     const questionLabel = formatQuestionLabel(i, ans.question);
                     let displayAns = ans.answer;
@@ -404,13 +406,19 @@ async function submitApplication(interaction, appState) {
                     // Prefix every line with a quote marker for consistent Discord layout
                     const quotedAns = displayAns.split('\n').map(line => `> ${line}`).join('\n');
                     const line = `**${questionLabel}**\n${quotedAns}\n\n`;
-                    if ((fullAnswersText + line).length < 4000) {
+                    if ((fullAnswersText + line).length < 3800) {
                         fullAnswersText += line;
+                    } else {
+                        longAnswersToFollowUp.push({ label: questionLabel, text: displayAns });
                     }
                 });
                 
                 if (allImageUrls.length > 0) {
                     imageUrl = allImageUrls[0];
+                }
+
+                if (longAnswersToFollowUp.length > 0) {
+                    fullAnswersText += `\n*⚠️ some answers were too long and are posted below...*`;
                 }
 
                 adminEmbed.setDescription(adminEmbed.data.description + '\n\n' + fullAnswersText);
@@ -438,14 +446,27 @@ async function submitApplication(interaction, appState) {
                     pingContent = `🔔 <@&${config.ticketsPingRole}> **New Application Received**`;
                 }
 
-
-
-                await adminChannel.send({ content: pingContent, embeds: [adminEmbed], components: [row] }).catch(async () => {
-                    await adminChannel.send({ 
+                const approvalMsg = await adminChannel.send({ content: pingContent, embeds: [adminEmbed], components: [row] }).catch(async () => {
+                    return await adminChannel.send({ 
                         content: `${pingContent}\n⚠️ **New Application from <@${interaction.user.id}>** (Embed too large)\nUUID: \`${uuid}\``,
                         components: [row] 
                     });
                 });
+
+                // Send long/overflowed answers as follow-up messages in the approval channel
+                if (longAnswersToFollowUp.length > 0) {
+                    for (const item of longAnswersToFollowUp) {
+                        const header = `📝 **Full Answer for ${item.label} (User: <@${interaction.user.id}>):**\n`;
+                        let index = 0;
+                        while (index < item.text.length) {
+                            const chunk = item.text.substring(index, index + 1900);
+                            await adminChannel.send({
+                                content: index === 0 ? `${header}>>> ${chunk}` : `>>> ${chunk}`
+                            }).catch(err => console.error('Failed to send long answer chunk to admin:', err));
+                            index += 1900;
+                        }
+                    }
+                }
             }
         } else {
             await createTicketChannel(interaction, appState.opt, appState.answers, appState.guildConfigs, appState.moduleConfigs);
@@ -653,6 +674,8 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
     
     let imageUrl = null;
     let allImageUrls = [];
+    const longAnswersToPost = [];
+
     if (answers && answers.length > 0) {
         answers.forEach((ans, i) => {
             const questionLabel = formatQuestionLabel(i, ans.question, 'Q');
@@ -666,10 +689,15 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
                 }).trim();
             }
 
+            const isLong = displayAns.length > 900;
+            if (isLong) {
+                longAnswersToPost.push({ label: questionLabel, text: displayAns });
+            }
+
             // Trim and format the answer into a beautiful quote block
             let formattedAnswer = displayAns.startsWith('>>>') ? displayAns : `>>> ${displayAns}`;
-            if (formattedAnswer.length > 1024) {
-                formattedAnswer = formattedAnswer.substring(0, 1021) + '...';
+            if (formattedAnswer.length > 950) {
+                formattedAnswer = formattedAnswer.substring(0, 940) + '...\n*(Continued below)*';
             }
             
             const fieldName = `<:zenith_question:1510656214613233725> ${questionLabel}`;
@@ -710,6 +738,21 @@ async function createTicketChannel(interaction, opt, answers, guildConfigs, modu
 
     payload.content = pingText;
     await ticketChannel.send(payload);
+
+    // Send full/untruncated versions of long answers as follow-up messages in the channel
+    if (longAnswersToPost.length > 0) {
+        for (const item of longAnswersToPost) {
+            const header = `📝 **Full Answer for ${item.label}:**\n`;
+            let index = 0;
+            while (index < item.text.length) {
+                const chunk = item.text.substring(index, index + 1900);
+                await ticketChannel.send({
+                    content: index === 0 ? `${header}>>> ${chunk}` : `>>> ${chunk}`
+                }).catch(err => console.error('Failed to send long answer chunk to ticket channel:', err));
+                index += 1900;
+            }
+        }
+    }
 
     // Only reply to interaction if this is the user opening their own ticket, not an admin approving an application
     if (!targetUserId) {

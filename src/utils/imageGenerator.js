@@ -4,16 +4,18 @@ const path = require('path');
 const fs = require('fs');
 
 try {
-    const regPath = path.join(__dirname, '..', '..', 'fonts', 'Montserrat-Regular.ttf');
-    const boldPath = path.join(__dirname, '..', '..', 'fonts', 'Montserrat-Bold.ttf');
-    const semiPath = path.join(__dirname, '..', '..', 'fonts', 'Montserrat-SemiBold.ttf');
+    const regPath = path.join(__dirname, '..', '..', 'fonts', 'times.ttf');
+    const boldPath = path.join(__dirname, '..', '..', 'fonts', 'timesbd.ttf');
+    const italicPath = path.join(__dirname, '..', '..', 'fonts', 'timesi.ttf');
+    const boldItalicPath = path.join(__dirname, '..', '..', 'fonts', 'timesbi.ttf');
     
-    if (fs.existsSync(regPath)) GlobalFonts.registerFromPath(regPath, 'Montserrat');
-    if (fs.existsSync(boldPath)) GlobalFonts.registerFromPath(boldPath, 'Montserrat');
-    if (fs.existsSync(semiPath)) GlobalFonts.registerFromPath(semiPath, 'Montserrat');
-    console.log('[Font] Montserrat fonts registered successfully.');
+    if (fs.existsSync(regPath)) GlobalFonts.registerFromPath(regPath, 'Times New Roman');
+    if (fs.existsSync(boldPath)) GlobalFonts.registerFromPath(boldPath, 'Times New Roman');
+    if (fs.existsSync(italicPath)) GlobalFonts.registerFromPath(italicPath, 'Times New Roman');
+    if (fs.existsSync(boldItalicPath)) GlobalFonts.registerFromPath(boldItalicPath, 'Times New Roman');
+    console.log('[Font] Times New Roman fonts registered successfully.');
 } catch (err) {
-    console.error('[Font] Error registering Montserrat fonts:', err);
+    console.error('[Font] Error registering Times New Roman fonts:', err);
 }
 
 async function getAvatar(url) {
@@ -103,12 +105,12 @@ async function drawNode(ctx, x, y, user, label = null, color = '#dc2626') {
     // Text Section (Dossier Typeface Look)
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 15px Montserrat, sans-serif';
+    ctx.font = 'bold 15px Times New Roman, serif';
     ctx.fillText(user.username.substring(0, 12), x - 5, y - 5);
     
     if (label) {
         ctx.fillStyle = color;
-        ctx.font = 'bold 11px Montserrat, sans-serif';
+        ctx.font = 'bold 11px Times New Roman, serif';
         ctx.fillText(label.toUpperCase(), x - 5, y + 15);
     }
 }
@@ -193,11 +195,11 @@ async function generateMafiaHierarchy(mafiaName, members, extraData = {}, backgr
     ctx.shadowBlur = 10;
     ctx.shadowColor = 'rgba(220, 38, 38, 0.8)';
     ctx.fillStyle = '#dc2626'; // Blood red title
-    ctx.font = 'bold 46px Montserrat, sans-serif';
+    ctx.font = 'bold 46px Times New Roman, serif';
     ctx.fillText(mafiaName.toUpperCase(), 600, 55);
     ctx.shadowBlur = 0;
     
-    ctx.font = '500 20px Montserrat, sans-serif';
+    ctx.font = '500 20px Times New Roman, serif';
     ctx.fillStyle = '#fbbf24'; // Gold subtitle
     ctx.fillText(`LEVEL ${extraData.level || 1} • ${extraData.specialization || 'Unspecialized'}`, 600, 90);
 
@@ -324,7 +326,7 @@ async function generateLeaderboardImage(title, entries, backgroundPath) {
     titleGrad.addColorStop(1, '#f59e0b');
     ctx.fillStyle = titleGrad;
     ctx.textAlign = 'center';
-    ctx.font = 'bold 32px Montserrat, sans-serif';
+    ctx.font = 'bold 32px Times New Roman, serif';
     ctx.shadowBlur = 12;
     ctx.shadowColor = 'rgba(251, 191, 36, 0.5)';
     ctx.fillText(title, 450, 85);
@@ -366,7 +368,7 @@ async function generateLeaderboardImage(title, entries, backgroundPath) {
 
         // Rank number / medal
         ctx.textAlign = 'left';
-        ctx.font = 'bold 20px Montserrat, sans-serif';
+        ctx.font = 'bold 20px Times New Roman, serif';
         if (i < 3) {
             ctx.fillStyle = medalColors[i];
             ctx.shadowBlur = 8;
@@ -375,34 +377,34 @@ async function generateLeaderboardImage(title, entries, backgroundPath) {
             ctx.shadowBlur = 0;
         } else {
             ctx.fillStyle = '#9ca3af';
-            ctx.font = 'bold 18px Montserrat, sans-serif';
+            ctx.font = 'bold 18px Times New Roman, serif';
             ctx.fillText(`#${i + 1}`, 80, y + 22);
         }
 
         // Username
         ctx.fillStyle = i < 3 ? '#ffffff' : '#d1d5db';
-        ctx.font = i < 3 ? 'bold 18px Montserrat, sans-serif' : '500 17px Montserrat, sans-serif';
+        ctx.font = i < 3 ? 'bold 18px Times New Roman, serif' : '500 17px Times New Roman, serif';
         const displayName = entry.name.length > 22 ? entry.name.substring(0, 22) + '…' : entry.name;
         ctx.fillText(displayName, 130, y + 22);
 
         // Value (right-aligned)
         ctx.textAlign = 'right';
         ctx.fillStyle = i < 3 ? '#fde68a' : '#9ca3af';
-        ctx.font = i < 3 ? 'bold 18px Montserrat, sans-serif' : '500 17px Montserrat, sans-serif';
+        ctx.font = i < 3 ? 'bold 18px Times New Roman, serif' : '500 17px Times New Roman, serif';
         ctx.fillText(entry.value, 820, y + 22);
     }
 
     if (entries.length === 0) {
         ctx.textAlign = 'center';
         ctx.fillStyle = '#6b7280';
-        ctx.font = 'italic 18px Montserrat, sans-serif';
+        ctx.font = 'italic 18px Times New Roman, serif';
         ctx.fillText('The board is currently vacant. Be the first!', 450, 300);
     }
 
     // Footer branding
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
-    ctx.font = '500 13px Montserrat, sans-serif';
+    ctx.font = '500 13px Times New Roman, serif';
     ctx.fillText('Powered by Zenith', 450, 555);
 
     return canvas.toBuffer('image/png');
@@ -546,7 +548,7 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
     ctx.save();
     ctx.fillStyle = titleGrad;
     ctx.textAlign = 'left';
-    ctx.font = 'bold 36px Montserrat, sans-serif';
+    ctx.font = 'bold 36px Times New Roman, serif';
     ctx.shadowBlur = 12;
     ctx.shadowColor = 'rgba(251, 191, 36, 0.5)';
     ctx.fillText('LEVEL UP!', 195, 90);
@@ -554,7 +556,7 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
 
     // Congratulations text
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px Montserrat, sans-serif';
+    ctx.font = 'bold 20px Times New Roman, serif';
     const displayName = username.length > 22 ? username.substring(0, 22) + '…' : username;
     ctx.fillText(`Congratulations, ${displayName}!`, 195, 135);
 
@@ -568,11 +570,11 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
 
     // New Level text
     ctx.fillStyle = '#9ca3af';
-    ctx.font = '500 17px Montserrat, sans-serif';
+    ctx.font = '500 17px Times New Roman, serif';
     ctx.fillText('You just reached', 195, 185);
 
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 22px Montserrat, sans-serif';
+    ctx.font = 'bold 22px Times New Roman, serif';
     ctx.fillText(`Level ${newLevel}`, 340, 185);
 
     // Level Badge Shield on the Right Side
@@ -597,11 +599,11 @@ async function generateLevelUpImage(username, avatarUrl, newLevel, backgroundPat
     // Badge details
     ctx.textAlign = 'center';
     ctx.fillStyle = '#9ca3af';
-    ctx.font = 'bold 11px Montserrat, sans-serif';
+    ctx.font = 'bold 11px Times New Roman, serif';
     ctx.fillText('NEW RANK', 670, 112);
     
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 36px Montserrat, sans-serif';
+    ctx.font = 'bold 36px Times New Roman, serif';
     ctx.fillText(String(newLevel), 670, 148);
 
     return canvas.toBuffer('image/png');
@@ -674,7 +676,7 @@ async function generateAdTrackingInfoImage(currentWeek, weeklyTarget, background
     titleGrad.addColorStop(1, '#a78bfa');
     ctx.fillStyle = titleGrad;
     ctx.textAlign = 'center';
-    ctx.font = 'bold 30px Montserrat, sans-serif';
+    ctx.font = 'bold 30px Times New Roman, serif';
     ctx.shadowBlur = 10;
     ctx.shadowColor = 'rgba(129, 140, 248, 0.5)';
     ctx.fillText('📊 AD TRACKING CENTER', 450, 75);
@@ -682,7 +684,7 @@ async function generateAdTrackingInfoImage(currentWeek, weeklyTarget, background
 
     // Subtitle description text (wrapped)
     ctx.fillStyle = '#dbdee1';
-    ctx.font = '500 15px Montserrat, sans-serif';
+    ctx.font = '500 15px Times New Roman, serif';
     ctx.textAlign = 'center';
     ctx.fillText('Welcome to the Zenith Tracking Center. Log your completed ads below.', 450, 115);
     ctx.fillText('Submissions are processed, archived in Google Sheets, and evaluated weekly.', 450, 138);
@@ -700,12 +702,12 @@ async function generateAdTrackingInfoImage(currentWeek, weeklyTarget, background
 
     // Guidelines Title & Items
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 14px Montserrat, sans-serif';
+    ctx.font = 'bold 14px Times New Roman, serif';
     ctx.textAlign = 'left';
     ctx.fillText('GUIDELINES:', 100, 192);
 
     ctx.fillStyle = '#e5e7eb';
-    ctx.font = '500 14px Montserrat, sans-serif';
+    ctx.font = '500 14px Times New Roman, serif';
     ctx.fillText('• Submissions must be genuine and verifiable.', 100, 218);
     ctx.fillText('• Progress is dynamically counted towards your weekly R4 quota.', 100, 240);
 
@@ -739,19 +741,19 @@ async function generateAdTrackingInfoImage(currentWeek, weeklyTarget, background
 
         // Label
         ctx.fillStyle = '#9ca3af';
-        ctx.font = 'bold 11px Montserrat, sans-serif';
+        ctx.font = 'bold 11px Times New Roman, serif';
         ctx.textAlign = 'center';
         ctx.fillText(c.label, x + cardWidth / 2, cardY + 28);
 
         // Value
         ctx.fillStyle = c.valColor;
-        ctx.font = 'bold 14px Montserrat, sans-serif';
+        ctx.font = 'bold 14px Times New Roman, serif';
         ctx.fillText(c.val, x + cardWidth / 2, cardY + 53);
     });
 
     // Branding watermark
     ctx.fillStyle = 'rgba(148, 163, 184, 0.2)';
-    ctx.font = 'bold 11px Montserrat, sans-serif';
+    ctx.font = 'bold 11px Times New Roman, serif';
     ctx.textAlign = 'right';
     ctx.fillText('Zenith Global Tracking Systems', 820, 380);
 
@@ -819,7 +821,7 @@ async function generateAdTrackingCombinedImage(currentWeek, weeklyTarget, entrie
         ctx.fillRect(0, 0, 900, 900);
     }
 
-    const premiumFont = 'Montserrat, sans-serif';
+    const premiumFont = 'Times New Roman, serif';
 
     // ==========================================
     // TOP PANEL: LEADERBOARD OF THE WEEK

@@ -181,10 +181,38 @@ module.exports = (client) => {
         }
     };
 
+    // Schedule exact reset at Monday 00:00 UTC
+    const scheduleWeeklyReset = () => {
+        const now = new Date();
+        const nextMonday = new Date();
+        nextMonday.setUTCHours(0, 0, 0, 0);
+        
+        // Calculate days to next Monday (1)
+        const daysUntilMonday = (1 - now.getUTCDay() + 7) % 7;
+        nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
+        
+        if (nextMonday.getTime() <= now.getTime()) {
+            nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
+        }
+
+        const msUntilReset = nextMonday.getTime() - now.getTime();
+        console.log(`[R4Tracker] Weekly reset scheduled at ${nextMonday.toUTCString()} (in ${(msUntilReset / 1000 / 60 / 60).toFixed(2)} hours)`);
+
+        setTimeout(async () => {
+            console.log('[R4Tracker] Running scheduled weekly reset (Monday 00:00 UTC)...');
+            await runTracker();
+            scheduleWeeklyReset(); // Reschedule for next week
+        }, msUntilReset);
+    };
+
     if (client.isReady()) {
         runTracker();
+        scheduleWeeklyReset();
     } else {
-        client.once('ready', () => runTracker());
+        client.once('ready', () => {
+            runTracker();
+            scheduleWeeklyReset();
+        });
     }
     setInterval(runTracker, 60 * 60 * 1000); // 1 hour
 };

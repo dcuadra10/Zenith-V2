@@ -39,7 +39,7 @@ setInterval(() => {
 // Middleware to verify Discord Token
 async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
-    const token = (authHeader && authHeader.split(' ')[1]) || req.cookies.discord_token;
+    const token = (authHeader && authHeader.split(' ')[1]) || req.cookies.discord_token || req.query.token;
     
     if (!token) {
         console.log('[Auth] No token found in headers or cookies');
@@ -1713,6 +1713,188 @@ app.get('/api/r4-tracking/:guildId', authenticateToken, async (req, res) => {
     }
 });
 
+// GET Export R4 Tracking to Excel
+app.get('/api/r4-tracking/export/:guildId', authenticateToken, async (req, res) => {
+    try {
+        const hasAdmin = await checkAdmin(req.user.id, req.params.guildId);
+        if (!hasAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+        const db = await getDb();
+        const records = await db.all(`SELECT * FROM r4_tracking WHERE guildId = ? ORDER BY weekId DESC`, [req.params.guildId]);
+        
+        // Retrieve active multi-week excuses for this guild
+        const excuses = await db.all(`SELECT * FROM r4_excuses WHERE guildId = ?`, [req.params.guildId]);
+        const excusesMap = {};
+        excuses.forEach(exc => {
+            excusesMap[exc.userId] = exc;
+        });
+
+        const conf = await db.get(`SELECT r4TrackingRole, r4TrackingEnabled, r4TrackingAdQuota, r4TrackingMsgQuota FROM module_configs WHERE guildId = ?`, [req.params.guildId]);
+        const roleId = conf?.r4TrackingRole ? conf.r4TrackingRole.replace(/[^0-9]/g, '') : null;
+        const adQuota = conf?.r4TrackingAdQuota || 40;
+        const msgQuota = conf?.r4TrackingMsgQuota || 245;
+
+        let membersMap = {};
+        let officerIds = new Set();
+
+        if (client.isReady()) {
+            const guild = client.guilds.cache.get(req.params.guildId);
+            if (guild) {
+                try {
+                    await guild.members.fetch();
+                    guild.members.cache.forEach(m => {
+                        membersMap[m.id] = {
+                            username: m.user.username,
+                            displayName: m.displayName
+                        };
+                        if (roleId && m.roles.cache.has(roleId)) {
+                            officerIds.add(m.id);
+                        }
+                    });
+                } catch (err) {
+                    console.error('[API Export] Error fetching guild members:', err);
+                }
+            }
+        }
+
+        const existingRecordsMap = new Map();
+        const uniqueWeeks = new Set();
+        
+        records.forEach(r => {
+            existingRecordsMap.set(`${r.userId}_${r.weekId}`, r);
+            uniqueWeeks.add(r.weekId);
+        });
+
+        const { getISOWeekString, isWeekWithinExcuse } = require('./utils/dateHelpers');
+        const currentWeek = getISOWeekString();
+        uniqueWeeks.add(currentWeek);
+
+        const finalRecords = [];
+
+        uniqueWeeks.forEach(weekId => {
+            // Add all current officers for this week
+            officerIds.forEach(officerId => {
+                const key = `${officerId}_${weekId}`;
+                if (existingRecordsMap.has(key)) {
+                    finalRecords.push(existingRecordsMap.get(key));
+                } else {
+                    finalRecords.push({
+                        userId: officerId,
+                        guildId: req.params.guildId,
+                        weekId: weekId,
+                        messages: 0,
+                        ads: 0,
+                        excused: 0,
+                        excuseReason: null,
+                        isProcessed: 0
+                    });
+                }
+            });
+
+            // Add historical non-officers
+            records.forEach(r => {
+                if (r.weekId === weekId && !officerIds.has(r.userId)) {
+                    finalRecords.push(r);
+                }
+            });
+        });
+
+        // Enrich and sort
+        const enrichedRecords = finalRecords.map(r => {
+            const exc = excusesMap[r.userId];
+            let isExcused = r.excused === 1;
+            let excuseReason = r.excuseReason;
+
+            if (exc) {
+                const check = isWeekWithinExcuse(exc.startWeekId, exc.durationWeeks, r.weekId);
+                if (check.excused) {
+                    isExcused = true;
+                    excuseReason = exc.excuseReason || 'Excusado';
+                }
+            }
+
+            const adPct = (r.ads / adQuota) * 100;
+            const msgPct = (r.messages / msgQuota) * 100;
+            const totalPct = Math.min(Math.round(adPct + msgPct), 200);
+
+            let status = 'Failing';
+            if (isExcused) status = 'Excused';
+            else if (totalPct >= 100) status = 'Passed';
+            else if (totalPct >= 75) status = 'Warning';
+
+            return {
+                weekId: r.weekId,
+                userId: r.userId,
+                username: membersMap[r.userId]?.username || r.userId,
+                displayName: membersMap[r.userId]?.displayName || r.userId,
+                ads: r.ads,
+                messages: r.messages,
+                progress: `${totalPct}%`,
+                status: status,
+                excuseReason: isExcused ? (excuseReason || 'Excusado') : ''
+            };
+        });
+
+        // Sort: Week descending, then Display Name ascending
+        enrichedRecords.sort((a, b) => {
+            if (a.weekId !== b.weekId) {
+                return b.weekId.localeCompare(a.weekId);
+            }
+            return a.displayName.localeCompare(b.displayName);
+        });
+
+        const ExcelJS = require('exceljs');
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('R4 Activity Tracking');
+
+        worksheet.columns = [
+            { header: 'Week', key: 'weekId', width: 15 },
+            { header: 'Officer ID', key: 'userId', width: 25 },
+            { header: 'Username', key: 'username', width: 25 },
+            { header: 'Display Name', key: 'displayName', width: 25 },
+            { header: 'Ads Logged', key: 'ads', width: 12 },
+            { header: 'Messages Sent', key: 'messages', width: 15 },
+            { header: 'Progress', key: 'progress', width: 12 },
+            { header: 'Status', key: 'status', width: 12 },
+            { header: 'Excuse Reason', key: 'excuseReason', width: 30 }
+        ];
+
+        // Format header row
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF4F46E5' } // Premium Purple
+        };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'left' };
+
+        enrichedRecords.forEach(r => {
+            const row = worksheet.addRow(r);
+            const statusCell = row.getCell('status');
+            if (r.status === 'Passed') {
+                statusCell.font = { color: { argb: 'FF10B981' }, bold: true };
+            } else if (r.status === 'Warning') {
+                statusCell.font = { color: { argb: 'FFF59E0B' }, bold: true };
+            } else if (r.status === 'Failing') {
+                statusCell.font = { color: { argb: 'FFEF4444' }, bold: true };
+            } else if (r.status === 'Excused') {
+                statusCell.font = { color: { argb: 'FF8B5CF6' }, italic: true };
+            }
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=r4_tracking_report_${req.params.guildId}_${Date.now()}.xlsx`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (e) {
+        console.error('Error exporting R4 tracking:', e);
+        res.status(500).json({ error: 'Error exporting R4 tracking' });
+    }
+});
+
 // POST Excuse R4 User
 app.post('/api/r4-tracking/excuse/:guildId', authenticateToken, async (req, res) => {
     const { userId, weekId, excused, excuseReason, durationWeeks } = req.body;
@@ -1723,12 +1905,14 @@ app.post('/api/r4-tracking/excuse/:guildId', authenticateToken, async (req, res)
 
         const db = await getDb();
 
-        if (excused) {
+        const isExcused = excused === true || excused === 'true' || excused === 1 || excused === '1';
+        if (isExcused) {
             // Save excuse in r4_excuses table
             await db.run(
                 `INSERT INTO r4_excuses (userId, guildId, startWeekId, durationWeeks, excuseReason)
                  VALUES (?, ?, ?, ?, ?)
-                 ON CONFLICT(userId, guildId, startWeekId) DO UPDATE SET 
+                 ON CONFLICT(userId, guildId) DO UPDATE SET 
+                    startWeekId = EXCLUDED.startWeekId,
                     durationWeeks = EXCLUDED.durationWeeks,
                     excuseReason = EXCLUDED.excuseReason`,
                 [userId, req.params.guildId, weekId, duration, excuseReason || 'Excusado']

@@ -3474,6 +3474,13 @@ async function fetchR4Tracking() {
     }
 }
 
+async function exportR4Excel() {
+    if (!activeGuild) return;
+    const token = localStorage.getItem('token');
+    if (!token) return showToast('You must be logged in.', true);
+    window.open(`/api/r4-tracking/export/${activeGuild.id}?token=${encodeURIComponent(token)}`, '_blank');
+}
+
 function getISOWeekStringFront() {
     const d = new Date();
     const dayNum = d.getUTCDay() || 7;

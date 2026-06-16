@@ -15,14 +15,14 @@ module.exports = {
                 if (channel) {
                     let title = conf.welcomeEmbedTitle || `Welcome to {server}!`;
                     let desc = conf.welcomeEmbedDesc || `Hello {user}, we hope you have a great time here.`;
-                    
+
                     const pTitle = title.replace('{user}', `<@${member.id}>`)
-                                        .replace('{server}', member.guild.name)
-                                        .replace('{memberCount}', member.guild.memberCount);
-                                        
+                        .replace('{server}', member.guild.name)
+                        .replace('{memberCount}', member.guild.memberCount);
+
                     const pDesc = desc.replace('{user}', `<@${member.id}>`)
-                                      .replace('{server}', member.guild.name)
-                                      .replace('{memberCount}', member.guild.memberCount);
+                        .replace('{server}', member.guild.name)
+                        .replace('{memberCount}', member.guild.memberCount);
 
                     const useEmbed = conf.welcomeUseEmbed === undefined || conf.welcomeUseEmbed === null ? true : !!conf.welcomeUseEmbed;
 
@@ -35,20 +35,20 @@ module.exports = {
                     });
 
                     payload.content = `<@${member.id}>`;
-                    await channel.send(payload).catch(()=>{});
+                    await channel.send(payload).catch(() => { });
 
                     // --- Welcome Reward Notification ---
                     if (conf.ecoEnabled) {
                         const notifyChannelId = conf.ecoWelcomeNotifyChannel || conf.welcomeChannel;
                         const notifyChannel = member.guild.channels.cache.get(notifyChannelId);
-                        
+
                         if (notifyChannel) {
                             const amount = conf.ecoCoinsPerWelcome || 5;
                             const notifyEmbed = new EmbedBuilder()
-                                .setDescription(`✨ **A new citizen has arrived!**\n\n💰 Be the first to say **Welcome** (or "Bienvenido") in <#${conf.welcomeChannel}> to earn **${amount}** coins!`)
+                                .setDescription(`✨ **A new citizen has arrived!**\n\n💰 Be the first to say **Welcome** in <#${conf.welcomeChannel}> to earn **${amount}** coins!`)
                                 .setColor('#f59e0b');
-                            
-                            await notifyChannel.send({ embeds: [notifyEmbed] }).catch(()=>{});
+
+                            await notifyChannel.send({ embeds: [notifyEmbed] }).catch(() => { });
                         }
                     }
                 }
@@ -61,15 +61,15 @@ module.exports = {
                     try {
                         const parsed = JSON.parse(conf.autoroleIds);
                         rolesIds = Array.isArray(parsed) ? parsed : [];
-                    } catch(jsonErr) {
+                    } catch (jsonErr) {
                         // Fallback if configured as a plain comma-separated string list of IDs
                         rolesIds = String(conf.autoroleIds).split(',').map(id => id.trim()).filter(id => id.length > 0);
                     }
                     for (const roleId of rolesIds) {
                         const role = member.guild.roles.cache.get(roleId);
-                        if (role) await member.roles.add(role).catch(()=>{});
+                        if (role) await member.roles.add(role).catch(() => { });
                     }
-                } catch(e) { }
+                } catch (e) { }
             }
         }
 
@@ -77,10 +77,10 @@ module.exports = {
         try {
             const newInvites = await member.guild.invites.fetch();
             const oldInvites = client.invites.get(member.guild.id);
-            
-            if(oldInvites) {
+
+            if (oldInvites) {
                 const usedInvite = newInvites.find(inv => inv.uses > oldInvites.get(inv.code));
-                
+
                 if (usedInvite) {
                     const inviterId = usedInvite.inviter.id;
                     const db = await getDb();
@@ -96,7 +96,7 @@ module.exports = {
                         const amount = (conf.ecoCoinsPerInvite || conf.ecocoinsperinvite) || 50;
                         await addBalance(inviterId, amount, member.guild.id, false, `Reward for inviting ${member.user.tag}`);
                     }
-                    
+
                     oldInvites.set(usedInvite.code, usedInvite.uses);
                 }
             }

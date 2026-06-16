@@ -73,20 +73,7 @@ module.exports = {
             }
         }
 
-        // --- 3. Economy Starter Bonus (5000 coins) ---
-        if (conf && conf.ecoEnabled && !member.user.bot) {
-            try {
-                await db.run(
-                    `INSERT INTO users (userId, guildId, balance) VALUES (?, ?, 5000)
-                     ON CONFLICT(userId, guildId) DO NOTHING`,
-                    [member.id, member.guild.id]
-                );
-            } catch (e) {
-                console.error('[Economy] Failed to give starter bonus:', e.message);
-            }
-        }
-
-        // --- 4. Invite Tracker ---
+        // --- 3. Invite Tracker ---
         try {
             const newInvites = await member.guild.invites.fetch();
             const oldInvites = client.invites.get(member.guild.id);

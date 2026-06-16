@@ -44,6 +44,15 @@ module.exports = {
                 .addStringOption(opt => opt.setName('id').setDescription('Mafia ID').setRequired(true))
                 .addIntegerOption(opt => opt.setName('amount').setDescription('Amount to add').setRequired(true).setMinValue(1)))
         .addSubcommand(sub =>
+            sub.setName('give-all')
+                .setDescription('Give coins to every member in the server')
+                .addIntegerOption(opt => opt.setName('amount').setDescription('Amount of coins per person').setRequired(true).setMinValue(1)))
+        .addSubcommand(sub =>
+            sub.setName('give-role')
+                .setDescription('Give coins to every member with a specific role')
+                .addRoleOption(opt => opt.setName('role').setDescription('Target role').setRequired(true))
+                .addIntegerOption(opt => opt.setName('amount').setDescription('Amount of coins per person').setRequired(true).setMinValue(1)))
+        .addSubcommand(sub =>
             sub.setName('reset')
                 .setDescription('⚠️ RESET all economy data for this server (IRREVERSIBLE)')),
     
@@ -114,6 +123,59 @@ module.exports = {
                 reason: `Admin Addition by ${interaction.user.tag}`
             });
             return await interaction.reply({ content: `✅ Added **${amount}** coins to the **${mafia.name}** treasury.` });
+        }
+
+        if (sub === 'give-all') {
+            await interaction.deferReply();
+            const amount = interaction.options.getInteger('amount');
+            const members = await interaction.guild.members.fetch();
+            const humans = members.filter(m => !m.user.bot);
+            let count = 0;
+
+            for (const [, member] of humans) {
+                try {
+                    await addBalance(member.id, amount, interaction.guild.id, true, `Mass Give (All) by ${interaction.user.tag}`, true);
+                    count++;
+                } catch (e) {
+                    console.error(`[eco-admin give-all] Failed for ${member.id}:`, e.message);
+                }
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('💰 Mass Distribution Complete')
+                .setDescription(`Gave **${amount.toLocaleString('en-US')}** coins to **${count}** members.\n\n**Total distributed:** ${(amount * count).toLocaleString('en-US')} coins`)
+                .setColor('#10b981')
+                .setFooter({ text: `Performed by ${interaction.user.tag}` })
+                .setTimestamp();
+
+            return await interaction.editReply({ embeds: [embed] });
+        }
+
+        if (sub === 'give-role') {
+            await interaction.deferReply();
+            const role = interaction.options.getRole('role');
+            const amount = interaction.options.getInteger('amount');
+            const members = await interaction.guild.members.fetch();
+            const targets = members.filter(m => !m.user.bot && m.roles.cache.has(role.id));
+            let count = 0;
+
+            for (const [, member] of targets) {
+                try {
+                    await addBalance(member.id, amount, interaction.guild.id, true, `Mass Give (Role: ${role.name}) by ${interaction.user.tag}`, true);
+                    count++;
+                } catch (e) {
+                    console.error(`[eco-admin give-role] Failed for ${member.id}:`, e.message);
+                }
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('💰 Role Distribution Complete')
+                .setDescription(`Gave **${amount.toLocaleString('en-US')}** coins to **${count}** members with role <@&${role.id}>.\n\n**Total distributed:** ${(amount * count).toLocaleString('en-US')} coins`)
+                .setColor('#10b981')
+                .setFooter({ text: `Performed by ${interaction.user.tag}` })
+                .setTimestamp();
+
+            return await interaction.editReply({ embeds: [embed] });
         }
 
         if (sub === 'reset') {

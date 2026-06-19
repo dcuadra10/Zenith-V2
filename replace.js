@@ -1,5 +1,5 @@
 const fs = require('fs');
-const path = 'dashboard/index.html';
+const path = 'dashboard/dashboard.html';
 let html = fs.readFileSync(path, 'utf8');
 
 const selectIds = [

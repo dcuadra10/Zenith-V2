@@ -8,12 +8,12 @@ with open(script_js_path, 'r', encoding='utf-8') as f:
     script_content = f.read()
 
 # Update HTML onClick
-index_html_path = os.path.join(base_path, 'dashboard', 'index.html')
-with open(index_html_path, 'r', encoding='utf-8') as f:
-    index_html = f.read()
-index_html = index_html.replace("alert('Not implemented yet')", "addButtonRow()")
-with open(index_html_path, 'w', encoding='utf-8') as f:
-    f.write(index_html)
+dashboard_html_path = os.path.join(base_path, 'dashboard', 'dashboard.html')
+with open(dashboard_html_path, 'r', encoding='utf-8') as f:
+    dashboard_html = f.read()
+dashboard_html = dashboard_html.replace("alert('Not implemented yet')", "addButtonRow()")
+with open(dashboard_html_path, 'w', encoding='utf-8') as f:
+    f.write(dashboard_html)
 
 # Update script.js panelDraft
 script_content = script_content.replace('let panelDraft = { dropdowns: [] };', 'let panelDraft = { dropdowns: [], buttonRows: [] };')

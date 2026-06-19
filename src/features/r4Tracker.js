@@ -1,5 +1,5 @@
 const { getDb } = require('../config/database');
-const { getISOWeekString, isWeekWithinExcuse } = require('../utils/dateHelpers');
+const { getISOWeekString, isWeekWithinExcuse, getDateOfISOWeek } = require('../utils/dateHelpers');
 const { exportR4WeeklyData } = require('../utils/googleSheetsConnector');
 
 async function ensureR4BaselineRecords(client, db) {
@@ -58,6 +58,20 @@ module.exports = (client) => {
             await ensureR4BaselineRecords(client, db);
 
             const currentWeekId = getISOWeekString();
+
+            // Clean up expired excuses
+            const excuses = await db.all(`SELECT * FROM r4_excuses`);
+            for (const excuse of excuses) {
+                const startMonday = getDateOfISOWeek(excuse.startWeekId);
+                const currentMonday = getDateOfISOWeek(currentWeekId);
+                if (startMonday && currentMonday) {
+                    const endMonday = new Date(startMonday.getTime() + excuse.durationWeeks * 7 * 86400000);
+                    if (currentMonday >= endMonday) {
+                        await db.run(`DELETE FROM r4_excuses WHERE userId = ? AND guildId = ?`, [excuse.userId, excuse.guildId]);
+                        console.log(`[R4Tracker] Deleted expired excuse for user ${excuse.userId} in guild ${excuse.guildId} (expired since ${excuse.startWeekId} + ${excuse.durationWeeks} weeks)`);
+                    }
+                }
+            }
 
             // Find all records that are from previous weeks and haven't been processed
             const unprocessed = await db.all(`SELECT * FROM r4_tracking WHERE weekId < ? AND isProcessed = 0`, [currentWeekId]);
@@ -163,8 +177,12 @@ module.exports = (client) => {
                         }
                     }
 
-                    // Mark as processed
-                    await db.run(`UPDATE r4_tracking SET isProcessed = 1 WHERE userId = ? AND guildId = ? AND weekId = ?`, [record.userId, record.guildId, record.weekId]);
+                    // Mark as processed and save the excuse status to r4_tracking for historical accuracy
+                    await db.run(
+                        `UPDATE r4_tracking SET isProcessed = 1, excused = ?, excuseReason = ? 
+                         WHERE userId = ? AND guildId = ? AND weekId = ?`,
+                        [isExcused ? 1 : 0, isExcused ? (excuseReason || 'Excusado') : null, record.userId, record.guildId, record.weekId]
+                    );
                 }
 
                 // Export to Google Sheets

@@ -59,7 +59,9 @@ function buildColumnMap(cols) {
         'giveawaysManagerRole', 'giveawaysLogChannel', 'giveawaysEcoReward', 'giveawaysEcoCoins',
         'rokVerifierEnabled', 'rokVerifierRole', 'rokVerifierTags', 'rokVerifierChannel',
         'governorId', 'governorName', 'allianceTag', 'power', 'killPoints', 'verifiedAt',
-        'hallOfShameEnabled', 'hallOfShameEmoji', 'hallOfShameThreshold', 'hallOfShameChannel'
+        'hallOfShameEnabled', 'hallOfShameEmoji', 'hallOfShameThreshold', 'hallOfShameChannel',
+        'startWeekId', 'durationWeeks', 'isProcessed', 'partnerId', 'bankCapacity', 'businessType',
+        'controllingEntityId', 'controllingEntityType', 'entityId', 'entityType', 'ownerId'
     ];
     knownColumns.forEach(col => {
         columnNameMap[col.toLowerCase()] = col;

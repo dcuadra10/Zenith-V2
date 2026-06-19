@@ -452,8 +452,28 @@ function populateAllDropdowns() {
 }
 
 function populateDropdown(elementId, items, placeholder, isMulti = false) {
-    const el = document.getElementById(elementId);
-    if (!el || el.tagName !== 'SELECT') return;
+    let el = document.getElementById(elementId);
+    if (!el) return;
+
+    // Robust compatibility: convert input or textarea to select if cached HTML is serving it
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        console.warn(`[Zenith Robustness] Element #${elementId} is ${el.tagName}, converting to SELECT for TomSelect compatibility.`);
+        const selectEl = document.createElement('select');
+        selectEl.id = elementId;
+        selectEl.className = el.className;
+        if (isMulti) {
+            selectEl.setAttribute('multiple', 'multiple');
+            selectEl.setAttribute('size', isMulti === true ? '3' : '1');
+        }
+        if (el.style.cssText) selectEl.style.cssText = el.style.cssText;
+        
+        const origVal = el.value;
+        el.replaceWith(selectEl);
+        el = selectEl;
+        el.dataset.pendingValue = origVal;
+    }
+
+    if (el.tagName !== 'SELECT') return;
     
     // Check if TomSelect is already active
     const tsInstance = tomSelects[elementId] || el.tomselect;
@@ -485,7 +505,9 @@ function populateDropdown(elementId, items, placeholder, isMulti = false) {
             });
         });
         
-        tsInstance.setValue(currentValue, true);
+        const valToSet = el.dataset.pendingValue || currentValue;
+        tsInstance.setValue(valToSet, true);
+        delete el.dataset.pendingValue;
     } else {
         // Rebuild HTML options
         el.innerHTML = '';
@@ -505,16 +527,25 @@ function populateDropdown(elementId, items, placeholder, isMulti = false) {
             el.appendChild(opt);
         });
         
+        const finalValue = el.dataset.pendingValue !== undefined ? el.dataset.pendingValue : currentValue;
+        
         if (isMulti) {
+            const valuesArr = Array.isArray(finalValue) ? finalValue : (finalValue || '').split(',').map(v => v.trim()).filter(v => v);
             Array.from(el.options).forEach(opt => {
-                if (Array.isArray(currentValue) && currentValue.includes(opt.value)) opt.selected = true;
+                if (valuesArr.includes(opt.value)) opt.selected = true;
             });
         } else {
-            el.value = currentValue;
+            el.value = finalValue;
         }
 
         // Initialize TomSelect
         initTomSelect(elementId, isMulti, placeholder);
+        
+        if (el.dataset.pendingValue !== undefined && tomSelects[elementId]) {
+            const valuesArr = (el.dataset.pendingValue || '').split(',').map(v => v.trim()).filter(v => v);
+            tomSelects[elementId].setValue(valuesArr, true);
+            delete el.dataset.pendingValue;
+        }
     }
 }
 

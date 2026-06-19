@@ -378,6 +378,7 @@ function initTomSelect(id, isMulti, placeholder) {
             create: false,
             placeholder: placeholder || 'Select...',
             maxOptions: 500,
+            dropdownParent: 'body',
             plugins: isMulti ? ['remove_button'] : [],
             render: {
                 option: function(data, escape) {
